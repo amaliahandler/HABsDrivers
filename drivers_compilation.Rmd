@@ -1,0 +1,113 @@
+---
+title: "HAB Drivers Compilation"
+author: "Amalia Handler"
+date: "1/5/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Compiling NLA 2017 data and potential drivers of HABs
+
+```{r, include = FALSE, warning = FALSE, message = FALSE}
+library(devtools)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(ggpubr)
+
+# # Load NLA data
+# options(stringsAsFactors = FALSE)
+# chem  <- read.csv("NLA2017_Nutrient_Chla_MicroData.csv")
+# site  <- read.csv("NLA2017_Siteinfo.csv")
+# cyano <- read.csv("NLA2017_ProfileData_Cyano.csv")
+# 
+# # Compile NLA algal bloom data into one df with lake COMID
+# 
+# # Restructure the cyanobacteria cell density.
+# bgdens <- cyano %>%
+#   select(UID, SITE_ID, VISIT_NO, B_G_DENS) %>%
+#   rename(RESULT = B_G_DENS) %>%
+#   mutate(RESULT_UNITS = "CELLS/ML") %>%
+#   mutate(ANALYTE = "B_G_DENS", .after = VISIT_NO)
+# 
+# # Filter for just the toxin and chlorophyll a data from the chemistry
+# alg <- chem %>%
+#   select(UID, SITE_ID, VISIT_NO, ANALYTE, RESULT, RESULT_UNITS) %>%
+#   filter(ANALYTE %in% c("MICX", "CYLSPER", "CHLA"))
+# 
+# # Bind together the two dfs
+# tmp <- rbind(bgdens, alg)
+# 
+# # Merge the lake COMID with the habs data
+# nlahab <- right_join(site[,c("COMID", "SITE_ID")], tmp, by = "SITE_ID")
+# 
+# nlahab %>%
+#   filter(ANALYTE == "CYLSPER") %>%
+#   select(RESULT) %>%
+#   summary()
+# 
+# # Load in NLCD 2016 data
+# nlcd <- read.csv("NLCD2016.csv")
+# 
+# # Join NLCD with NLA HAB data
+# nla_nlcd <- left_join(nlahab, nlcd[,c(1,7:38)], by = "COMID")
+# 
+# # Save that data in an RDS file
+# saveRDS(nla_nlcd, "./compiled_nla17_nlcd16.rds")
+
+# Read in saved RDS file
+nla_nlcd <- readRDS("./compiled_nla17_nlcd16.rds")
+
+```
+
+
+
+```{r, include = FALSE, warning = FALSE}
+
+# Add 1 to cyanobacteria counts so that zero data will appear on log-transformed figures
+nla_nlcd <- nla_nlcd %>%
+  mutate(RESULT = ifelse(ANALYTE == "B_G_DENS", RESULT + 1, RESULT))
+
+# Make a massive number of graphs
+# ggplot(nla_nlcd, aes(y = RESULT, x = PctOw2016Cat)) +
+#   geom_point(pch = 21, alpha = 0.5) +
+#   facet_wrap(. ~ ANALYTE, scales = "free_y",  ncol = 4) +
+#    scale_y_continuous(trans = 'log10',
+#                        breaks = trans_breaks("log10", function(x) 10^x),
+#                        labels = trans_format("log10", math_format(10^.x)))
+
+# Make function
+plot_nla_nlcd <- function(xvar, name){
+  ggplot(nla_nlcd, aes(y = RESULT, x = xvar)) +
+    geom_point(pch = 19, alpha = 0.5) +
+    facet_wrap(. ~ ANALYTE, scales = "free_y",  ncol = 4) +
+    xlab(name) +
+    scale_y_continuous(trans = 'log10',
+                       breaks = trans_breaks("log10", function(x) 10^x),
+                       labels = trans_format("log10", math_format(10^.x)))
+}
+
+names <- colnames(nla_nlcd[c(8:39)])
+
+nlcd_plots <- lapply(names, function(name){
+  # Get col num
+  colnum <- match(name, colnames(nla_nlcd))
+  
+  # Get column data
+  x_var <- nla_nlcd[,colnum]
+  
+  # Make fig
+  plot_nla_nlcd(x_var, name)
+  
+})
+
+```
+
+
+```{r, echo = FALSE, warning = FALSE, fig.width = 10, fig.height = 2 * length(nlcd_plots)}
+
+ggarrange(plotlist = nlcd_plots, ncol = 1)
+
+```
+
