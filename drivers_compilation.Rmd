@@ -7,7 +7,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-Compiling NLA 2017 data and potential drivers of HABs
+Compiling NLA 2007, 2012, and 2017 cyanobacteria data
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
 library(devtools)
@@ -15,46 +15,96 @@ library(dplyr)
 library(ggplot2)
 library(scales)
 library(ggpubr)
+library(tidyr)
 
-# # Load NLA data
-# options(stringsAsFactors = FALSE)
-# chem  <- read.csv("NLA2017_Nutrient_Chla_MicroData.csv")
-# site  <- read.csv("NLA2017_Siteinfo.csv")
-# cyano <- read.csv("NLA2017_ProfileData_Cyano.csv")
-# 
-# # Compile NLA algal bloom data into one df with lake COMID
-# 
-# # Restructure the cyanobacteria cell density.
-# bgdens <- cyano %>%
-#   select(UID, SITE_ID, VISIT_NO, B_G_DENS) %>%
-#   rename(RESULT = B_G_DENS) %>%
-#   mutate(RESULT_UNITS = "CELLS/ML") %>%
-#   mutate(ANALYTE = "B_G_DENS", .after = VISIT_NO)
-# 
-# # Filter for just the toxin and chlorophyll a data from the chemistry
-# alg <- chem %>%
-#   select(UID, SITE_ID, VISIT_NO, ANALYTE, RESULT, RESULT_UNITS) %>%
-#   filter(ANALYTE %in% c("MICX", "CYLSPER", "CHLA"))
-# 
-# # Bind together the two dfs
-# tmp <- rbind(bgdens, alg)
-# 
-# # Merge the lake COMID with the habs data
-# nlahab <- right_join(site[,c("COMID", "SITE_ID")], tmp, by = "SITE_ID")
-# 
-# nlahab %>%
-#   filter(ANALYTE == "CYLSPER") %>%
-#   select(RESULT) %>%
-#   summary()
-# 
-# # Load in NLCD 2016 data
-# nlcd <- read.csv("NLCD2016.csv")
-# 
-# # Join NLCD with NLA HAB data
-# nla_nlcd <- left_join(nlahab, nlcd[,c(1,7:38)], by = "COMID")
-# 
-# # Save that data in an RDS file
-# saveRDS(nla_nlcd, "./compiled_nla17_nlcd16.rds")
+# Load 2017 NLA cyanobacteria data
+options(stringsAsFactors = FALSE)
+chem17  <- read.csv("NLA2017_Nutrient_Chla_MicroData.csv")
+site17  <- read.csv("NLA2017_Siteinfo.csv")
+cyano17 <- read.csv("NLA2017_ProfileData_Cyano.csv")
+
+# Restructure the cyanobacteria cell density
+bgdens17 <- cyano17 %>%
+  select(UID, SITE_ID, VISIT_NO, B_G_DENS) %>%
+  rename(RESULT = B_G_DENS) %>%
+  mutate(RESULT_UNITS = "CELLS/ML") %>%
+  mutate(ANALYTE = "B_G_DENS", .after = VISIT_NO)
+
+# Filter for just the toxin and chlorophyll a data from the chemistry
+alg17 <- chem17 %>%
+  select(UID, SITE_ID, VISIT_NO, ANALYTE, RESULT, RESULT_UNITS) %>%
+  filter(ANALYTE %in% c("MICX", "CYLSPER", "CHLA"))
+
+# Bind together the two dfs
+tmp <- rbind(bgdens17, alg17)
+
+# Merge the lake COMID with the habs data
+nlahab17 <- right_join(site17[,c("COMID", "SITE_ID")], tmp, by = "SITE_ID")
+
+# Add the year of the NLA survey
+nlahab17 <- mutate(nlahab17, NLA_YEAR = 2012, .after = UID)
+
+
+# Load the 2007 and 2012 NLA chemistry and chlorophyll data
+nla_data <- read.csv('NLA2007-2012_LakeData_forHABs.csv')
+
+# The cyanobacterial and microsystin data
+nla_cyano <- read.csv('NLA2007-2012_LakeData_forHABs_cyano.csv')
+
+# The site info to connect to the COMIDs
+nla12_site <- read.csv('NLA_Lakes_2012_Site_Info.csv')
+nla07_site <- read.csv('NLA_Lakes_2007_Site_Info.csv')
+
+# Merge the NLA cyano data with the other NLA data
+cyano0712 <- left_join(nla_data, nla_cyano[,c(1,3,12:26)], by = c('UID', 'VISIT_NO'))
+
+# Associate the NLA data with site data, which includes the COMIDs
+nla12 <- merge(cyano0712, nla12_site[,c('SITE_ID','VISIT_NO','COMID2012')], by = c('SITE_ID','VISIT_NO'))
+
+nla07 <- merge(cyano0712, nla07_site[,c('SITE_ID','VISIT_NO','COM_ID')], by = c('SITE_ID','VISIT_NO'))
+
+# Subset for only the indexed samples
+
+# For 2012 survey, COMID 5195160 only has one sample for this site in this survey and is not indexed as the representative sample. To the best of my querying, it is the only sample for this lake.
+# Subset all 2012 data for indexed samples and the single sample for COMID 5195160
+nla12_ind <- nla12 %>%
+  filter(INDEX_NLA == "Y" | COMID == 5195160)
+
+# There are two observations that erroneously have the same COMID, according to the CyAN list of lake names and COMIDs, the ID in question is in VT, not NY. Also, note that in 2007 the indexed for Chl a is always the same as the sample for microcystin.
+nla07_ind <- nla07 %>%
+  filter(INDXSAMP_MICR == "Y" & !(COMID == "15447630" & PSTL_CODE == "NY"))
+
+# Rename columns that have the COMID to be similar
+colnames(nla12_ind)[colnames(nla12_ind) == 'COMID2012'] <- colnames(nla07_ind)[colnames(nla07_ind) == 'COM_ID'] <- 'COMID'
+
+# Bind together 2007 and 2012 data
+nla0712 <- rbind(nla12, nla07)
+
+# Convert to long-form, add a units column
+nlahab0712 <- nla0712 %>%
+  select(COMID, SITE_ID, UID, DSGN_CYCLE, VISIT_NO, CHLA_RESULT, MICX_RESULT, B_G_DENS) %>%
+  pivot_longer(cols = CHLA_RESULT:B_G_DENS,
+               names_to = "ANALYTE",
+               values_to = "RESULT") %>%
+  mutate(RESULT_UNITS = case_when(ANALYTE == "B_G_DENS" ~ "CELLS/ML",
+                                  TRUE ~ "UG/L")) %>%
+  rename(NLA_YEAR = DSGN_CYCLE)
+  
+# Bind together the NLA cyanobacteria data from 2007, 2012, and 2017
+nla_cyano <- rbind(nlahab0712, nlahab17)
+
+# Need to check on indexed samples in the 2017 NLA
+
+
+
+# Load in NLCD 2016 data
+nlcd <- read.csv("NLCD2016.csv")
+
+# Join NLCD with NLA HAB data
+nla_nlcd <- left_join(nlahab, nlcd[,c(1,7:38)], by = "COMID")
+
+# Save that data in an RDS file
+saveRDS(nla_nlcd, "./compiled_nla17_nlcd16.rds")
 
 # Read in saved RDS file
 nla_nlcd <- readRDS("./compiled_nla17_nlcd16.rds")
