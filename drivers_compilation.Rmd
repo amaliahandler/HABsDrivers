@@ -9,6 +9,16 @@ editor_options:
 
 Compiling NLA 2007, 2012, and 2017 cyanobacteria data
 
+```{r}
+# Function for getting the number of unique values in a column of a df
+helper <- function(df, col_name){
+  col_num <- match(col_name, colnames(df))
+  vec     <- as.vector(df[,col_num])
+  length(unique(vec))
+}
+```
+
+
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
 library(devtools)
 library(dplyr)
@@ -44,7 +54,7 @@ nlahab17 <- right_join(site17[,c("COMID", "SITE_ID", "INDEX_NLA")], tmp, by = "S
 
 # Add the year of the NLA survey and filter for the indexed sites, then remove INDEX_NLA column
 nlahab17 <- nlahab17 %>%
-  mutate(NLA_YEAR = 2012, .after = UID) %>%
+  mutate(NLA_YEAR = 2017, .after = UID) %>%
   filter(INDEX_NLA == "Y") %>%
   select(-INDEX_NLA)
 
@@ -124,7 +134,7 @@ chem_vars <- c("NTL", "PTL", "TURB", "DOC", "PH")
 # For ordering the columns below
 col_order <- c("COMID", "SITE_ID", 'UID', "NLA_YEAR", "VISIT_NO", "ANALYTE", "RESULT", "RESULT_UNITS")
 
-# Join the UIDs from the cyanobacteria data to the different datasets to isolate just the indexed samples
+# Isolate the water chem data. Note that there is no pH in the NLA 2007 water chem data
 chem17 <- c17 %>%
   select(UID, ANALYTE, RESULT, RESULT_UNITS) %>%
   right_join(nla_id, by = "UID") %>%
@@ -151,17 +161,48 @@ chem07 <- c07 %>%
                                   ANALYTE == "PTL" ~ "UG/L",
                                   TRUE ~ "MG/L")) %>%
   relocate(all_of(col_order))
-  
-  
-  
-  
 
-  
+# Bind together all
+nla_chem <- rbind(chem17, chem12, chem07)
 
+# Load profile data
+p17 <- read.csv("nla2017_profile.csv")
+p12 <- read.csv("nla2012_profile.csv")
+p07 <- read.csv("nla2007_profile.csv")
+
+# Maybe use the topmost measurement for temperature and pH (in 2007)
+# There are often two measurements of the temperature at 0 m depth, will use the first of these
+
+# There are 3 lakes that have no measurements collected
+sfc17 <- p17 %>%
+  group_by(UID) %>%
+  summarise(min_dep = min(DEPTH, na.rm = T),
+            RESULT = TEMPERATURE[match(min_dep, min_dep)]) %>%
+  select(UID, RESULT) %>%
+  inner_join(nla_id, by = "UID") %>%
+  mutate(ANALYTE = "TEMP", RESULT_UNITS = "DEGC") %>%
+  relocate(all_of(col_order))
+
+sfc12 <- p12 %>%
+  group_by(UID) %>%
+  summarise(min_dep = min(DEPTH, na.rm = T),
+            RESULT = TEMPERATURE[match(min_dep, min_dep)]) %>%
+  # select(UID, RESULT) %>%
+  right_join(nla_id[nla_id$NLA_YEAR == 2012,], by = "UID") %>%
+  # drop_na(RESULT) %>%
+  mutate(ANALYTE = "TEMP", RESULT_UNITS = "DEGC") %>%
+  relocate(all_of(col_order))
+
+# Many NA results for 2012
+nrow(sfc12[is.na(sfc12$RESULT),])
+
+uid_na <- sfc12$UID[is.na(sfc12$RESULT)]
+
+head(p12[p12$UID %in% uid_na, c('UID', 'DEPTH', 'TEMPERATURE')]) 
+
+# I think the match function is getting tripped up by the NA values in the depth column
 
 ```
-
-
 
 
 
