@@ -170,27 +170,57 @@ p17 <- read.csv("nla2017_profile.csv")
 p12 <- read.csv("nla2012_profile.csv")
 p07 <- read.csv("nla2007_profile.csv")
 
-# Maybe use the topmost measurement for temperature and pH (in 2007)
-# There are often two measurements of the temperature at 0 m depth, will use the first of these
-
 # There are 3 lakes that have no measurements collected
 sfc17 <- p17 %>%
   group_by(UID) %>%
-  summarise(min_dep = min(DEPTH, na.rm = T),
-            RESULT = TEMPERATURE[match(min_dep, min_dep)]) %>%
-  select(UID, RESULT) %>%
-  inner_join(nla_id, by = "UID") %>%
+  filter(!is.na(TEMPERATURE)) %>%
+  filter(DEPTH == min(DEPTH, na.rm = T)) %>%
+  filter(row_number() == 1) %>%
+  select(UID, TEMPERATURE) %>%
+  rename(RESULT = TEMPERATURE) %>%
+  right_join(nla_id[nla_id$NLA_YEAR == 2017,], by = "UID") %>%
+  drop_na(RESULT) %>%
   mutate(ANALYTE = "TEMP", RESULT_UNITS = "DEGC") %>%
   relocate(all_of(col_order))
 
+# Seems to be 25 lakes with no temperature measurement
 sfc12 <- p12 %>%
   group_by(UID) %>%
-  summarise(min_dep = min(DEPTH, na.rm = T),
-            RESULT = TEMPERATURE[match(min_dep, min_dep)]) %>%
-  # select(UID, RESULT) %>%
+  filter(!is.na(TEMPERATURE)) %>%
+  filter(DEPTH == min(DEPTH, na.rm = T)) %>%
+  filter(row_number() == 1) %>%
+  select(UID, TEMPERATURE) %>%
+  rename(RESULT = TEMPERATURE) %>%
   right_join(nla_id[nla_id$NLA_YEAR == 2012,], by = "UID") %>%
-  # drop_na(RESULT) %>%
+  drop_na(RESULT) %>%
   mutate(ANALYTE = "TEMP", RESULT_UNITS = "DEGC") %>%
+  relocate(all_of(col_order))
+
+# Need to extract temperature and pH info from the 2007 NLA
+# Temperature
+sfc12_temp <- p07 %>%
+  group_by(SITE_ID, VISIT_NO) %>%
+  filter(!is.na(TEMP_FIELD)) %>%
+  filter(DEPTH == min(DEPTH, na.rm = T)) %>%
+  filter(row_number() == 1) %>%
+  select(SITE_ID, VISIT_NO, TEMP_FIELD) %>%
+  rename(RESULT = TEMP_FIELD) %>%
+  right_join(nla_id[nla_id$NLA_YEAR == 2007,], by = c("SITE_ID", "VISIT_NO")) %>%
+  drop_na(RESULT) %>%
+  mutate(ANALYTE = "TEMP", RESULT_UNITS = "DEGC") %>%
+  relocate(all_of(col_order))
+
+# pH
+sfc12_pH <- p07 %>%
+  group_by(SITE_ID, VISIT_NO) %>%
+  filter(!is.na(PH_FIELD)) %>%
+  filter(DEPTH == min(DEPTH, na.rm = T)) %>%
+  filter(row_number() == 1) %>%
+  select(SITE_ID, VISIT_NO, PH_FIELD) %>%
+  rename(RESULT = PH_FIELD) %>%
+  right_join(nla_id[nla_id$NLA_YEAR == 2007,], by = c("SITE_ID", "VISIT_NO")) %>%
+  drop_na(RESULT) %>%
+  mutate(ANALYTE = "PH", RESULT_UNITS = "STD. UNITS") %>%
   relocate(all_of(col_order))
 
 # Many NA results for 2012
