@@ -123,13 +123,16 @@ c17 <- read.csv("nla2017_waterchem.csv")
 c12 <- read.csv("nla2012_waterchem.csv")
 c07 <- read.csv("nla2007_waterchem.csv")
 
+# Requested NLA 2007 nitrogen species data from Karen Blocksom
+n07 <- read.csv("nla2007_nitrogenspecies.csv")
+
 # Get the UIDs and COMIDs from the NLA cyanobacteria data
 nla_id <- nla_cyano %>%
   select(COMID, SITE_ID, UID, NLA_YEAR, VISIT_NO) %>%
   distinct()
 
 # Desired chem data
-chem_vars <- c("NTL", "PTL", "TURB", "DOC", "PH")
+chem_vars <- c("NTL", "PTL", "TURB", "DOC", "PH", "AMMONIA_N", "NITRATE_N", "NITRITE_N")
 
 # For ordering the columns below
 col_order <- c("COMID", "SITE_ID", 'UID', "NLA_YEAR", "VISIT_NO", "ANALYTE", "RESULT", "RESULT_UNITS")
@@ -137,15 +140,16 @@ col_order <- c("COMID", "SITE_ID", 'UID', "NLA_YEAR", "VISIT_NO", "ANALYTE", "RE
 # Isolate the water chem data. Note that there is no pH in the NLA 2007 water chem data
 chem17 <- c17 %>%
   select(UID, ANALYTE, RESULT, RESULT_UNITS) %>%
-  right_join(nla_id, by = "UID") %>%
-  filter(ANALYTE %in% chem_vars) %>%
+  # right_join(nla_id[nla_id$NLA_YEAR == 2017,], by = "UID") %>%
+  filter(ANALYTE %in% c(chem_vars[!chem_vars ==  "NITRATE_N"], "NITRATE_NITRITE_N")) %>%
   relocate(all_of(col_order))
 
 chem12 <- c12 %>%
   select(UID, paste0(chem_vars, "_RESULT")) %>%
   rename_with(~ gsub("_RESULT", '', .x)) %>%
-  right_join(nla_id, by = "UID") %>%
+  right_join(nla_id[nla_id$NLA_YEAR == 2012,], by = "UID") %>%
   pivot_longer(NTL:PH, names_to = "ANALYTE", values_to = "RESULT") %>%
+  drop_na(RESULT) %>%
   mutate(RESULT_UNITS = case_when(ANALYTE == "PH" ~ "STD. UNITS",
                                   ANALYTE == "TURB" ~ "NTL",
                                   ANALYTE == "PTL" ~ "UG/L",
@@ -154,7 +158,7 @@ chem12 <- c12 %>%
 
 chem07 <- c07 %>%
   select(SITE_ID, VISIT_NO, chem_vars[!chem_vars == "PH"]) %>%
-  right_join(nla_id, by = c("SITE_ID", "VISIT_NO")) %>%
+  right_join(nla_id[nla_id$NLA_YEAR == 2007,], by = c("SITE_ID", "VISIT_NO")) %>%
   mutate(NTL = NTL/1000) %>%
   pivot_longer(NTL:DOC, names_to = "ANALYTE", values_to = "RESULT") %>%
   mutate(RESULT_UNITS = case_when(ANALYTE == "TURB" ~ "NTL",
@@ -198,7 +202,7 @@ sfc12 <- p12 %>%
 
 # Need to extract temperature and pH info from the 2007 NLA
 # Temperature
-sfc12_temp <- p07 %>%
+sfc07_temp <- p07 %>%
   group_by(SITE_ID, VISIT_NO) %>%
   filter(!is.na(TEMP_FIELD)) %>%
   filter(DEPTH == min(DEPTH, na.rm = T)) %>%
@@ -211,7 +215,7 @@ sfc12_temp <- p07 %>%
   relocate(all_of(col_order))
 
 # pH
-sfc12_pH <- p07 %>%
+sfc07_pH <- p07 %>%
   group_by(SITE_ID, VISIT_NO) %>%
   filter(!is.na(PH_FIELD)) %>%
   filter(DEPTH == min(DEPTH, na.rm = T)) %>%
@@ -223,14 +227,10 @@ sfc12_pH <- p07 %>%
   mutate(ANALYTE = "PH", RESULT_UNITS = "STD. UNITS") %>%
   relocate(all_of(col_order))
 
-# Many NA results for 2012
-nrow(sfc12[is.na(sfc12$RESULT),])
 
-uid_na <- sfc12$UID[is.na(sfc12$RESULT)]
-
-head(p12[p12$UID %in% uid_na, c('UID', 'DEPTH', 'TEMPERATURE')]) 
-
-# I think the match function is getting tripped up by the NA values in the depth column
+# Bind all water physical and chemical data from the NLAs
+nla_wtr <- rbind(chem17, chem12, chem07,
+                 sfc17, sfc12, sfc07_temp, sfc07_pH)
 
 ```
 
