@@ -135,9 +135,9 @@ nla_id <- nla_cyano %>%
 chem_vars <- c("NTL", "PTL", "TURB", "DOC", "PH", "AMMONIA_N", "NITRATE_N")
 
 # For ordering the columns below
-col_order <- c("COMID", "SITE_ID", 'UID', "NLA_YEAR", "VISIT_NO", "ANALYTE", "RESULT", "RESULT_UNITS")
+col_order <- c("NLA_YEAR","COMID", 'UID',"SITE_ID", "VISIT_NO", "ANALYTE", "RESULT", "RESULT_UNITS")
 
-# Isolate the water chem data. Note that there is no pH in the NLA 2007 water chem data
+# Isolate the water chem data. Note that there is no pH in the NLA 2007 water chem data. Also, nitrate and ammonium had to be integrated separately in a file shared by Karen Blocksom.
 chem17 <- c17 %>%
   select(UID, ANALYTE, RESULT, RESULT_UNITS) %>%
   right_join(nla_id[nla_id$NLA_YEAR == 2017,], by = "UID") %>%
@@ -157,16 +157,6 @@ chem12 <- c12 %>%
   relocate(all_of(col_order))
 
 chem07 <- c07 %>%
-  select(SITE_ID, VISIT_NO, chem_vars[!chem_vars == "PH"]) %>%
-  right_join(nla_id[nla_id$NLA_YEAR == 2007,], by = c("SITE_ID", "VISIT_NO")) %>%
-  mutate(NTL = NTL/1000) %>%
-  pivot_longer(NTL:DOC, names_to = "ANALYTE", values_to = "RESULT") %>%
-  mutate(RESULT_UNITS = case_when(ANALYTE == "TURB" ~ "NTL",
-                                  ANALYTE == "PTL" ~ "UG/L",
-                                  TRUE ~ "MG/L")) %>%
-  relocate(all_of(col_order))
-
-chem07 <- c07 %>%
   left_join(n07, by = c("SITE_ID", "VISIT_NO")) %>%
   rename_with(~ gsub("_RESULT", '', .x)) %>%
   select(SITE_ID, VISIT_NO, chem_vars[!chem_vars == "PH"]) %>%
@@ -177,9 +167,6 @@ chem07 <- c07 %>%
                                   ANALYTE == "PTL" ~ "UG/L",
                                   TRUE ~ "MG/L")) %>%
   relocate(all_of(col_order))
-
-# Bind together all
-nla_chem <- rbind(chem17, chem12, chem07, nit07)
 
 # Load profile data
 p17 <- read.csv("nla2017_profile.csv")
@@ -245,6 +232,39 @@ nla_wtr <- rbind(chem17, chem12, chem07,
                  sfc17, sfc12, sfc07_temp, sfc07_pH)
 
 ```
+
+
+Add evaporation to inflow ratio data from Emi Fergus and Renee Brooks
+
+```{r}
+
+# Load data
+ratio0712 <- read.csv("NLA2007-2012_E-I_HYDRAP.csv")
+ratio17   <- read.csv("NLA17_EI_estimates-Final.csv")
+
+# Transform data to long form
+ei0712 <- ratio0712 %>%
+  select(SITE_ID, VISIT_NO, E_I) %>%
+  right_join(nla_id[nla_id$NLA_YEAR %in% c(2007, 2012),], by = c("SITE_ID", "VISIT_NO")) %>%
+  rename(RESULT = E_I) %>%
+  mutate(RESULT_UNITS = "RATIO",
+         ANALYTE = "EVAP_INFL") %>%
+  relocate(all_of(col_order))
+
+ei17 <- ratio17 %>%
+  select(UID, E_I) %>%
+  right_join(nla_id[nla_id$NLA_YEAR == 2017,], by = "UID") %>%
+  rename(RESULT = E_I) %>%
+  mutate(RESULT_UNITS = "RATIO",
+         ANALYTE = "EVAP_INFL") %>%
+  relocate(all_of(col_order))
+  
+# Bind together 2007/2012 with 2017 data
+evap_infl <- rbind(ei0712, ei17)
+
+
+```
+
 
 
 
