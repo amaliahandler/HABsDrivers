@@ -132,7 +132,7 @@ nla_id <- nla_cyano %>%
   distinct()
 
 # Desired chem data
-chem_vars <- c("NTL", "PTL", "TURB", "DOC", "PH", "AMMONIA_N", "NITRATE_N", "NITRITE_N")
+chem_vars <- c("NTL", "PTL", "TURB", "DOC", "PH", "AMMONIA_N", "NITRATE_N")
 
 # For ordering the columns below
 col_order <- c("COMID", "SITE_ID", 'UID', "NLA_YEAR", "VISIT_NO", "ANALYTE", "RESULT", "RESULT_UNITS")
@@ -140,15 +140,15 @@ col_order <- c("COMID", "SITE_ID", 'UID', "NLA_YEAR", "VISIT_NO", "ANALYTE", "RE
 # Isolate the water chem data. Note that there is no pH in the NLA 2007 water chem data
 chem17 <- c17 %>%
   select(UID, ANALYTE, RESULT, RESULT_UNITS) %>%
-  # right_join(nla_id[nla_id$NLA_YEAR == 2017,], by = "UID") %>%
-  filter(ANALYTE %in% c(chem_vars[!chem_vars ==  "NITRATE_N"], "NITRATE_NITRITE_N")) %>%
+  right_join(nla_id[nla_id$NLA_YEAR == 2017,], by = "UID") %>%
+  filter(ANALYTE %in% chem_vars) %>%
   relocate(all_of(col_order))
 
 chem12 <- c12 %>%
   select(UID, paste0(chem_vars, "_RESULT")) %>%
   rename_with(~ gsub("_RESULT", '', .x)) %>%
   right_join(nla_id[nla_id$NLA_YEAR == 2012,], by = "UID") %>%
-  pivot_longer(NTL:PH, names_to = "ANALYTE", values_to = "RESULT") %>%
+  pivot_longer(NTL:NITRATE_N, names_to = "ANALYTE", values_to = "RESULT") %>%
   drop_na(RESULT) %>%
   mutate(RESULT_UNITS = case_when(ANALYTE == "PH" ~ "STD. UNITS",
                                   ANALYTE == "TURB" ~ "NTL",
@@ -166,8 +166,20 @@ chem07 <- c07 %>%
                                   TRUE ~ "MG/L")) %>%
   relocate(all_of(col_order))
 
+chem07 <- c07 %>%
+  left_join(n07, by = c("SITE_ID", "VISIT_NO")) %>%
+  rename_with(~ gsub("_RESULT", '', .x)) %>%
+  select(SITE_ID, VISIT_NO, chem_vars[!chem_vars == "PH"]) %>%
+  right_join(nla_id[nla_id$NLA_YEAR == 2007,], by = c("SITE_ID", "VISIT_NO")) %>%
+  mutate(NTL = NTL/1000) %>%
+  pivot_longer(NTL:NITRATE_N, names_to = "ANALYTE", values_to = "RESULT") %>%
+  mutate(RESULT_UNITS = case_when(ANALYTE == "TURB" ~ "NTL",
+                                  ANALYTE == "PTL" ~ "UG/L",
+                                  TRUE ~ "MG/L")) %>%
+  relocate(all_of(col_order))
+
 # Bind together all
-nla_chem <- rbind(chem17, chem12, chem07)
+nla_chem <- rbind(chem17, chem12, chem07, nit07)
 
 # Load profile data
 p17 <- read.csv("nla2017_profile.csv")
