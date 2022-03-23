@@ -272,14 +272,34 @@ slope <- read.csv("Lakecat_Slope.csv")
 elev <- read.csv("Lakecat_Elevation.csv")
 
 # Join with the NLA lake COMIDs included in the analysis
-# This is losing about 200 lakes. Are these not in lakecat?
+# This is losing about 185 lakes. Are these not in lakecat?
+# Sounds like there may be issues in crosstalk for COMIDs listed in each NLA versus what was used for Lakecat
 nla_lakecat <- nlcd %>%
-  filter(COMID %in% nla_id$COMID) 
-  # mutate(agr_cat = PctHay2016Cat + PctCrop2016Cat,
-  #             dev_cat = sum(PctUrbOp2016Cat:PctUrbHi2016Cat),
-  #             non_dev_cat = sum(PctDecid2016Cat:PctGrs2016Cat),
-  #             wet_cat = PctWdWet2016Cat + PctHbWet2016Cat)
+  filter(COMID %in% nla_id$COMID) %>%
+  mutate(agr_cat = PctHay2016Cat + PctCrop2016Cat,
+         dev_cat = rowSums(select(., PctUrbOp2016Cat:PctUrbHi2016Cat)),
+         nondev_cat = rowSums(select(., c(PctOw2016Cat, PctIce2016Cat, PctBl2016Cat:PctGrs2016Cat))),
+         wet_cat = PctWdWet2016Cat + PctHbWet2016Cat,
+         agr_ws = PctHay2016Ws + PctCrop2016Ws,
+         dev_ws = rowSums(select(., PctUrbOp2016Ws:PctUrbHi2016Ws)),
+         nondev_ws = rowSums(select(., c(PctOw2016Ws, PctIce2016Ws, PctBl2016Ws:PctGrs2016Ws))),
+         wet_ws = PctWdWet2016Ws + PctHbWet2016Ws) %>%
+  select(COMID, agr_cat:wet_ws)
 
+
+# Which COMIDs are lacking from lakecat?
+included_coms <- nlcd$COMID[nlcd$COMID %in% nla_id$COMID]
+missing_coms  <- unique(nla_id$COMID[!(nla_id$COMID %in% included_coms)])
+
+included_coms <- slope$COMID[slope$COMID %in% nla_id$COMID]
+missing_coms  <- unique(nla_id$COMID[!(nla_id$COMID %in% included_coms)])
+
+included_coms <- elev$COMID[elev$COMID %in% nla_id$COMID]
+missing_coms  <- unique(nla_id$COMID[!(nla_id$COMID %in% included_coms)])
+
+tmp <- nla_id[nla_id$COMID %in% missing_coms,]
+
+unique(tmp$NLA_YEAR)
 
 # Join NLCD with NLA HAB data
 nla_nlcd <- left_join(nlahab, nlcd[,c(1,7:38)], by = "COMID")
@@ -337,6 +357,8 @@ nlcd_plots <- lapply(names, function(name){
 ```{r, echo = FALSE, warning = FALSE, fig.width = 10, fig.height = 2 * length(nlcd_plots)}
 
 ggarrange(plotlist = nlcd_plots, ncol = 1)
+
+
 
 ```
 
