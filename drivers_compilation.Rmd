@@ -9,16 +9,6 @@ editor_options:
 
 Compiling NLA 2007, 2012, and 2017 cyanobacteria data
 
-```{r}
-# Function for getting the number of unique values in a column of a df
-helper <- function(df, col_name){
-  col_num <- match(col_name, colnames(df))
-  vec     <- as.vector(df[,col_num])
-  length(unique(vec))
-}
-```
-
-
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
 library(devtools)
 library(dplyr)
@@ -131,11 +121,11 @@ nla_id <- nla_cyano %>%
   select(COMID, SITE_ID, UID, NLA_YEAR, VISIT_NO) %>%
   distinct()
 
-# Desired chem data
+# Desired chem data: Total N, total P, turbidity, dissolved organic carbon, pH, ammonium, and nitrate
 chem_vars <- c("NTL", "PTL", "TURB", "DOC", "PH", "AMMONIA_N", "NITRATE_N")
 
-# For ordering the columns below
-col_order <- c("NLA_YEAR","COMID", 'UID',"SITE_ID", "VISIT_NO", "ANALYTE", "RESULT", "RESULT_UNITS")
+# Desired final order of the columns
+col_order <- c("NLA_YEAR","COMID", 'UID', "SITE_ID", "VISIT_NO", "ANALYTE", "RESULT", "RESULT_UNITS")
 
 # Isolate the water chem data. Note that there is no pH in the NLA 2007 water chem data. Also, nitrate and ammonium had to be integrated separately in a file shared by Karen Blocksom.
 chem17 <- c17 %>%
@@ -236,6 +226,7 @@ nla_wtr <- rbind(chem17, chem12, chem07,
 
 Add evaporation to inflow ratio data from Emi Fergus and Renee Brooks
 
+
 ```{r}
 
 # Load data
@@ -266,13 +257,29 @@ evap_infl <- rbind(ei0712, ei17)
 ```
 
 
+Load the lakecat data
 
 
 ```{r}
 
-
 # Load in NLCD 2016 data
-nlcd <- read.csv("NLCD2016.csv")
+nlcd <- read.csv("Lakecat_NLCD2016.csv")
+
+# Watershed slope information
+slope <- read.csv("Lakecat_Slope.csv")
+
+# Lake watershed elevation
+elev <- read.csv("Lakecat_Elevation.csv")
+
+# Join with the NLA lake COMIDs included in the analysis
+# This is losing about 200 lakes. Are these not in lakecat?
+nla_lakecat <- nlcd %>%
+  filter(COMID %in% nla_id$COMID) 
+  # mutate(agr_cat = PctHay2016Cat + PctCrop2016Cat,
+  #             dev_cat = sum(PctUrbOp2016Cat:PctUrbHi2016Cat),
+  #             non_dev_cat = sum(PctDecid2016Cat:PctGrs2016Cat),
+  #             wet_cat = PctWdWet2016Cat + PctHbWet2016Cat)
+
 
 # Join NLCD with NLA HAB data
 nla_nlcd <- left_join(nlahab, nlcd[,c(1,7:38)], by = "COMID")
