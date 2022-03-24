@@ -271,6 +271,15 @@ slope <- read.csv("Lakecat_Slope.csv")
 # Lake watershed elevation
 elev <- read.csv("Lakecat_Elevation.csv")
 
+# NLA integrated design status as of 2019-08-21. Crosswalks NLA site IDs with NHDPlusV2 lake COMIDs
+nla_nhd <- read.csv("NLA_Integrated_Design_Status_20190821.csv")
+
+# Combine the crosswalk df with the nla_id info to see if this fixes the problem of missing lakes with NLA-Lakecat join
+master_id <- nla_nhd %>%
+  select(COMID, SITE_ID, UNIQUE_ID, DSGN_CYCLE) %>%
+  rename(NLA_YEAR = DSGN_CYCLE) %>%
+  right_join(nla_id, by = c("SITE_ID", "NLA_YEAR"))
+
 # Join with the NLA lake COMIDs included in the analysis
 # This is losing about 185 lakes. Are these not in lakecat?
 # Sounds like there may be issues in crosstalk for COMIDs listed in each NLA versus what was used for Lakecat
