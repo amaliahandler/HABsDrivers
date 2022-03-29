@@ -17,27 +17,52 @@ library(scales)
 library(ggpubr)
 library(tidyr)
 
+# Integrated NLA lake info
+int_nla <- read.csv("NLA_Integrated_LakeInfo.csv")
+# Recall that UNIQUE_ID is an ID that is specific to each lake in the NLA and is consistent across NLA years. SITE_ID is an ID that is specific to each lake within each NLA year and is NOT consistent across NLA years.
+
 # Load 2017 NLA cyanobacteria data
-options(stringsAsFactors = FALSE)
 chem17  <- read.csv("NLA2017_Nutrient_Chla_MicroData.csv")
 site17  <- read.csv("NLA2017_Siteinfo.csv")
 cyano17 <- read.csv("NLA2017_ProfileData_Cyano.csv")
 
+# Load the 2007 and 2012 NLA chemistry and chlorophyll data
+nla_data <- read.csv('NLA2007-2012_LakeData_forHABs.csv')
+
+# The cyanobacteria and microsystin data
+nla_cyano <- read.csv('NLA2007-2012_LakeData_forHABs_cyano.csv')
+
+# Crosswalk document that contains the NLA SITE_ID and the NHDPlusV2 COMID
+# xwalk <- read.csv("NLA_Integrated_Design_Status_20190821.csv")
+
 # Restructure the cyanobacteria cell density
 bgdens17 <- cyano17 %>%
-  select(UID, SITE_ID, VISIT_NO, B_G_DENS) %>%
+  select(SITE_ID, VISIT_NO, B_G_DENS) %>%
   rename(RESULT = B_G_DENS) %>%
   mutate(RESULT_UNITS = "CELLS/ML") %>%
   mutate(ANALYTE = "CYANO", .after = VISIT_NO)
 
 # Filter for just the toxin and chlorophyll a data from the chemistry
 alg17 <- chem17 %>%
-  select(UID, SITE_ID, VISIT_NO, ANALYTE, RESULT, RESULT_UNITS) %>%
+  select(SITE_ID, VISIT_NO, ANALYTE, RESULT, RESULT_UNITS) %>%
   filter(ANALYTE %in% c("MICX", "CYLSPER", "CHLA")) %>%
   mutate(RESULT_UNITS = "UG/L")
 
 # Bind together the two dfs
 tmp <- rbind(bgdens17, alg17)
+
+# Add COMIDs and year information
+nlahab17 <- int_nla %>%
+  filter(DSGN_CYCLE == 2017) %>%
+  select(UNIQUE_ID, DSGN_CYCLE, SITE_ID, COMID) %>%
+  right_join(tmp, by = "SITE_ID")
+
+# There are two lakes that have a UNIQUE_ID, but no COMID in 2017
+# There are also 36 lakes that have a SITE_ID and data, but no corresponding UNIQUE_ID
+test <- nlahab17 %>%
+  select(UNIQUE_ID, DSGN_CYCLE, SITE_ID, COMID) %>%
+  distinct() %>%
+  filter(is.na(UNIQUE_ID))
 
 # Merge the lake COMID with the habs data
 nlahab17 <- right_join(site17[,c("COMID", "SITE_ID", "INDEX_NLA")], tmp, by = "SITE_ID")
@@ -47,12 +72,6 @@ nlahab17 <- nlahab17 %>%
   mutate(NLA_YEAR = 2017, .after = UID) %>%
   filter(INDEX_NLA == "Y") %>%
   select(-INDEX_NLA)
-
-# Load the 2007 and 2012 NLA chemistry and chlorophyll data
-nla_data <- read.csv('NLA2007-2012_LakeData_forHABs.csv')
-
-# The cyanobacterial and microsystin data
-nla_cyano <- read.csv('NLA2007-2012_LakeData_forHABs_cyano.csv')
 
 # The site info to connect to the COMIDs
 nla12_site <- read.csv('NLA_Lakes_2012_Site_Info.csv')
@@ -103,7 +122,6 @@ saveRDS(nla_cyano, "NLA_AllCompiledCyano.rds")
 
 
 ```
-
 
 Compile water data from NLAs: Nitrogen, phosphorus, temperature, secchi depth, turbidity, DOC, stratification
 
@@ -223,9 +241,7 @@ nla_wtr <- rbind(chem17, chem12, chem07,
 
 ```
 
-
 Add evaporation to inflow ratio data from Emi Fergus and Renee Brooks
-
 
 ```{r}
 
@@ -256,9 +272,7 @@ evap_infl <- rbind(ei0712, ei17)
 
 ```
 
-
 Load the lakecat data
-
 
 ```{r}
 
@@ -320,7 +334,6 @@ saveRDS(nla_nlcd, "./compiled_nla17_nlcd16.rds")
 nla_nlcd <- readRDS("./compiled_nla17_nlcd16.rds")
 ```
 
-
 ```{r, include = FALSE, warning = FALSE}
 
 # Add 1 to cyanobacteria counts so that zero data will appear on log-transformed figures
@@ -362,7 +375,6 @@ nlcd_plots <- lapply(names, function(name){
 
 ```
 
-
 ```{r, echo = FALSE, warning = FALSE, fig.width = 10, fig.height = 2 * length(nlcd_plots)}
 
 ggarrange(plotlist = nlcd_plots, ncol = 1)
@@ -370,4 +382,3 @@ ggarrange(plotlist = nlcd_plots, ncol = 1)
 
 
 ```
-
