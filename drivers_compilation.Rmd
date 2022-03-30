@@ -77,33 +77,58 @@ nlahab17 <- nlahab17 %>%
 nla12_site <- read.csv('NLA_Lakes_2012_Site_Info.csv')
 nla07_site <- read.csv('NLA_Lakes_2007_Site_Info.csv')
 
+# Is this join working?
+nla_data %>%
+  filter(DSGN_CYCLE == 2007) %>%
+  select(UNIQUE_ID, VISIT_NO) %>%
+  filter(duplicated(.[c("UNIQUE_ID", "VISIT_NO")])) %>%
+  distinct() %>%
+  nrow()
+
+# There is one duplicated UNIQUE ID for 2007 NLA, the two rows have different SITE_IDs
+nla_data[nla_data$UNIQUE_ID == "NLA_NV-10003",]
+nla_cyano[nla_cyano$UNIQUE_ID == "NLA_NV-10003",]
+
+# No duplicated UNIQUE_ID or SITE_ID for 2012 NLA
+# No duplicated SITE_ID for 2012 NLA
+nla_cyano %>%
+  filter(DSGN_CYCLE == 2007) %>%
+  select(UNIQUE_ID, VISIT_NO) %>%
+  filter(duplicated(.[c("UNIQUE_ID", "VISIT_NO")])) %>%
+  distinct() %>%
+  nrow()
+
 # Merge the NLA cyano data with the other NLA data
-cyano0712 <- left_join(nla_data, nla_cyano[,c(1,3,12:26)], by = c('UID', 'VISIT_NO'))
+cyano0712 <- left_join(nla_data, nla_cyano[,c(1,12:26)], by = c('UID'))
 
-# Associate the NLA data with site data, which includes the COMIDs
-nla12 <- merge(cyano0712, nla12_site[,c('SITE_ID','VISIT_NO','COMID2012')], by = c('SITE_ID','VISIT_NO'))
+# No duplicated SITE_ID/VISIT_NO in cyano0712
+cyano0712 %>%
+#  filter(DSGN_CYCLE == 2007) %>%
+  select(SITE_ID, VISIT_NO) %>%
+  filter(duplicated(.[c("SITE_ID", "VISIT_NO")])) %>%
+  distinct() %>%
+  nrow()
 
-nla07 <- merge(cyano0712, nla07_site[,c('SITE_ID','VISIT_NO','COM_ID')], by = c('SITE_ID','VISIT_NO'))
+# Merge with integrated NLA ID information
+nlahab0712 <- int_nla %>%
+  filter(DSGN_CYCLE == 2007 |DSGN_CYCLE == 2012) %>%
+  select(DSGN_CYCLE, SITE_ID, COMID) %>%
+  right_join(cyano0712, by = c("SITE_ID", "DSGN_CYCLE"))
 
-# Subset for only the indexed samples
+nlahab0712 %>%
+  select(UNIQUE_ID, VISIT_NO, SITE_ID, COMID, DSGN_CYCLE) %>%
+  filter(duplicated(.[c("UNIQUE_ID", "VISIT_NO", "DSGN_CYCLE")]))
+# Still have one UNIQUE_ID that is matching to two different SITE_IDs
 
-# For 2012 survey, COMID 5195160 only has one sample for this site in this survey and is not indexed as the representative sample. To the best of my querying, it is the only sample for this lake.
-# Subset all 2012 data for indexed samples and the single sample for COMID 5195160
-nla12_ind <- nla12 %>%
-  rename(COMID = COMID2012) %>%
-  filter(INDEX_NLA == "Y" | COMID == 5195160)
-
-# There are two observations that erroneously have the same COMID, according to the CyAN list of lake names and COMIDs, the ID in question is in VT, not NY. Also, note that in 2007 the indexed for Chl a is always the same as the sample for microcystin.
-nla07_ind <- nla07 %>%
-  rename(COMID = COM_ID) %>%
-  filter(INDXSAMP_MICR == "Y" & !(COMID == "15447630" & PSTL_CODE == "NY"))
-
-# Bind together 2007 and 2012 data
-nla0712 <- rbind(nla12_ind, nla07_ind)
+nlahab0712 %>%
+  filter(INDEX_NLA == "Y" | INDXSAMP_MICR == "Y") %>%
+  filter(duplicated(.[c("UNIQUE_ID", "DSGN_CYCLE")]))
+# Still have one UNIQUE_ID that is matching to two different SITE_IDs
+filter(nlahab0712, UNIQUE_ID == "NLA_NV-10003")
 
 # Convert to long-form, add a units column
-nlahab0712 <- nla0712 %>%
-  select(COMID, SITE_ID, UID, DSGN_CYCLE, VISIT_NO, CHLA_RESULT, MICX_RESULT, B_G_DENS) %>%
+nlahab0712 <- nlahab0712 %>%
+  select(COMID, SITE_ID, UNIQUE_ID, DSGN_CYCLE, VISIT_NO, CHLA_RESULT, MICX_RESULT, B_G_DENS) %>%
   rename(NLA_YEAR = DSGN_CYCLE,
          CHLA = CHLA_RESULT,
          MICX = MICX_RESULT,
