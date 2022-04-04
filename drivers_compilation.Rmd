@@ -33,7 +33,7 @@ nla_data <- read.csv('NLA2007-2012_LakeData_forHABs.csv')
 nla_cyano <- read.csv('NLA2007-2012_LakeData_forHABs_cyano.csv')
 
 # Crosswalk document that contains the NLA SITE_ID and the NHDPlusV2 COMID
-# xwalk <- read.csv("NLA_Integrated_Design_Status_20190821.csv")
+int_nla <- read.csv("NLA_Integrated_Design_Status_20190821.csv")
 
 # Restructure the cyanobacteria cell density
 bgdens17 <- cyano17 %>%
@@ -55,7 +55,7 @@ tmp <- rbind(bgdens17, alg17)
 nlahab17 <- int_nla %>%
   filter(DSGN_CYCLE == 2017) %>%
   select(UNIQUE_ID, DSGN_CYCLE, SITE_ID, COMID) %>%
-  right_join(tmp, by = "SITE_ID")
+  right_join(tmp, by = "SITE_ID") # Need to add DSGN_CYCLE here
 
 # There are two lakes that have a UNIQUE_ID, but no COMID in 2017
 # There are also 36 lakes that have a SITE_ID and data, but no corresponding UNIQUE_ID
@@ -63,6 +63,30 @@ test <- nlahab17 %>%
   select(UNIQUE_ID, DSGN_CYCLE, SITE_ID, COMID) %>%
   distinct() %>%
   filter(is.na(UNIQUE_ID))
+
+# Which 2017 NLA lakes do not have a UNIQUE_ID in the integrated NLA document?
+missing_sites <- unique(site17$SITE_ID)[!(unique(site17$SITE_ID) %in% unique(int_nla$SITE_ID[int_nla$DSGN_CYCLE == 2017]))]
+
+missing_siteinfo <- site17[site17$SITE_ID %in% missing_sites,]
+
+write.csv(missing_siteinfo, "NLA2017_sites_not_in_integrated_NLA.csv", row.names = F)
+
+int_nla$UNIQUE_ID[int_nla$DSGN_CYCLE == 2017][int_nla$UNIQUE_ID[int_nla$DSGN_CYCLE == 2017] %in% missing_siteinfo$UNIQUE_ID]
+
+
+site17$SITE_ID[!(site17$SITE_ID %in% int_nla$SITE_ID[int_nla$DSGN_CYCLE == 2017])]
+
+
+int_nla %>%
+  filter(DSGN_CYCLE == 2017)
+
+length(unique(int_nla$SITE_ID[int_nla$DSGN_CYCLE == 2017]))
+length(unique(nlahab17$SITE_ID))
+length(unique(tmp$SITE_ID))
+
+length(unique(int_nla$UNIQUE_ID[int_nla$DSGN_CYCLE == 2017]))
+length(unique(nlahab17$UNIQUE_ID))
+
 
 # Merge the lake COMID with the habs data
 nlahab17 <- right_join(site17[,c("COMID", "SITE_ID", "INDEX_NLA")], tmp, by = "SITE_ID")
@@ -266,7 +290,57 @@ nla_wtr <- rbind(chem17, chem12, chem07,
 
 ```
 
+
+Load NLA data on cyanobacteria and water physiochemical characteristics
+These data were compiled by Karen Blocksom on 2022-04-04
+
+
+```{r}
+# Read in data
+all_nla <- read.csv("NLA2007-2012-2017_LakeData_forHABs_4April2022.csv")
+
+# Read in NLA UNIQUE_ID - NHDPlusV2 COMID crosswalk info from Marc
+nla_lakecat <- read.csv("Integrated_NLA-LakeCat_COMID_Crosswalk.csv")
+
+# Crosswalk document that contains the NLA SITE_ID and the NHDPlusV2 COMID
+int_nla <- read.csv("NLA_Integrated_Design_Status_20190821.csv")
+
+# Define needed columns
+nla <- all_nla %>%
+  select(SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, 
+         TEMPERATURE, STRATIFIED, AMMONIA_N, DOC, NTL, PTL, TURB, 
+         NITRATE_N, PH, CHLA_RESULT, MICX, CYLSPER, B_G_DENS) %>%
+  left_join(nla_lakecat[,c("UNIQUE_ID", "COMID", "IN_LAKECAT")], by = "UNIQUE_ID")
+
+unique_nla_int <- int_nla %>%
+  select(UNIQUE_ID, COMID) %>%
+  distinct()
+
+nla_2 <- all_nla %>%
+  select(SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, 
+         TEMPERATURE, STRATIFIED, AMMONIA_N, DOC, NTL, PTL, TURB, 
+         NITRATE_N, PH, CHLA_RESULT, MICX, CYLSPER, B_G_DENS) %>%
+  left_join(unique_int_nla, by = "UNIQUE_ID")
+
+# How many are not in Lakecat?
+nla %>%
+  filter(is.na(COMID)) %>%
+  select(SITE_ID, UNIQUE_ID, DSGN_CYCLE, COMID, IN_LAKECAT)
+
+nla %>%
+  filter(is.na(COMID)) %>%
+  select(SITE_ID, UNIQUE_ID, DSGN_CYCLE, COMID)
+
+
+
+```
+
+
+
+
 Add evaporation to inflow ratio data from Emi Fergus and Renee Brooks
+
+
 
 ```{r}
 
