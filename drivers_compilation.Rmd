@@ -305,12 +305,48 @@ nla_lakecat <- read.csv("Integrated_NLA-LakeCat_COMID_Crosswalk.csv")
 # Crosswalk document that contains the NLA SITE_ID and the NHDPlusV2 COMID
 int_nla <- read.csv("NLA_Integrated_Design_Status_20190821.csv")
 
+# Find the distinct UNIQUE_ID and COMIDs for the NLA-Lakecat crosswalk
+unique_nla_lakecat <- nla_lakecat %>%
+  select(UNIQUE_ID, COMID) %>%
+  distinct()
+
 # Define needed columns
-nla <- all_nla %>%
+nla_comid <- all_nla %>%
   select(SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, 
          TEMPERATURE, STRATIFIED, AMMONIA_N, DOC, NTL, PTL, TURB, 
          NITRATE_N, PH, CHLA_RESULT, MICX, CYLSPER, B_G_DENS) %>%
-  left_join(nla_lakecat[,c("UNIQUE_ID", "COMID", "IN_LAKECAT")], by = "UNIQUE_ID")
+  left_join(unique_nla_lakecat, by = "UNIQUE_ID")
+
+# For sites still missing COMIDs, get from the alternate integrated NLA document
+unique_nla_int <- int_nla %>%
+  select(UNIQUE_ID, COMID) %>%
+  distinct()
+
+missing_coms <- nla_comid %>%
+  filter(is.na(COMID)) %>%
+  select(!COMID) %>%
+  left_join(unique_nla_int, by = "UNIQUE_ID")
+
+nla_all_coms <- nla_comid %>%
+  filter(is.finite(COMID)) %>%
+  bind_rows(missing_coms)
+
+# Pivot from wide to long format
+
+# Stratified column is a character currently and need to be changed to numeric type to convert to long format
+nla_long <- nla_all_coms %>%
+  mutate(STRATIFIED = ifelse(STRATIFIED == "Y", 1,0)) %>%
+  pivot_longer(TEMPERATURE:B_G_DENS, names_to = "ANALYTE", values_to = "RESULT")
+
+
+
+
+
+ 
+
+nla %>%
+  select(UNIQUE_ID, COMID) %>%
+  distinct() %>% nrow()
 
 unique_nla_int <- int_nla %>%
   select(UNIQUE_ID, COMID) %>%
