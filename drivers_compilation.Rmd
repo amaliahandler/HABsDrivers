@@ -332,42 +332,50 @@ nla_all_coms <- nla_comid %>%
   bind_rows(missing_coms)
 
 # Pivot from wide to long format
-
 # Stratified column is a character currently and need to be changed to numeric type to convert to long format
 nla_long <- nla_all_coms %>%
   mutate(STRATIFIED = ifelse(STRATIFIED == "Y", 1,0)) %>%
   pivot_longer(TEMPERATURE:B_G_DENS, names_to = "ANALYTE", values_to = "RESULT")
 
+# Where PH data was not measured in the lab, retrieve the top-most pH measurement from the profile
+ph_profile <- nla_long %>%
+  filter(ANALYTE == "PH") %>%
+  filter(is.na(RESULT)) %>%
+  select(-RESULT) %>%
+  left_join(select(all_nla, VISIT_NO:DSGN_CYCLE, PH_FIELD), 
+            by = c("UNIQUE_ID", "DSGN_CYCLE", "VISIT_NO")) %>%
+  rename(RESULT = PH_FIELD)
 
+# Remove the rows with missing pH data from the lab and add the field data and add the rows with pH data from the profile data
+# Add a units columns
+nla_long <- nla_long %>%
+  filter(!(ANALYTE == "PH" & is.na(RESULT))) %>%
+  bind_rows(ph_profile) %>%
+  mutate(UNITS = case_when(ANALYTE == "TEMPERATURE" ~ "DEG_C",
+                           ANALYTE == "STRATIFIED" ~ "Y/N_1/0",
+                           ANALYTE %in% c("PTL", "MICX", "CYLSPER") ~ "UG/L",
+                           ANALYTE == "TURB" ~ "NTU",
+                           ANALYTE == "B_G_DENS" ~ "CELLS/ML",
+                           ANALYTE == "PH" ~ "STD_UNITS",
+                           ANALYTE %in% c("AMMONIA_N", "DOC", "NTL", "NITRATE_N", "CHLA_RESULT") ~ "MG/L"))
 
+# Performing checks for missing temperature data
+nla_long %>%
+  filter(ANALYTE == "TEMPERATURE" & is.na(RESULT)) %>%
+  nrow()
 
+missing_temp <- all_nla %>%
+  select(UID:DSGN_CYCLE, DEPTH, TEMPERATURE) %>%
+  filter(is.na(TEMPERATURE))
 
- 
+write.csv(missing_temp, "NLA_missing_temp.csv", row.names = F)
 
-nla %>%
-  select(UNIQUE_ID, COMID) %>%
-  distinct() %>% nrow()
+missing_temp %>%
+  filter(is.na(DEPTH)) %>% nrow()
 
-unique_nla_int <- int_nla %>%
-  select(UNIQUE_ID, COMID) %>%
-  distinct()
-
-nla_2 <- all_nla %>%
-  select(SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, 
-         TEMPERATURE, STRATIFIED, AMMONIA_N, DOC, NTL, PTL, TURB, 
-         NITRATE_N, PH, CHLA_RESULT, MICX, CYLSPER, B_G_DENS) %>%
-  left_join(unique_int_nla, by = "UNIQUE_ID")
-
-# How many are not in Lakecat?
-nla %>%
-  filter(is.na(COMID)) %>%
-  select(SITE_ID, UNIQUE_ID, DSGN_CYCLE, COMID, IN_LAKECAT)
-
-nla %>%
-  filter(is.na(COMID)) %>%
-  select(SITE_ID, UNIQUE_ID, DSGN_CYCLE, COMID)
-
-
+tmp <- all_nla %>%
+  select(UID:DSGN_CYCLE, DEPTH, TEMPERATURE) %>%
+  filter(is.finite(TEMPERATURE))
 
 ```
 
