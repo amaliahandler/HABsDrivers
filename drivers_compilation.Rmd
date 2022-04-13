@@ -16,283 +16,11 @@ library(ggplot2)
 library(scales)
 library(ggpubr)
 library(tidyr)
-
-# Integrated NLA lake info
-int_nla <- read.csv("NLA_Integrated_LakeInfo.csv")
-# Recall that UNIQUE_ID is an ID that is specific to each lake in the NLA and is consistent across NLA years. SITE_ID is an ID that is specific to each lake within each NLA year and is NOT consistent across NLA years.
-
-# Load 2017 NLA cyanobacteria data
-chem17  <- read.csv("NLA2017_Nutrient_Chla_MicroData.csv")
-site17  <- read.csv("NLA2017_Siteinfo.csv")
-cyano17 <- read.csv("NLA2017_ProfileData_Cyano.csv")
-
-# Load the 2007 and 2012 NLA chemistry and chlorophyll data
-nla_data <- read.csv('NLA2007-2012_LakeData_forHABs.csv')
-
-# The cyanobacteria and microsystin data
-nla_cyano <- read.csv('NLA2007-2012_LakeData_forHABs_cyano.csv')
-
-# Crosswalk document that contains the NLA SITE_ID and the NHDPlusV2 COMID
-int_nla <- read.csv("NLA_Integrated_Design_Status_20190821.csv")
-
-# Restructure the cyanobacteria cell density
-bgdens17 <- cyano17 %>%
-  select(SITE_ID, VISIT_NO, B_G_DENS) %>%
-  rename(RESULT = B_G_DENS) %>%
-  mutate(RESULT_UNITS = "CELLS/ML") %>%
-  mutate(ANALYTE = "CYANO", .after = VISIT_NO)
-
-# Filter for just the toxin and chlorophyll a data from the chemistry
-alg17 <- chem17 %>%
-  select(SITE_ID, VISIT_NO, ANALYTE, RESULT, RESULT_UNITS) %>%
-  filter(ANALYTE %in% c("MICX", "CYLSPER", "CHLA")) %>%
-  mutate(RESULT_UNITS = "UG/L")
-
-# Bind together the two dfs
-tmp <- rbind(bgdens17, alg17)
-
-# Add COMIDs and year information
-nlahab17 <- int_nla %>%
-  filter(DSGN_CYCLE == 2017) %>%
-  select(UNIQUE_ID, DSGN_CYCLE, SITE_ID, COMID) %>%
-  right_join(tmp, by = "SITE_ID") # Need to add DSGN_CYCLE here
-
-# There are two lakes that have a UNIQUE_ID, but no COMID in 2017
-# There are also 36 lakes that have a SITE_ID and data, but no corresponding UNIQUE_ID
-test <- nlahab17 %>%
-  select(UNIQUE_ID, DSGN_CYCLE, SITE_ID, COMID) %>%
-  distinct() %>%
-  filter(is.na(UNIQUE_ID))
-
-# Which 2017 NLA lakes do not have a UNIQUE_ID in the integrated NLA document?
-missing_sites <- unique(site17$SITE_ID)[!(unique(site17$SITE_ID) %in% unique(int_nla$SITE_ID[int_nla$DSGN_CYCLE == 2017]))]
-
-missing_siteinfo <- site17[site17$SITE_ID %in% missing_sites,]
-
-write.csv(missing_siteinfo, "NLA2017_sites_not_in_integrated_NLA.csv", row.names = F)
-
-int_nla$UNIQUE_ID[int_nla$DSGN_CYCLE == 2017][int_nla$UNIQUE_ID[int_nla$DSGN_CYCLE == 2017] %in% missing_siteinfo$UNIQUE_ID]
-
-
-site17$SITE_ID[!(site17$SITE_ID %in% int_nla$SITE_ID[int_nla$DSGN_CYCLE == 2017])]
-
-
-int_nla %>%
-  filter(DSGN_CYCLE == 2017)
-
-length(unique(int_nla$SITE_ID[int_nla$DSGN_CYCLE == 2017]))
-length(unique(nlahab17$SITE_ID))
-length(unique(tmp$SITE_ID))
-
-length(unique(int_nla$UNIQUE_ID[int_nla$DSGN_CYCLE == 2017]))
-length(unique(nlahab17$UNIQUE_ID))
-
-
-# Merge the lake COMID with the habs data
-nlahab17 <- right_join(site17[,c("COMID", "SITE_ID", "INDEX_NLA")], tmp, by = "SITE_ID")
-
-# Add the year of the NLA survey and filter for the indexed sites, then remove INDEX_NLA column
-nlahab17 <- nlahab17 %>%
-  mutate(NLA_YEAR = 2017, .after = UID) %>%
-  filter(INDEX_NLA == "Y") %>%
-  select(-INDEX_NLA)
-
-# The site info to connect to the COMIDs
-nla12_site <- read.csv('NLA_Lakes_2012_Site_Info.csv')
-nla07_site <- read.csv('NLA_Lakes_2007_Site_Info.csv')
-
-# Is this join working?
-nla_data %>%
-  filter(DSGN_CYCLE == 2007) %>%
-  select(UNIQUE_ID, VISIT_NO) %>%
-  filter(duplicated(.[c("UNIQUE_ID", "VISIT_NO")])) %>%
-  distinct() %>%
-  nrow()
-
-# There is one duplicated UNIQUE ID for 2007 NLA, the two rows have different SITE_IDs
-nla_data[nla_data$UNIQUE_ID == "NLA_NV-10003",]
-nla_cyano[nla_cyano$UNIQUE_ID == "NLA_NV-10003",]
-
-# No duplicated UNIQUE_ID or SITE_ID for 2012 NLA
-# No duplicated SITE_ID for 2012 NLA
-nla_cyano %>%
-  filter(DSGN_CYCLE == 2007) %>%
-  select(UNIQUE_ID, VISIT_NO) %>%
-  filter(duplicated(.[c("UNIQUE_ID", "VISIT_NO")])) %>%
-  distinct() %>%
-  nrow()
-
-# Merge the NLA cyano data with the other NLA data
-cyano0712 <- left_join(nla_data, nla_cyano[,c(1,12:26)], by = c('UID'))
-
-# No duplicated SITE_ID/VISIT_NO in cyano0712
-cyano0712 %>%
-#  filter(DSGN_CYCLE == 2007) %>%
-  select(SITE_ID, VISIT_NO) %>%
-  filter(duplicated(.[c("SITE_ID", "VISIT_NO")])) %>%
-  distinct() %>%
-  nrow()
-
-# Merge with integrated NLA ID information
-nlahab0712 <- int_nla %>%
-  filter(DSGN_CYCLE == 2007 |DSGN_CYCLE == 2012) %>%
-  select(DSGN_CYCLE, SITE_ID, COMID) %>%
-  right_join(cyano0712, by = c("SITE_ID", "DSGN_CYCLE"))
-
-nlahab0712 %>%
-  select(UNIQUE_ID, VISIT_NO, SITE_ID, COMID, DSGN_CYCLE) %>%
-  filter(duplicated(.[c("UNIQUE_ID", "VISIT_NO", "DSGN_CYCLE")]))
-# Still have one UNIQUE_ID that is matching to two different SITE_IDs
-
-nlahab0712 %>%
-  filter(INDEX_NLA == "Y" | INDXSAMP_MICR == "Y") %>%
-  filter(duplicated(.[c("UNIQUE_ID", "DSGN_CYCLE")]))
-# Still have one UNIQUE_ID that is matching to two different SITE_IDs
-filter(nlahab0712, UNIQUE_ID == "NLA_NV-10003")
-
-# Convert to long-form, add a units column
-nlahab0712 <- nlahab0712 %>%
-  select(COMID, SITE_ID, UNIQUE_ID, DSGN_CYCLE, VISIT_NO, CHLA_RESULT, MICX_RESULT, B_G_DENS) %>%
-  rename(NLA_YEAR = DSGN_CYCLE,
-         CHLA = CHLA_RESULT,
-         MICX = MICX_RESULT,
-         CYANO = B_G_DENS) %>%
-  pivot_longer(cols = CHLA:CYANO,
-               names_to = "ANALYTE",
-               values_to = "RESULT") %>%
-  mutate(RESULT_UNITS = case_when(ANALYTE == "CYANO" ~ "CELLS/ML",
-                                  TRUE ~ "UG/L"))
-  
-# Bind together the NLA cyanobacteria data from 2007, 2012, and 2017
-nla_cyano <- rbind(nlahab0712, nlahab17)
-
-# Save this data to an RDS file
-saveRDS(nla_cyano, "NLA_AllCompiledCyano.rds")
-
-
-```
-
-Compile water data from NLAs: Nitrogen, phosphorus, temperature, secchi depth, turbidity, DOC, stratification
-
-```{r}
-# Load data
-c17 <- read.csv("nla2017_waterchem.csv")
-c12 <- read.csv("nla2012_waterchem.csv")
-c07 <- read.csv("nla2007_waterchem.csv")
-
-# Requested NLA 2007 nitrogen species data from Karen Blocksom
-n07 <- read.csv("nla2007_nitrogenspecies.csv")
-
-# Get the UIDs and COMIDs from the NLA cyanobacteria data
-nla_id <- nla_cyano %>%
-  select(COMID, SITE_ID, UID, NLA_YEAR, VISIT_NO) %>%
-  distinct()
-
-# Desired chem data: Total N, total P, turbidity, dissolved organic carbon, pH, ammonium, and nitrate
-chem_vars <- c("NTL", "PTL", "TURB", "DOC", "PH", "AMMONIA_N", "NITRATE_N")
-
-# Desired final order of the columns
-col_order <- c("NLA_YEAR","COMID", 'UID', "SITE_ID", "VISIT_NO", "ANALYTE", "RESULT", "RESULT_UNITS")
-
-# Isolate the water chem data. Note that there is no pH in the NLA 2007 water chem data. Also, nitrate and ammonium had to be integrated separately in a file shared by Karen Blocksom.
-chem17 <- c17 %>%
-  select(UID, ANALYTE, RESULT, RESULT_UNITS) %>%
-  right_join(nla_id[nla_id$NLA_YEAR == 2017,], by = "UID") %>%
-  filter(ANALYTE %in% chem_vars) %>%
-  relocate(all_of(col_order))
-
-chem12 <- c12 %>%
-  select(UID, paste0(chem_vars, "_RESULT")) %>%
-  rename_with(~ gsub("_RESULT", '', .x)) %>%
-  right_join(nla_id[nla_id$NLA_YEAR == 2012,], by = "UID") %>%
-  pivot_longer(NTL:NITRATE_N, names_to = "ANALYTE", values_to = "RESULT") %>%
-  drop_na(RESULT) %>%
-  mutate(RESULT_UNITS = case_when(ANALYTE == "PH" ~ "STD. UNITS",
-                                  ANALYTE == "TURB" ~ "NTL",
-                                  ANALYTE == "PTL" ~ "UG/L",
-                                  TRUE ~ "MG/L")) %>%
-  relocate(all_of(col_order))
-
-chem07 <- c07 %>%
-  left_join(n07, by = c("SITE_ID", "VISIT_NO")) %>%
-  rename_with(~ gsub("_RESULT", '', .x)) %>%
-  select(SITE_ID, VISIT_NO, chem_vars[!chem_vars == "PH"]) %>%
-  right_join(nla_id[nla_id$NLA_YEAR == 2007,], by = c("SITE_ID", "VISIT_NO")) %>%
-  mutate(NTL = NTL/1000) %>%
-  pivot_longer(NTL:NITRATE_N, names_to = "ANALYTE", values_to = "RESULT") %>%
-  mutate(RESULT_UNITS = case_when(ANALYTE == "TURB" ~ "NTL",
-                                  ANALYTE == "PTL" ~ "UG/L",
-                                  TRUE ~ "MG/L")) %>%
-  relocate(all_of(col_order))
-
-# Load profile data
-p17 <- read.csv("nla2017_profile.csv")
-p12 <- read.csv("nla2012_profile.csv")
-p07 <- read.csv("nla2007_profile.csv")
-
-# There are 3 lakes that have no measurements collected
-sfc17 <- p17 %>%
-  group_by(UID) %>%
-  filter(!is.na(TEMPERATURE)) %>%
-  filter(DEPTH == min(DEPTH, na.rm = T)) %>%
-  filter(row_number() == 1) %>%
-  select(UID, TEMPERATURE) %>%
-  rename(RESULT = TEMPERATURE) %>%
-  right_join(nla_id[nla_id$NLA_YEAR == 2017,], by = "UID") %>%
-  drop_na(RESULT) %>%
-  mutate(ANALYTE = "TEMP", RESULT_UNITS = "DEGC") %>%
-  relocate(all_of(col_order))
-
-# Seems to be 25 lakes with no temperature measurement
-sfc12 <- p12 %>%
-  group_by(UID) %>%
-  filter(!is.na(TEMPERATURE)) %>%
-  filter(DEPTH == min(DEPTH, na.rm = T)) %>%
-  filter(row_number() == 1) %>%
-  select(UID, TEMPERATURE) %>%
-  rename(RESULT = TEMPERATURE) %>%
-  right_join(nla_id[nla_id$NLA_YEAR == 2012,], by = "UID") %>%
-  drop_na(RESULT) %>%
-  mutate(ANALYTE = "TEMP", RESULT_UNITS = "DEGC") %>%
-  relocate(all_of(col_order))
-
-# Need to extract temperature and pH info from the 2007 NLA
-# Temperature
-sfc07_temp <- p07 %>%
-  group_by(SITE_ID, VISIT_NO) %>%
-  filter(!is.na(TEMP_FIELD)) %>%
-  filter(DEPTH == min(DEPTH, na.rm = T)) %>%
-  filter(row_number() == 1) %>%
-  select(SITE_ID, VISIT_NO, TEMP_FIELD) %>%
-  rename(RESULT = TEMP_FIELD) %>%
-  right_join(nla_id[nla_id$NLA_YEAR == 2007,], by = c("SITE_ID", "VISIT_NO")) %>%
-  drop_na(RESULT) %>%
-  mutate(ANALYTE = "TEMP", RESULT_UNITS = "DEGC") %>%
-  relocate(all_of(col_order))
-
-# pH
-sfc07_pH <- p07 %>%
-  group_by(SITE_ID, VISIT_NO) %>%
-  filter(!is.na(PH_FIELD)) %>%
-  filter(DEPTH == min(DEPTH, na.rm = T)) %>%
-  filter(row_number() == 1) %>%
-  select(SITE_ID, VISIT_NO, PH_FIELD) %>%
-  rename(RESULT = PH_FIELD) %>%
-  right_join(nla_id[nla_id$NLA_YEAR == 2007,], by = c("SITE_ID", "VISIT_NO")) %>%
-  drop_na(RESULT) %>%
-  mutate(ANALYTE = "PH", RESULT_UNITS = "STD. UNITS") %>%
-  relocate(all_of(col_order))
-
-
-# Bind all water physical and chemical data from the NLAs
-nla_wtr <- rbind(chem17, chem12, chem07,
-                 sfc17, sfc12, sfc07_temp, sfc07_pH)
-
 ```
 
 
 Load NLA data on cyanobacteria and water physiochemical characteristics
-These data were compiled by Karen Blocksom on 2022-04-04
+These data were compiled by Karen Blocksom
 
 
 ```{r}
@@ -368,35 +96,20 @@ nla_long <- nla_long %>%
 
 # Performing checks for missing data
 
-# Lots of Nitrate data missing. Looks like everthing below the reporting limit was listed as 0.005 mg/L in 2007 (RL = 0.02), but in 2012 (RL = 0.02) and 2017 (RL = 0.0025) ND for nitrate is reported as NA. 
+# Lots of Nitrate data missing. Looks like everything below the reporting limit was listed as 0.005 mg/L in 2007 (RL = 0.02), but in 2012 (RL = 0.02) and 2017 (RL = 0.0025) ND for nitrate is reported as NA. 
 nla_long %>%
   filter(ANALYTE == "NITRATE_N" & is.na(RESULT)) %>%
   nrow()
 
-missing_nit <- all_nla %>%
-  select(UID:DSGN_CYCLE, NITRATE_N_RL, NITRATE_N, NITRATE_N_NARS_FLAG) %>%
-  filter(is.na(NITRATE_N))
-
-nla_long %>%
-  filter(ANALYTE == "MICX" & is.finite(RESULT)) %>%
-  nrow()
-
-write.csv(missing_temp, "NLA_missing_temp.csv", row.names = F)
-
-missing_temp %>%
-  filter(is.na(DEPTH)) %>% nrow()
-
-tmp <- all_nla %>%
-  select(UID:DSGN_CYCLE, DEPTH, TEMPERATURE) %>%
-  filter(is.finite(TEMPERATURE))
+# Extract NLA observation ID information for joining with other data sources
+nla_id <- nla_long %>%
+  select(SITE_ID:COMID) %>%
+  distinct()
 
 ```
 
 
-
-
 Add evaporation to inflow ratio data from Emi Fergus and Renee Brooks
-
 
 
 ```{r}
@@ -407,12 +120,12 @@ ratio17   <- read.csv("NLA17_EI_estimates-Final.csv")
 
 # Transform data to long form
 ei0712 <- ratio0712 %>%
-  select(SITE_ID, VISIT_NO, E_I) %>%
-  right_join(nla_id[nla_id$NLA_YEAR %in% c(2007, 2012),], by = c("SITE_ID", "VISIT_NO")) %>%
+  select(SITE_ID, VISIT_NO, YEAR, E_I) %>%
+  rename(DSGN_CYCLE = YEAR) %>%
+  left_join(nla_id, by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) %>%
   rename(RESULT = E_I) %>%
   mutate(RESULT_UNITS = "RATIO",
-         ANALYTE = "EVAP_INFL") %>%
-  relocate(all_of(col_order))
+         ANALYTE = "EVAP_INFL")
 
 ei17 <- ratio17 %>%
   select(UID, E_I) %>%
@@ -424,6 +137,9 @@ ei17 <- ratio17 %>%
   
 # Bind together 2007/2012 with 2017 data
 evap_infl <- rbind(ei0712, ei17)
+
+# Investigating missing values
+filter(ratio0712, is.na(E_I))
 
 
 ```
