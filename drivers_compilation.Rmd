@@ -297,7 +297,10 @@ These data were compiled by Karen Blocksom on 2022-04-04
 
 ```{r}
 # Read in data
-all_nla <- read.csv("NLA2007-2012-2017_LakeData_forHABs_4April2022.csv")
+# all_nla <- read.csv("NLA2007-2012-2017_LakeData_forHABs_4April2022.csv")
+
+# Updated from Karen to include temperature data whenever a profile was collected
+all_nla <- read.csv("NLA2007-2012-2017_LakeData_forHABs_12April2022.csv")
 
 # Read in NLA UNIQUE_ID - NHDPlusV2 COMID crosswalk info from Marc
 nla_lakecat <- read.csv("Integrated_NLA-LakeCat_COMID_Crosswalk.csv")
@@ -332,9 +335,11 @@ nla_all_coms <- nla_comid %>%
   bind_rows(missing_coms)
 
 # Pivot from wide to long format
+# Problem with some ammonium numbers recorded as "< 0.03", which cannot be coerced to a numeric value. Need to replace these values with something so that the column can be coerced to numeric type.
 # Stratified column is a character currently and need to be changed to numeric type to convert to long format
 nla_long <- nla_all_coms %>%
   mutate(STRATIFIED = ifelse(STRATIFIED == "Y", 1,0)) %>%
+  mutate(AMMONIA_N = as.numeric(replace(AMMONIA_N, AMMONIA_N == "< 0.03", NA))) %>%
   pivot_longer(TEMPERATURE:B_G_DENS, names_to = "ANALYTE", values_to = "RESULT")
 
 # Where PH data was not measured in the lab, retrieve the top-most pH measurement from the profile
@@ -347,10 +352,12 @@ ph_profile <- nla_long %>%
   rename(RESULT = PH_FIELD)
 
 # Remove the rows with missing pH data from the lab and add the field data and add the rows with pH data from the profile data
+# Remove NA rows for cylindrospermopsin from 2007 and 2012 surveys because this analysis was not run during those years. Want any NA values present in the df to imply that the analysis was run, but result was below the detection limit.
 # Add a units columns
 nla_long <- nla_long %>%
   filter(!(ANALYTE == "PH" & is.na(RESULT))) %>%
   bind_rows(ph_profile) %>%
+  filter(!(ANALYTE == "CYLSPER" & DSGN_CYCLE %in% c(2007, 2012))) %>%
   mutate(UNITS = case_when(ANALYTE == "TEMPERATURE" ~ "DEG_C",
                            ANALYTE == "STRATIFIED" ~ "Y/N_1/0",
                            ANALYTE %in% c("PTL", "MICX", "CYLSPER") ~ "UG/L",
@@ -359,14 +366,20 @@ nla_long <- nla_long %>%
                            ANALYTE == "PH" ~ "STD_UNITS",
                            ANALYTE %in% c("AMMONIA_N", "DOC", "NTL", "NITRATE_N", "CHLA_RESULT") ~ "MG/L"))
 
-# Performing checks for missing temperature data
+# Performing checks for missing data
+
+# Lots of Nitrate data missing. Looks like everthing below the reporting limit was listed as 0.005 mg/L in 2007 (RL = 0.02), but in 2012 (RL = 0.02) and 2017 (RL = 0.0025) ND for nitrate is reported as NA. 
 nla_long %>%
-  filter(ANALYTE == "TEMPERATURE" & is.na(RESULT)) %>%
+  filter(ANALYTE == "NITRATE_N" & is.na(RESULT)) %>%
   nrow()
 
-missing_temp <- all_nla %>%
-  select(UID:DSGN_CYCLE, DEPTH, TEMPERATURE) %>%
-  filter(is.na(TEMPERATURE))
+missing_nit <- all_nla %>%
+  select(UID:DSGN_CYCLE, NITRATE_N_RL, NITRATE_N, NITRATE_N_NARS_FLAG) %>%
+  filter(is.na(NITRATE_N))
+
+nla_long %>%
+  filter(ANALYTE == "MICX" & is.finite(RESULT)) %>%
+  nrow()
 
 write.csv(missing_temp, "NLA_missing_temp.csv", row.names = F)
 
