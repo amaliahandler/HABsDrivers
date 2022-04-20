@@ -128,21 +128,63 @@ ei0712 <- ratio0712 %>%
          ANALYTE = "EVAP_INFL")
 
 ei17 <- ratio17 %>%
-  select(UID, E_I) %>%
-  right_join(nla_id[nla_id$NLA_YEAR == 2017,], by = "UID") %>%
+  select(SITE_ID, E_I, VISIT_NO) %>%
+  mutate(DSGN_CYCLE = 2017) %>%
+  left_join(nla_id, by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) %>%
   rename(RESULT = E_I) %>%
   mutate(RESULT_UNITS = "RATIO",
-         ANALYTE = "EVAP_INFL") %>%
-  relocate(all_of(col_order))
+         ANALYTE = "EVAP_INFL")
   
 # Bind together 2007/2012 with 2017 data
 evap_infl <- rbind(ei0712, ei17)
 
-# Investigating missing values
-filter(ratio0712, is.na(E_I))
+# From Emi and Renee: NA values mean that E/I was not calculated for some reason. Generally missing data or unrealistic E/I values were removed
+# # Investigating missing values
+# filter(ratio0712, is.na(E_I))
+# filter(ratio17, is.na(E_I))
+#
+# write.csv(filter(ratio0712, is.na(E_I)), "missing2012-E_I.csv", row.names = F)
+# write.csv(filter(ratio17, is.na(E_I)), "missing2017-E_I.csv", row.names = F)
+# 
+# filter(ei0712, is.na(COMID))
+# filter(ei17, is.na(COMID))
+
+# How many of the NLA sites are missing E/I data?
+nrow(nla_id) - nrow(evap_infl)
+
+# Note that most of the missing data comes from the site revisits
+missing_check <- nla_all_coms %>%
+  left_join(evap_infl, by = c("UNIQUE_ID","DSGN_CYCLE","VISIT_NO")) %>%
+  filter(is.na(RESULT))
+
+table(missing_check$VISIT_NO)
+
+# Combine with NLA data
+
+  
+
+```
+
+
+Add watershed metrics compiled by Marc Weber for all NLA lakes (in Lakecat and not in Lakecat)
+
+```{r}
+# Watershed metrics for NLA lakes compiled by Marc
+wsmet <- read.csv("NLA_WatershedMetrics.csv")
+
+# Remove duplicated rows
+wsmet <- wsmet %>%
+  distinct()
+
+# Select data I want to use and join with NLA data
+wsmet %>%
+  select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, RunoffWs, Precip_Minus_EVTWs, starts_with("Pct")) %>%
+  join_right(nla_id, by = c("UNIQUE_ID", "DSGN_CYCLE"))
 
 
 ```
+
+
 
 Load the lakecat data
 
@@ -205,6 +247,57 @@ saveRDS(nla_nlcd, "./compiled_nla17_nlcd16.rds")
 # Read in saved RDS file
 nla_nlcd <- readRDS("./compiled_nla17_nlcd16.rds")
 ```
+
+
+
+Figures for presentations 
+
+```{r}
+# Presentations for CPHEA managers call, JASM, and PESD Science Seminar
+
+# Get examples of climate, watershed, lake morphology, and water chemistry to illustrate how these data sources will be used in the conceptualized modeling project
+
+# Climate data: MAT
+mat <- read.csv("PRISM_1981_2010.csv")
+
+# Watershed: Percent agricultural cover
+# Lake morphology: Lake depth
+wsmet <- read.csv("NLA_WatershedMetrics.csv")
+
+# Response variables: Cyanobacteria cell abundance and microcystin concentration
+# Water chemistry: Total nitrogen
+pres <- nla_long %>%
+  filter(ANALYTE %in% c("MICX", "B_G_DENS", "NTL")) %>%
+  pivot_wider(id_cols = SITE_ID:COMID, names_from = ANALYTE, values_from = RESULT)
+
+# Join mean temperature data with HABs data
+pres <- mat %>%
+  select(COMID, Tmean8110Ws) %>%
+  right_join(pres, by = "COMID")
+
+# Sum crop and hay percents to get agriculture
+# Join to the HABs data
+# Note there's a problem here with duplicated 
+wsag <- wsmet %>%
+  select(COMID, DSGN_CYCLE, lakemorpho_depth, PctHay2006Ws, PctCrop2006Ws) %>%
+  distinct() %>%
+  mutate(PctAg2006Ws = PctHay2006Ws + PctCrop2006Ws, .keep = "unused") %>%
+  # This is a temporary fix to get data compiled. Will need to ask Marc about how to deal with repeat COMIDs
+  distinct(COMID, DSGN_CYCLE, .keep_all = T)
+  
+# Join to presentation data
+pres <- left_join(pres, wsag, by = c("COMID", "DSGN_CYCLE"))
+
+
+with(pres, plot(NTL, B_G_DENS))
+
+
+
+
+```
+
+
+
 
 ```{r, include = FALSE, warning = FALSE}
 
