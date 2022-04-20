@@ -288,8 +288,54 @@ wsag <- wsmet %>%
 # Join to presentation data
 pres <- left_join(pres, wsag, by = c("COMID", "DSGN_CYCLE"))
 
+expl_var <- "NTL"
+expl_var <- "Tmean8110Ws"
+expl_var <- "lakemorpho_depth"
+expl_var <- "PctAg2006Ws"
 
-with(pres, plot(NTL, B_G_DENS))
+# Plot data
+rev_biplots <- function(expl_var, file_name){
+  
+  ylabel <- 'Cyanobacteria (cells/mL + 1)'
+  
+  # Transform cyanobacteria data by adding 1 to make log transformation possible
+  plot_data <- mutate(pres, tran_cyano = B_G_DENS + 1)
+  
+  # Order row my microcystin
+  plot_data <- plot_data[order(plot_data$MICX, na.last = F),]
+  
+  plot_var <- plot_data[,match(expl_var, colnames(plot_data))]
+  
+  # For the Ag, need to add a very small number to the data to 
+  # plot_var <- plot_var + 0.00001
+  
+  ggplot(data = plot_data, aes(x = plot_var, y = tran_cyano)) +
+    geom_point(aes(color = MICX), stroke = .7, alpha = 0.5, size = 3) +
+    # scale_x_continuous(trans = 'log10',
+    #                    breaks = trans_breaks("log10", function(x) 10^x),
+    #                    labels = trans_format("log10", math_format(10^.x))) +
+    scale_y_continuous(trans = 'log10',
+                       breaks = trans_breaks("log10", function(x) 10^x),
+                       labels = trans_format("log10", math_format(10^.x))) +
+    # xlab(bquote('Mean Summer Bloom Magnitude'~(CI_cyano/km^-2))) +
+    # xlab('Total Nitrogen (mg N/L)') +
+    # xlab('Mean Annual Temp (deg C)') +
+    # xlab('Max Lake Depth (m)') +
+    xlab('Watershed Agriculture Land Use (%)') +
+    ylab(ylabel) +
+    scale_color_gradient(low = "gold", high = 'red',
+                         name = "Microcystin (ug/L)",
+                         limits = c(0.1, 230),
+                         trans = 'log10', 
+                         breaks = c(0.1, 1, 10, 100),
+                         labels = c("0.1", "1.0", "10", "100")) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank())
+  
+  # Original size
+  ggsave(paste0("./figures/",file_name,".png"), height = 3.5, width = 6, units = 'in', dpi = 600, bg = "transparent")
+}
 
 
 
