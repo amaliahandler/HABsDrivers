@@ -279,9 +279,11 @@ pres <- mat %>%
 # Join to the HABs data
 # Note there's a problem here with duplicated 
 wsag <- wsmet %>%
-  select(COMID, DSGN_CYCLE, lakemorpho_depth, PctHay2006Ws, PctCrop2006Ws) %>%
+  select(COMID, DSGN_CYCLE, lakemorpho_depth, PctHay2006Ws, PctCrop2006Ws, PctDecid2006Ws, PctConif2006Ws, PctMxFst2006Ws) %>%
   distinct() %>%
-  mutate(PctAg2006Ws = PctHay2006Ws + PctCrop2006Ws, .keep = "unused") %>%
+  mutate(PctAg2006Ws = PctHay2006Ws + PctCrop2006Ws,
+         PctFst2006Ws = PctDecid2006Ws + PctConif2006Ws + PctMxFst2006Ws,
+         .keep = "unused") %>%
   # This is a temporary fix to get data compiled. Will need to ask Marc about how to deal with repeat COMIDs
   distinct(COMID, DSGN_CYCLE, .keep_all = T)
   
@@ -292,6 +294,7 @@ expl_var <- "NTL"
 expl_var <- "Tmean8110Ws"
 expl_var <- "lakemorpho_depth"
 expl_var <- "PctAg2006Ws"
+expl_var <- "PctFst2006Ws"
 
 # Plot data
 rev_biplots <- function(expl_var, file_name){
@@ -309,8 +312,11 @@ rev_biplots <- function(expl_var, file_name){
   # For the Ag, need to add a very small number to the data to 
   # plot_var <- plot_var + 0.00001
   
+  # For the Forest, need to add a very small number to the data to 
+  # plot_var <- plot_var + 0.0001
+  
   ggplot(data = plot_data, aes(x = plot_var, y = tran_cyano)) +
-    geom_point(aes(color = MICX), stroke = .7, alpha = 0.5, size = 3) +
+    geom_point(aes(color = MICX), stroke = .7, alpha = 0.7, size = 3) +
     # scale_x_continuous(trans = 'log10',
     #                    breaks = trans_breaks("log10", function(x) 10^x),
     #                    labels = trans_format("log10", math_format(10^.x))) +
@@ -322,6 +328,7 @@ rev_biplots <- function(expl_var, file_name){
     # xlab('Mean Annual Temp (deg C)') +
     # xlab('Max Lake Depth (m)') +
     xlab('Watershed Agriculture Land Use (%)') +
+    # xlab('Watershed Forest Cover (%)') +
     ylab(ylabel) +
     scale_color_gradient(low = "gold", high = 'red',
                          name = "Microcystin (ug/L)",
