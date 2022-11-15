@@ -18,6 +18,48 @@ library(ggpubr)
 library(tidyr)
 ```
 
+List of variables to compile
+
+National lakes assessment (NLA)
+* X_Chlorophyll a
+* X_Cyanobacteria abundance
+* X_Microcystin
+* X_Cylindrospermopsin
+* X_Total nitrogen
+* X_Total phosphorus
+* X_Dissolved organic carbon
+* X_Turbidity
+* X_pH
+* X_Water temperature
+* Dissolved oxygen
+* X_Stratification
+* X_HydroAP
+* X_Evaporation/Inflow
+
+PRISM
+* Air temperature
+* Precipitation
+
+LakeCat
+* X_Urban land cover
+* X_Agricultural land cover
+* X_Forested/natural land cover
+* X_Wetland land cover
+* Burned area
+* Slope
+* Elevation
+* Wastewater treatment plants
+* Runoff
+
+Nutrient Inventory
+* Nitrogen and phosphorus inputs
+* Nitrogen and phosphorus excess
+
+Lakemorpho
+* X_Depth
+* X_Fetch
+* Surface area
+* Perimeter
 
 Load NLA data on cyanobacteria and water physiochemical characteristics
 These data were compiled by Karen Blocksom
@@ -105,6 +147,8 @@ nla_long %>%
 nla_id <- nla_long %>%
   select(SITE_ID:COMID) %>%
   distinct()
+
+
 
 ```
 
