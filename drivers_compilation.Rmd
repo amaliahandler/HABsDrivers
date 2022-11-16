@@ -37,8 +37,8 @@ National lakes assessment (NLA)
 * X_Evaporation/Inflow
 
 PRISM
-* Air temperature
-* Precipitation
+* X_Air temperature
+* X_Precipitation
 
 LakeCat
 * X_Urban land cover
@@ -46,10 +46,10 @@ LakeCat
 * X_Forested/natural land cover
 * X_Wetland land cover
 * Burned area
-* Slope
-* Elevation
-* Wastewater treatment plants
-* Runoff
+* X_Slope
+* X_Elevation
+* X_Wastewater treatment plants
+* X_Runoff
 
 Nutrient Inventory
 * Nitrogen and phosphorus inputs
@@ -168,7 +168,7 @@ ei0712 <- ratio0712 %>%
   rename(DSGN_CYCLE = YEAR) %>%
   left_join(nla_id, by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) %>%
   rename(RESULT = E_I) %>%
-  mutate(RESULT_UNITS = "RATIO",
+  mutate(UNITS = "RATIO",
          ANALYTE = "EVAP_INFL")
 
 ei17 <- ratio17 %>%
@@ -176,11 +176,14 @@ ei17 <- ratio17 %>%
   mutate(DSGN_CYCLE = 2017) %>%
   left_join(nla_id, by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) %>%
   rename(RESULT = E_I) %>%
-  mutate(RESULT_UNITS = "RATIO",
+  mutate(UNITS = "RATIO",
          ANALYTE = "EVAP_INFL")
   
 # Bind together 2007/2012 with 2017 data
 evap_infl <- rbind(ei0712, ei17)
+
+# Rearrange columns
+evap_infl <- relocate(evap_infl, SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, COMID, ANALYTE, RESULT, UNITS)
 
 # From Emi and Renee: NA values mean that E/I was not calculated for some reason. Generally missing data or unrealistic E/I values were removed
 # # Investigating missing values
@@ -203,10 +206,6 @@ missing_check <- nla_all_coms %>%
 
 table(missing_check$VISIT_NO)
 
-# Combine with NLA data
-
-  
-
 ```
 
 
@@ -214,16 +213,28 @@ Add watershed metrics compiled by Marc Weber for all NLA lakes (in Lakecat and n
 
 ```{r}
 # Watershed metrics for NLA lakes compiled by Marc
-wsmet <- read.csv("NLA_WatershedMetrics.csv")
-
-# Remove duplicated rows
-wsmet <- wsmet %>%
-  distinct()
+wsmet <- read.csv("NLA_WatershedMetrics_NoDuplicates.csv")
 
 # Select data I want to use and join with NLA data
-wsmet %>%
-  select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, RunoffWs, Precip_Minus_EVTWs, starts_with("Pct")) %>%
+wsmet <- wsmet %>%
+  select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, RunoffWs, Precip_Minus_EVTWs, WWTPWs, starts_with("Pct"), Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs) %>%
   right_join(nla_id, by = c("UNIQUE_ID", "DSGN_CYCLE"))
+
+
+```
+
+Compile together NLA, NLA+, and LakeCat data
+
+```{r}
+nla_long
+evap_infl
+wsmet
+
+habs <- nla_long %>%
+  bind_rows(evap_infl) %>%
+  pivot_wider() %>%
+  left_join(wsmet)
+
 
 
 ```
