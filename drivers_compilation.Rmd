@@ -226,16 +226,15 @@ wsmet <- wsmet %>%
 Compile together NLA, NLA+, and LakeCat data
 
 ```{r}
-nla_long
-evap_infl
-wsmet
 
 habs <- nla_long %>%
   bind_rows(evap_infl) %>%
-  pivot_wider() %>%
-  left_join(wsmet)
+  select(!UNITS) %>%
+  pivot_wider(names_from = ANALYTE, values_from = RESULT, values_fill = -99) %>%
+  left_join(wsmet, by = c("UNIQUE_ID", "DSGN_CYCLE"))
 
-
+# Create data for the package
+# usethis::use_data(habs)
 
 ```
 
