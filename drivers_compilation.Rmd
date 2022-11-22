@@ -234,8 +234,16 @@ habs <- nla_long %>%
   left_join(select(wsmet, UNIQUE_ID:SlopeWs), by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
   filter(!is.na(UNIQUE_ID))
 
+# Filter to only include first visits and most recent samples so that we have an independent set of data
+habs %>%
+  filter(VISIT_NO == 1) %>%
+  group_by(UNIQUE_ID) %>%
+  summarise(max_yr = max(DSGN_CYCLE))
+
 # Convert to a sf object
 habs <- sf::st_as_sf(habs, coords = c('LON_DD83', 'LAT_DD83'), crs = 4269, remove = FALSE)
+
+
 
 # Save the data as part of the package
 usethis::use_data(habs, overwrite = T)
