@@ -108,7 +108,7 @@ nla_all_coms <- nla_comid %>%
 # Problem with some ammonium numbers recorded as "< 0.03", which cannot be coerced to a numeric value. Need to replace these values with something so that the column can be coerced to numeric type.
 # Stratified column is a character currently and need to be changed to numeric type to convert to long format
 nla_long <- nla_all_coms %>%
-  mutate(STRATIFIED = ifelse(STRATIFIED == "Y", 1,0)) %>%
+  mutate(STRATIFIED = ifelse(is.na(STRATIFIED), 0, 1)) %>%
   mutate(AMMONIA_N = as.numeric(replace(AMMONIA_N, AMMONIA_N == "< 0.03", NA))) %>%
   pivot_longer(TEMPERATURE:B_G_DENS, names_to = "ANALYTE", values_to = "RESULT")
 
@@ -230,23 +230,15 @@ Compile together NLA, NLA+, and LakeCat data
 habs <- nla_long %>%
   bind_rows(evap_infl) %>%
   select(!UNITS) %>%
-  pivot_wider(names_from = ANALYTE, values_from = RESULT, values_fill = -99) %>%
+  pivot_wider(names_from = ANALYTE, values_from = RESULT, values_fill = NA) %>%
   left_join(select(wsmet, UNIQUE_ID:SlopeWs), by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
   filter(!is.na(UNIQUE_ID))
 
-# Filter to only include first visits and most recent samples so that we have an independent set of data
-habs %>%
-  filter(VISIT_NO == 1) %>%
-  group_by(UNIQUE_ID) %>%
-  summarise(max_yr = max(DSGN_CYCLE))
-
 # Convert to a sf object
-habs <- sf::st_as_sf(habs, coords = c('LON_DD83', 'LAT_DD83'), crs = 4269, remove = FALSE)
-
-
+habs_nars_all <- sf::st_as_sf(habs, coords = c('LON_DD83', 'LAT_DD83'), crs = 4269, remove = FALSE)
 
 # Save the data as part of the package
-usethis::use_data(habs, overwrite = T)
+# usethis::use_data(habs_nars_all, overwrite = T)
 
 ```
 
