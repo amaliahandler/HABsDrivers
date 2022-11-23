@@ -10,8 +10,41 @@ editor_options:
 ```{r setup, include=FALSE}
 library(usethis)
 library(devtools)
+library(spmodel)
+library(mapview)
+library(dplyr)
+```
+
+Experiment with some spatial models
+
+```{r}
+# Filter to only include first visits and most recent samples so that we have an independent set of data
+habs_ind <- habs %>%
+  filter(VISIT_NO == 1) %>%
+  group_by(UNIQUE_ID) %>%
+  filter(DSGN_CYCLE == max(DSGN_CYCLE))
+
+# Create some composite variables of land use
+habs_ind <- habs_ind %>%
+  mutate(urban = case_when(DSGN_CYCLE == 2007 ~ PctUrbOp2006Ws + 
+                             PctUrbLo2006Ws + PctUrbMd2006Ws + PctUrbHi2006Ws,
+                           TRUE ~ PctUrbOp2011Ws + PctUrbLo2011Ws + 
+                             PctUrbMd2011Ws + PctUrbHi2011Ws),
+         wetland = case_when(DSGN_CYCLE == 2007 ~ PctWdWet2006Ws + PctHbWet2006Ws,
+                            TRUE ~ PctWdWet2011Ws + PctHbWet2011Ws),
+         forest = case_when(DSGN_CYCLE == 2007 ~ PctDecid2006Ws + PctConif2006Ws + PctMxFst2006Ws,
+                            TRUE ~ PctDecid2011Ws + PctConif2011Ws + PctMxFst2011Ws),
+         agriculture = case_when(DSGN_CYCLE == 2007 ~ PctHay2006Ws + PctCrop2006Ws,
+                                 TRUE ~ PctHay2011Ws + PctCrop2011Ws))
 
 
+# Just in-lake data (NARS only)  
+spmod <- splm(log10(B_G_DENS+1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "exponential")
+
+summary(spmod)
+tidy(spmod)
+glance(spmod)
+plot(spmod)
 
 ```
 
