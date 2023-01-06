@@ -13,19 +13,25 @@ library(devtools)
 library(spmodel)
 library(mapview)
 library(dplyr)
+
+# Detailed guide to spmodel
+# https://rdrr.io/cran/spmodel/f/inst/doc/guide.pdf
 ```
 
 Experiment with some spatial models
 
 ```{r}
+# Load all data and functions from HABsDrivers package
+load_all()
+
 # Filter to only include first visits and most recent samples so that we have an independent set of data
-habs_ind <- habs %>%
-  filter(VISIT_NO == 1) %>%
-  group_by(UNIQUE_ID) %>%
-  filter(DSGN_CYCLE == max(DSGN_CYCLE))
+# habs_ind <- habs %>%
+#   filter(VISIT_NO == 1) %>%
+#   group_by(UNIQUE_ID) %>%
+#   filter(DSGN_CYCLE == max(DSGN_CYCLE))
 
 # Create some composite variables of land use
-habs_ind <- habs_ind %>%
+habs <- habs %>%
   mutate(urban = case_when(DSGN_CYCLE == 2007 ~ PctUrbOp2006Ws + 
                              PctUrbLo2006Ws + PctUrbMd2006Ws + PctUrbHi2006Ws,
                            TRUE ~ PctUrbOp2011Ws + PctUrbLo2011Ws + 
@@ -37,11 +43,37 @@ habs_ind <- habs_ind %>%
          agriculture = case_when(DSGN_CYCLE == 2007 ~ PctHay2006Ws + PctCrop2006Ws,
                                  TRUE ~ PctHay2011Ws + PctCrop2011Ws))
 
+# Run a few different versions of the model
 
-# Just in-lake data (NARS only)  
-spmod <- splm(log10(B_G_DENS+1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "exponential")
+# Just in-lake data (NARS only) to compare spatial covariance types
+mod_lake_exp <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "exponential")
 
-summary(spmod)
+mod_lake_sph <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "spherical")
+
+mod_lake_gau <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "gaussian")
+
+glances(mod_lake_exp, mod_lake_sph, mod_lake_gau)
+# Exponential and spherical spatial covariance performs the same according to AIC, gaussian performs worse
+
+# NARS and watershed data
+mod_lake_land <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture, data = habs_ind, spcov_type = "exponential")
+
+glances(mod_lake_exp, mod_lake_land)
+# Adding more variables does not substantially increase the variation explained
+
+# Compare with random effects and without
+mod_re_unnested <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, random = ~ DSGN_CYCLE + UNIQUE_ID, spcov_type = "exponential", local = TRUE) 
+
+mod_re_nested <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "exponential", local = TRUE) 
+
+# save for Mike
+# set.seed(0)
+# mod_random_eff <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "exponential", local = TRUE) 
+
+glances(mod_re_unnested, mod_re_nested)
+
+summary(mod_re_nested)
+
 tidy(spmod)
 glance(spmod)
 plot(spmod)
