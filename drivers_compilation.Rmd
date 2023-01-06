@@ -227,7 +227,7 @@ Compile together NLA, NLA+, and LakeCat data
 
 ```{r}
 
-habs <- nla_long %>%
+habs_comb <- nla_long %>%
   bind_rows(evap_infl) %>%
   select(!UNITS) %>%
   pivot_wider(names_from = ANALYTE, values_from = RESULT, values_fill = NA) %>%
@@ -235,10 +235,13 @@ habs <- nla_long %>%
   filter(!is.na(UNIQUE_ID))
 
 # Convert to a sf object
-habs_nars_all <- sf::st_as_sf(habs, coords = c('LON_DD83', 'LAT_DD83'), crs = 4269, remove = FALSE)
+habs_nars_all <- sf::st_as_sf(habs_comb, coords = c('LON_DD83', 'LAT_DD83'), crs = 4269, remove = FALSE)
+
+# Transform to an equal area projection so that x and y distances are equivalent
+habs <- sf::st_transform(habs_nars_all, crs = 5070)
 
 # Save the data as part of the package
-# usethis::use_data(habs_nars_all, overwrite = T)
+# usethis::use_data(habs, overwrite = T)
 
 ```
 
