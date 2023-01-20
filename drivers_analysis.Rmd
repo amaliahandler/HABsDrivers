@@ -61,22 +61,60 @@ mod_lake_land <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPER
 glances(mod_lake_exp, mod_lake_land)
 # Adding more variables does not substantially increase the variation explained
 
-# Compare with random effects and without
+# Compare with random effects and without random effects
+
+# Random effect for survey year and lake, not nested
 mod_re_unnested <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, random = ~ DSGN_CYCLE + UNIQUE_ID, spcov_type = "exponential", local = TRUE) 
 
+# Random effect for survey year and lake nested within survey year (revisits) 
 mod_re_nested <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "exponential", local = TRUE) 
 
-# save for Mike
-# set.seed(0)
-# mod_random_eff <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "exponential", local = TRUE) 
-
+# Compare models
 glances(mod_re_unnested, mod_re_nested)
+# Nested model has lower AIC than the unnested model
 
 summary(mod_re_nested)
+summary(mod_re_unnested)
 
-tidy(spmod)
-glance(spmod)
-plot(spmod)
+plot(mod_re_nested)
+plot(mod_re_unnested)
+
+# Check that the spatial model performs better than a non-spatial model
+mod_nonsp <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "none", local = TRUE) 
+
+# Compare spatial and non-spatial models with nested random effects
+glances(mod_nonsp, mod_re_nested)
+# Hmmm, the non-spatial model performs just as well (maybe a little better) than the spatial model
+
+# Is it because there are so many independent variables?
+basic_spat <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "exponential", local = TRUE) 
+
+basic_nonsp <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "none", local = TRUE)
+
+glances(basic_nonsp, basic_spat)
+# Reducing the number of independent variables doesn't change the answer. The spatial and non-spatial forms of the model perform about the same
+
+# Try a few different spatial convariance types
+gaussian <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "gaussian", local = TRUE) 
+
+sphere <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "spherical", local = TRUE) 
+
+triangular <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "triangular", local = TRUE)
+
+circular <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "circular", local = TRUE)
+
+cubic <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "cubic", local = TRUE)
+
+glances(basic_nonsp, basic_spat, gaussian, sphere, triangular, circular, cubic)
+# Conclusion: Exponential and cubic covariance structure perform the same and only slightly better than other form.
+
+summary(mod_re_nested)
+summary(mod_re_unnested)
+
+tidy(mod_re_nested)
+glance(mod_re_nested)
+plot(mod_re_nested)
+plot(mod_re_unnested)
 
 ```
 
