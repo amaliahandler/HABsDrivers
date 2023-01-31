@@ -73,6 +73,20 @@ mod_re_nested <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPER
 glances(mod_re_unnested, mod_re_nested)
 # Nested model has lower AIC than the unnested model
 
+# Check model performance by loocv
+loocv(mod_re_unnested, local = T)
+
+re_nested_resid <- augment(mod_re_nested)
+
+mapview(re_nested_resid, zcol = ".std.resid", at = c(-5.4, -2, 2.6), legend = TRUE)
+
+ggplot(data = re_nested_resid, aes(x = .fitted, y = `log10(B_G_DENS + 1)`)) + 
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1)
+
+ggplot(data = re_nested_resid, aes(x = .std.resid)) + 
+  geom_histogram() + 
+
 summary(mod_re_nested)
 summary(mod_re_unnested)
 
