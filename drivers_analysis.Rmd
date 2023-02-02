@@ -74,7 +74,34 @@ glances(mod_re_unnested, mod_re_nested)
 # Nested model has lower AIC than the unnested model
 
 # Check model performance by loocv
-loocv(mod_re_unnested, local = T)
+loocv(mod_re_nested, local = T)
+
+# The error in LOOCV seems to be related to the random effect. Does it still fail for a model run without a random effect?
+mod_no_re <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, spcov_type = "exponential", local = TRUE) 
+
+loocv(mod_no_re, local = T)
+# This runs
+
+# How about with one random effect?
+mod_lake_re <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, random = ~ UNIQUE_ID, spcov_type = "exponential", local = TRUE)
+
+loocv(mod_lake_re, local = T)
+# This throws an error
+# Seems to be an issue with the inclusion of random effects
+
+# Does a reprex create the same error?
+tmp <- data.frame(dep = rnorm(100, mean = 10), 
+                  ind = rnorm(100, mean = 1000, sd = 50), 
+                  re = rep(c("a","b"),50),
+                  xcoord = rnorm(100, mean = 50),
+                  ycoord = rnorm(100, mean = 50))
+
+tmp_mod <- splm(dep ~ ind, random = ~ re, xcoord = xcoord, ycoord = ycoord, data = tmp, spcov_type = "exponential")
+
+loocv(tmp_mod)
+# This runs
+# Okay, there's some problem with my models, but I don't know what it is.
+
 
 re_nested_resid <- augment(mod_re_nested)
 
