@@ -46,19 +46,19 @@ habs <- habs %>%
 # Run a few different versions of the model
 
 # Just in-lake data (NARS only) to compare spatial covariance types
-mod_lake_exp <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "exponential")
+# mod_lake_exp <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "exponential")
+# 
+# mod_lake_sph <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "spherical")
+# 
+# mod_lake_gau <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "gaussian")
 
-mod_lake_sph <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "spherical")
-
-mod_lake_gau <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "gaussian")
-
-glances(mod_lake_exp, mod_lake_sph, mod_lake_gau)
+# glances(mod_lake_exp, mod_lake_sph, mod_lake_gau)
 # Exponential and spherical spatial covariance performs the same according to AIC, gaussian performs worse
 
 # NARS and watershed data
-mod_lake_land <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture, data = habs_ind, spcov_type = "exponential")
-
-glances(mod_lake_exp, mod_lake_land)
+# mod_lake_land <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture, data = habs_ind, spcov_type = "exponential")
+# 
+# glances(mod_lake_exp, mod_lake_land)
 # Adding more variables does not substantially increase the variation explained
 
 # Compare with random effects and without random effects
@@ -75,12 +75,21 @@ glances(mod_re_unnested, mod_re_nested)
 
 # Check model performance by loocv
 loocv(mod_re_nested, local = T)
+loocv(mod_re_unnested, local = T)
 
 # The error in LOOCV seems to be related to the random effect. Does it still fail for a model run without a random effect?
 mod_no_re <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, spcov_type = "exponential", local = TRUE) 
 
 loocv(mod_no_re, local = T)
 # This runs
+
+# Split data into training and predictor sets
+habs_train <- habs[1:500,]
+habs_pred  <- habs[501:600,]
+
+train_mod_re_nested <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs_train, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "exponential", local = TRUE)
+
+predict(train_mod_re_nested, newdata = habs_pred, local = TRUE)
 
 # How about with one random effect?
 mod_lake_re <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, random = ~ UNIQUE_ID, spcov_type = "exponential", local = TRUE)
