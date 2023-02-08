@@ -50,6 +50,11 @@ LakeCat
 * X_Elevation
 * X_Wastewater treatment plants
 * X_Runoff
+* Crop biological nitrogen fixation (CBNF)
+* Synthetic fertilizer application rate (FERT)
+* Mean rate of manure application (MANURE)
+* Atmospheric ammonium deposition (NH4_2008)
+* Atmospheric nitrate deposition (NO3_2008)
 
 Nutrient Inventory
 * Nitrogen and phosphorus inputs
