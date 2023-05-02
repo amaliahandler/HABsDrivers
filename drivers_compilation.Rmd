@@ -231,13 +231,15 @@ wsmet <- wsmet %>%
 Compile together NLA, NLA+, and LakeCat data
 
 ```{r}
-
+# Convert from long to wide format
 habs_comb <- nla_long %>%
   bind_rows(evap_infl) %>%
   select(!UNITS) %>%
   pivot_wider(names_from = ANALYTE, values_from = RESULT, values_fill = NA) %>%
   left_join(select(wsmet, UNIQUE_ID:SlopeWs), by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
-  filter(!is.na(UNIQUE_ID))
+  filter(!is.na(UNIQUE_ID)) |>
+  mutate(DSGN_CYCLE = factor(DSGN_CYCLE),
+         UNIQUE_ID = factor(UNIQUE_ID))
 
 # Convert to a sf object
 habs_nars_all <- sf::st_as_sf(habs_comb, coords = c('LON_DD83', 'LAT_DD83'), crs = 4269, remove = FALSE)
@@ -260,10 +262,10 @@ Load the lakecat data
 nlcd <- read.csv("Lakecat_NLCD2016.csv")
 
 # Watershed slope information
-slope <- read.csv("Lakecat_Slope.csv")
+# slope <- read.csv("Lakecat_Slope.csv")
 
 # Lake watershed elevation
-elev <- read.csv("Lakecat_Elevation.csv")
+# elev <- read.csv("Lakecat_Elevation.csv")
 
 # NLA integrated design status as of 2019-08-21. Crosswalks NLA site IDs with NHDPlusV2 lake COMIDs
 nla_nhd <- read.csv("NLA_Integrated_Design_Status_20190821.csv")
