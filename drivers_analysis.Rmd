@@ -11,14 +11,18 @@ editor_options:
 library(usethis)
 library(devtools)
 library(spmodel)
+library(sf)
 library(mapview)
 library(dplyr)
+library(tidyr)
 
 # Detailed guide to spmodel
 # https://rdrr.io/cran/spmodel/f/inst/doc/guide.pdf
 ```
 
-Experiment with some spatial models
+
+Load the data and create some composite variables
+
 
 ```{r}
 # Load all data and functions from HABsDrivers package
@@ -30,7 +34,7 @@ load_all()
 #   group_by(UNIQUE_ID) %>%
 #   filter(DSGN_CYCLE == max(DSGN_CYCLE))
 
-# Create some composite variables of land use
+# Create some composite variables of land use, note that 2006 NLCD is associated with 2007 NLA, but 2011 NLCD is associated with 2012 and 2017 NLA.
 habs <- habs %>%
   mutate(urban = case_when(DSGN_CYCLE == 2007 ~ PctUrbOp2006Ws + 
                              PctUrbLo2006Ws + PctUrbMd2006Ws + PctUrbHi2006Ws,
@@ -42,11 +46,17 @@ habs <- habs %>%
                             TRUE ~ PctDecid2011Ws + PctConif2011Ws + PctMxFst2011Ws),
          agriculture = case_when(DSGN_CYCLE == 2007 ~ PctHay2006Ws + PctCrop2006Ws,
                                  TRUE ~ PctHay2011Ws + PctCrop2011Ws))
+```
 
+
+Experiment with some spatial models
+
+
+```{r}
 # Run a few different versions of the model
 
 # Just in-lake data (NARS only) to compare spatial covariance types
-# mod_lake_exp <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "exponential")
+# mod_lake_exp <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE), spcov_type = "exponential")
 # 
 # mod_lake_sph <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "spherical")
 # 
@@ -63,17 +73,36 @@ habs <- habs %>%
 
 # Compare with random effects and without random effects
 
+# Model without random effects
 # Random effect for survey year and lake, not nested
-mod_re_unnested <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, random = ~ DSGN_CYCLE + UNIQUE_ID, spcov_type = "exponential", local = TRUE) 
+mod_no_re <- splm(
+  log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, 
+  data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, urban, wetland, forest, agriculture, lakemorpho_depth, Precip_Minus_EVTWs, Tmean8110Ws, ElevWs, SlopeWs), 
+  spcov_type = "exponential", 
+  local = TRUE) 
+
+# Random effect for survey year and lake, not nested
+mod_re_unnested <- splm(
+  log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, 
+  data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, urban, wetland, forest, agriculture, lakemorpho_depth, Precip_Minus_EVTWs, Tmean8110Ws, ElevWs, SlopeWs), 
+  random = ~ DSGN_CYCLE + UNIQUE_ID, 
+  spcov_type = "exponential", 
+  local = TRUE) 
 
 # Random effect for survey year and lake nested within survey year (revisits) 
-mod_re_nested <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "exponential", local = TRUE) 
+mod_re_nested <- splm(
+  log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, 
+  data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, urban, wetland, forest, agriculture, lakemorpho_depth, Precip_Minus_EVTWs, Tmean8110Ws, ElevWs, SlopeWs), 
+  random = ~ (DSGN_CYCLE / UNIQUE_ID), 
+  spcov_type = "exponential", 
+  local = TRUE) 
 
 # Compare models
-glances(mod_re_unnested, mod_re_nested)
-# Nested model has lower AIC than the unnested model
+glances(mod_no_re, mod_re_unnested, mod_re_nested)
+# AIC: random effects nested < no random effects < random effects not nested
 
 # Check model performance by loocv
+# These take a very long time to run. Running the nested model went for 1.25 hours and didn't finish. Should maybe explore doing a k-folds cross validation.
 loocv(mod_re_nested, local = T)
 loocv(mod_re_unnested, local = T)
 
