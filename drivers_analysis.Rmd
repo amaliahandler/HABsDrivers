@@ -140,8 +140,14 @@ loocv(tmp_mod)
 # This runs
 # Okay, there's some problem with my models, but I don't know what it is.
 
-
+# Visualize the standardized residuals
 re_nested_resid <- augment(mod_re_nested)
+mapview(re_nested_resid, zcol = ".std.resid", legend = TRUE)
+
+# Filter to just the big residuals
+tmp <- filter(re_nested_resid, .std.resid < -2 | .std.resid > 2)
+mapview(tmp, zcol = ".std.resid", legend = TRUE)
+# Seem fairly randomly distributed across the country
 
 mapview(re_nested_resid, zcol = ".std.resid", at = c(-5.4, -2, 2.6), legend = TRUE)
 
