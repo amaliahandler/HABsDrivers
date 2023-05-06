@@ -103,7 +103,7 @@ glances(mod_no_re, mod_re_unnested, mod_re_nested)
 
 # Check model performance by loocv
 # These take a very long time to run. Running the nested model went for 1.25 hours and didn't finish. Should maybe explore doing a k-folds cross validation.
-loocv(mod_re_nested, local = T)
+loocv(mod_re_nested, local = T) # 0.8567984
 loocv(mod_re_unnested, local = T)
 
 # The error in LOOCV seems to be related to the random effect. Does it still fail for a model run without a random effect?
