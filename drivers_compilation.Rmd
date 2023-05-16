@@ -287,6 +287,28 @@ length(uid17[uid17 %in% tmp$UNIQUE_ID])
 
 # Okay, new approach. Take the average of the 2002, 2007, and 2017 NNI and apply these numbers 
 
+nni07 <- mutate(nni2007, DSGN_CYCLE = 2007)
+nni12 <- mutate(nni2012, DSGN_CYCLE = 2012)
+
+nni0712 <- bind_rows(nni07, nni12)
+
+nni_mean <- nni0712 |>
+  select(SITE_ID, VISIT_NO, DSGN_CYCLE, contains(c("Total_Inputs", "Surplus"))) |>
+  mutate(N_Total_Inputs = rowMeans(select(nni0712, starts_with('N_Total_Inputs')), na.rm = TRUE),
+         N_Surplus = rowMeans(select(nni0712, starts_with('N_Surplus')), na.rm = TRUE),
+         P_Surplus = rowMeans(select(nni0712, starts_with('P_Surplus')), na.rm = TRUE)) |>
+  filter(VISIT_NO == 1) |>
+  select(SITE_ID, VISIT_NO, DSGN_CYCLE, N_Total_Inputs, N_Surplus, P_Surplus) |>
+  inner_join(filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
+  # select(N_Total_Inputs:UNIQUE_ID)|>
+  arrange(UNIQUE_ID)
+  # Now need to ensure there is just one observation per UNIQUE_ID
+# Estimates do differ slightly based on the source data (NLA NNI for 2007 vs 2012)
+  
+  
+
+
+
 
 ```
 
