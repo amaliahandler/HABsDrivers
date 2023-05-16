@@ -209,13 +209,9 @@ evap_infl <- relocate(evap_infl, SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_
 
 # How many of the NLA sites are missing E/I data?
 nrow(nla_id) - nrow(evap_infl)
+nrow(nla_id) - nrow(ei17) - nrow(ei0712) # Didn't lose anything in the joining process
 
-# Note that most of the missing data comes from the site revisits
-missing_check <- nla_all_coms %>%
-  left_join(evap_infl, by = c("UNIQUE_ID","DSGN_CYCLE","VISIT_NO")) %>%
-  filter(is.na(RESULT))
-
-table(missing_check$VISIT_NO)
+# There were fewer rows for the E/I data than there exist for the full NLA data. Unclear why, the E/I data includes site revisits and hand selected sites. Cannot identify a systematic reason for their exclusion.
 
 ```
 
@@ -234,27 +230,20 @@ wsmet_nla <- wsmet %>%
   select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, RunoffWs, Precip_Minus_EVTWs, WWTPWs, starts_with("Pct"), Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs) %>%
   right_join(nla_id, by = c("UNIQUE_ID", "DSGN_CYCLE"))
 
-# Duplicated rows
-tmp <- wsmet_nla |>
-  filter_at(vars(lakemorpho_depth, RunoffWs, Precip_Minus_EVTWs, WWTPWs, starts_with("Pct"), Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs), all_vars(is.na(.)))
+```
 
-length(unique(wsmet_nla$UNIQUE_ID))
-length(unique(nla_id$UNIQUE_ID))
 
-wsmet_nla |>
-  select(UNIQUE_ID, VISIT_NO, DSGN_CYCLE) |>
-  distinct() |>
-  nrow()
+Add in nutrient inventory data compiled by Robert Sabo and others
 
-tmp <- wsmet_nla |>
-  group_by(UNIQUE_ID, VISIT_NO, DSGN_CYCLE) |>
-  mutate(count = n()) |>
-  filter(count >1)
 
-filter(nla_id, UNIQUE_ID == "NLA_NV-10003")
-filter(wsmet_nla, UNIQUE_ID == "NLA_NV-10003")
+```{r}
+# Read in the 2007 data
+# Read in the 2012 data
+# Note they have not yet processed the 2017 NLA
+
 
 ```
+
 
 Compile together NLA, NLA+, and LakeCat data
 
