@@ -237,9 +237,55 @@ Add in nutrient inventory data compiled by Robert Sabo and others
 
 
 ```{r}
+# Note that nutrient inventory data is in units of kg N/yr or kg P/yr
+
 # Read in the 2007 data
+nni2007 <- read.csv("NLA07_NutrientInventory.csv")
+
 # Read in the 2012 data
+nni2012 <- read.csv("NLA12_NutrientInventory.csv")
+
 # Note they have not yet processed the 2017 NLA
+
+# Select for the inventory total N and P inputs and surplus
+nni07 <- nni2007 |>
+  select(SITE_ID, VISIT_NO, ends_with(c("Total_Inputs_2007", "Surplus_2007"))) |>
+  rename(N_Total_Inputs = N_Total_Inputs_2007, N_Surplus = N_Surplus_2007, P_Surplus = P_Surplus_2007) |>
+  mutate(DSGN_CYCLE = 2007)
+
+nni12 <- nni2012 |>
+  select(SITE_ID, VISIT_NO, ends_with(c("Total_Inputs_2012", "Surplus_2012"))) |>
+  rename(N_Total_Inputs = N_Total_Inputs_2012, N_Surplus = N_Surplus_2012, P_Surplus = P_Surplus_2012) |>
+  mutate(DSGN_CYCLE = 2012)
+
+# Bind together 2007 and 2012 data
+nni0712 <- bind_rows(nni07, nni12)
+
+# Again, issues with same UNIQUE_ID, site visit = 1, and two SITE_IDs for NLA_NV-10003
+nni0712$VISIT_NO[nni0712$SITE_ID == "NLA06608-NV:4"] <- 2
+
+# Join with ID information 
+nni0712_id <- right_join(nni0712, filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
+
+# Check for missing data
+tmp <- nni0712 |>
+  right_join(filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
+  filter(is.na(N_Total_Inputs) | is.na(N_Surplus) | is.na(P_Surplus))
+
+# How many of the site_ids from the 2007 and 2012 NNI are included in the 2017 NLA?
+
+# 2017 site ids
+uid17 <- pull(filter(nla_id, DSGN_CYCLE == 2017), var = "UNIQUE_ID")
+
+# Relate 07 and 12 SITE_IDs to UNIQUE_IDs
+tmp <- inner_join(nni0712, filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE"))
+
+# Check how many of the UNIQUE_IDs from 07 and 12 inventory are present in the 2017 data
+length(uid17[uid17 %in% tmp$UNIQUE_ID])
+
+# Half of the 2017 lakes are included in the 2007 and 2012 NLA site for which there is inventory data
+
+# Okay, new approach. Take the average of the 2002, 2007, and 2017 NNI and apply these numbers 
 
 
 ```
