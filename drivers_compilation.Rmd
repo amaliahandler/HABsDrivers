@@ -36,7 +36,7 @@ National lakes assessment (NLA)
 * X_HydroAP
 * X_Evaporation/Inflow
 
-PRISM
+PRISM (climate normals)
 * X_Air temperature
 * X_Precipitation
 
@@ -58,7 +58,7 @@ LakeCat
 
 Nutrient Inventory
 * Nitrogen and phosphorus inputs
-* Nitrogen and phosphorus excess
+* Nitrogen and phosphorus surplus
 
 Lakemorpho
 * X_Depth
@@ -76,6 +76,9 @@ These data were compiled by Karen Blocksom
 
 # Updated from Karen to include temperature data whenever a profile was collected
 all_nla <- read.csv("NLA2007-2012-2017_LakeData_forHABs_12April2022.csv")
+
+# Note that one site (UNIQUE_ID = "NLA_NV-10003") is creating problems since it was sampled twice in 2007 and both visits are coded a VISIT_NO = 1. Quick fix is to recode the site visit number in September to be VISIT_NO = 2.
+all_nla$VISIT_NO[all_nla$UNIQUE_ID == "NLA_NV-10003" & all_nla$DATE_COL == "09/17/2007"] <- 2
 
 # Read in NLA UNIQUE_ID - NHDPlusV2 COMID crosswalk info from Marc
 nla_lakecat <- read.csv("Integrated_NLA-LakeCat_COMID_Crosswalk.csv")
@@ -153,7 +156,10 @@ nla_id <- nla_long %>%
   select(SITE_ID:COMID) %>%
   distinct()
 
-
+nla_long |>
+  filter(ANALYTE %in% c("NITRATE_N", "NTL", "PTL")) |>
+  group_by(DSGN_CYCLE, ANALYTE) |>
+  summarise(mean = mean(na.omit(RESULT)))
 
 ```
 
@@ -220,11 +226,33 @@ Add watershed metrics compiled by Marc Weber for all NLA lakes (in Lakecat and n
 # Watershed metrics for NLA lakes compiled by Marc
 wsmet <- read.csv("NLA_WatershedMetrics_NoDuplicates.csv")
 
+# There is a duplicated set of data for one lake (UNIQUE_ID = "NLA_NV_10003") that has two different SITE_IDs for 2007. LakeCat data is identical between the two. Easiest solution is to remove one row of the data. Removing the one with the hand selected SITE_ID
+wsmet <- filter(wsmet, SITE_ID != "NLA06608-NV:4")
+
 # Select data I want to use and join with NLA data
-wsmet <- wsmet %>%
+wsmet_nla <- wsmet %>%
   select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, RunoffWs, Precip_Minus_EVTWs, WWTPWs, starts_with("Pct"), Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs) %>%
   right_join(nla_id, by = c("UNIQUE_ID", "DSGN_CYCLE"))
 
+# Duplicated rows
+tmp <- wsmet_nla |>
+  filter_at(vars(lakemorpho_depth, RunoffWs, Precip_Minus_EVTWs, WWTPWs, starts_with("Pct"), Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs), all_vars(is.na(.)))
+
+length(unique(wsmet_nla$UNIQUE_ID))
+length(unique(nla_id$UNIQUE_ID))
+
+wsmet_nla |>
+  select(UNIQUE_ID, VISIT_NO, DSGN_CYCLE) |>
+  distinct() |>
+  nrow()
+
+tmp <- wsmet_nla |>
+  group_by(UNIQUE_ID, VISIT_NO, DSGN_CYCLE) |>
+  mutate(count = n()) |>
+  filter(count >1)
+
+filter(nla_id, UNIQUE_ID == "NLA_NV-10003")
+filter(wsmet_nla, UNIQUE_ID == "NLA_NV-10003")
 
 ```
 
