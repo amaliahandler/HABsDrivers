@@ -300,28 +300,41 @@ nni_mean <- nni0712 |>
   filter(VISIT_NO == 1) |>
   select(SITE_ID, VISIT_NO, DSGN_CYCLE, N_Total_Inputs, N_Surplus, P_Surplus) |>
   inner_join(filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
-  # select(N_Total_Inputs:UNIQUE_ID)|>
   arrange(UNIQUE_ID)
-  # Now need to ensure there is just one observation per UNIQUE_ID
-# Estimates do differ slightly based on the source data (NLA NNI for 2007 vs 2012)
-  
-# How far off are the estimates?
-tmp <- nni_mean |>
-  select(UNIQUE_ID, DSGN_CYCLE, N_Surplus) |>
-  pivot_wider(id_cols = UNIQUE_ID, names_from = DSGN_CYCLE, values_from = N_Surplus)
 
-ggplot(tmp, aes(x = `2007`, y = `2012`)) + geom_point()
-# Most have good agreement, but some can be quite off
+# Since the estimates of the inventory can differ slightly for a given lake whether it was processed for the 2007 NLA or the 2012 NLA (the 2002, 2007, and 2012 inventory was processed for each file separately, I'm guessing), will need to choose which to use
 
-# Is the difference due to missing values in taking the mean?
-tmp <- nni0712 |>
-  select(SITE_ID, VISIT_NO, DSGN_CYCLE, contains(c("Total_Inputs", "Surplus"))) |>
-  inner_join(filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
-  filter(VISIT_NO == 1) |>
-  select(-c(SITE_ID:VISIT_NO, DATE_COL:COMID)) |>
-  pivot_wider(id_cols = UNIQUE_ID, names_from = DSGN_CYCLE, values_from = N_Total_Inputs_2002:P_Surplus_2012)
+nni_mean_12 <- filter(nni_mean, DSGN_CYCLE == 2012)
+nni_mean_07 <- filter(nni_mean, DSGN_CYCLE == 2007)
 
-ggplot(data = tmp, aes(x = N_Total_Inputs_2002_2007, y = N_Total_Inputs_2002_2012)) + geom_point() + geom_abline(slope = 1, intercept = 0)
+# Take all means from the 2012 file and fill in any missing UNIQUE_IDs with the 2007 file
+nni_mean_07_filt <- filter(nni_mean_07, !(UNIQUE_ID %in% nni_mean_12$UNIQUE_ID))
+
+# Bind together the rows
+nni_mean <- bind_rows(nni_mean_12, nni_mean_07_filt)
+
+# Use this to integrate into the rest of the metrics. It covers >50% of the UNIQUE_IDs in the 2017 NLA
+length(uid17[uid17 %in% nni_mean$UNIQUE_ID])
+
+# # Estimates do differ slightly based on the source data (NLA NNI for 2007 vs 2012)
+#   
+# # How far off are the estimates?
+# tmp <- nni_mean |>
+#   select(UNIQUE_ID, DSGN_CYCLE, N_Surplus) |>
+#   pivot_wider(id_cols = UNIQUE_ID, names_from = DSGN_CYCLE, values_from = N_Surplus)
+# 
+# ggplot(tmp, aes(x = `2007`, y = `2012`)) + geom_point()
+# # Most have good agreement, but some can be quite off
+# 
+# # Is the difference due to missing values in taking the mean?
+# tmp <- nni0712 |>
+#   select(SITE_ID, VISIT_NO, DSGN_CYCLE, contains(c("Total_Inputs", "Surplus"))) |>
+#   inner_join(filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
+#   filter(VISIT_NO == 1) |>
+#   select(-c(SITE_ID:VISIT_NO, DATE_COL:COMID)) |>
+#   pivot_wider(id_cols = UNIQUE_ID, names_from = DSGN_CYCLE, values_from = N_Total_Inputs_2002:P_Surplus_2012)
+# 
+# ggplot(data = tmp, aes(x = N_Total_Inputs_2002_2007, y = N_Total_Inputs_2002_2012)) + geom_point() + geom_abline(slope = 1, intercept = 0)
 
 ```
 
