@@ -305,10 +305,23 @@ nni_mean <- nni0712 |>
   # Now need to ensure there is just one observation per UNIQUE_ID
 # Estimates do differ slightly based on the source data (NLA NNI for 2007 vs 2012)
   
-  
+# How far off are the estimates?
+tmp <- nni_mean |>
+  select(UNIQUE_ID, DSGN_CYCLE, N_Surplus) |>
+  pivot_wider(id_cols = UNIQUE_ID, names_from = DSGN_CYCLE, values_from = N_Surplus)
 
+ggplot(tmp, aes(x = `2007`, y = `2012`)) + geom_point()
+# Most have good agreement, but some can be quite off
 
+# Is the difference due to missing values in taking the mean?
+tmp <- nni0712 |>
+  select(SITE_ID, VISIT_NO, DSGN_CYCLE, contains(c("Total_Inputs", "Surplus"))) |>
+  inner_join(filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
+  filter(VISIT_NO == 1) |>
+  select(-c(SITE_ID:VISIT_NO, DATE_COL:COMID)) |>
+  pivot_wider(id_cols = UNIQUE_ID, names_from = DSGN_CYCLE, values_from = N_Total_Inputs_2002:P_Surplus_2012)
 
+ggplot(data = tmp, aes(x = N_Total_Inputs_2002_2007, y = N_Total_Inputs_2002_2012)) + geom_point() + geom_abline(slope = 1, intercept = 0)
 
 ```
 
