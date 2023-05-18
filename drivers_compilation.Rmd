@@ -317,7 +317,7 @@ nni_mean <- bind_rows(nni_mean_12, nni_mean_07_filt)
 length(uid17[uid17 %in% nni_mean$UNIQUE_ID])
 
 # # Estimates do differ slightly based on the source data (NLA NNI for 2007 vs 2012)
-#   
+# 
 # # How far off are the estimates?
 # tmp <- nni_mean |>
 #   select(UNIQUE_ID, DSGN_CYCLE, N_Surplus) |>
@@ -335,11 +335,28 @@ length(uid17[uid17 %in% nni_mean$UNIQUE_ID])
 #   pivot_wider(id_cols = UNIQUE_ID, names_from = DSGN_CYCLE, values_from = N_Total_Inputs_2002:P_Surplus_2012)
 # 
 # ggplot(data = tmp, aes(x = N_Total_Inputs_2002_2007, y = N_Total_Inputs_2002_2012)) + geom_point() + geom_abline(slope = 1, intercept = 0)
+# 
+# tmp <- nni0712 |>
+#   select(SITE_ID, VISIT_NO, DSGN_CYCLE, contains(c("N_Total_Inputs"))) |>
+#   pivot_longer(cols = N_Total_Inputs_2002:N_Total_Inputs_2012,
+#                names_to = "NNI_YEAR",
+#                names_pattern = "N_Total_Inputs_?(.*)",
+#                values_to = "N_Total_Inputs") |>
+#   inner_join(filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
+#   filter(VISIT_NO == 1) |>
+#   select(-c(SITE_ID:VISIT_NO, DATE_COL:COMID)) |>
+#   pivot_wider(id_cols = c(UNIQUE_ID, NNI_YEAR), names_from = DSGN_CYCLE, values_from = N_Total_Inputs)
+# 
+# ggplot(data = tmp, aes(x = `2007`, y = `2012`, color = NNI_YEAR)) + geom_abline(slope = 1, intercept = 0) + geom_point() + ylab("Data Source: NLA12_Final.csv") + xlab("Data Source: NLA07_Final.csv") + ggtitle("N_Total_Inputs")
+# 
+# nrow(drop_na(tmp, `2007`:`2012`))
+  
+  
 
 ```
 
 
-Compile together NLA, NLA+, and LakeCat data
+Compile together NLA, NLA+, LakeCat, and Nutrient Inventory data
 
 ```{r}
 # Convert from long to wide format
@@ -347,7 +364,8 @@ habs_comb <- nla_long %>%
   bind_rows(evap_infl) %>%
   select(!UNITS) %>%
   pivot_wider(names_from = ANALYTE, values_from = RESULT, values_fill = NA) %>%
-  left_join(select(wsmet, UNIQUE_ID:SlopeWs), by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
+  left_join(select(wsmet_nla, UNIQUE_ID:SlopeWs), by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
+  left_join(select(nni_mean, N_Total_Inputs:UNIQUE_ID), by = "UNIQUE_ID") |>
   filter(!is.na(UNIQUE_ID)) |>
   mutate(DSGN_CYCLE = factor(DSGN_CYCLE),
          UNIQUE_ID = factor(UNIQUE_ID))
