@@ -216,7 +216,7 @@ nrow(nla_id) - nrow(ei17) - nrow(ei0712) # Didn't lose anything in the joining p
 ```
 
 
-Add watershed metrics compiled by Marc Weber for all NLA lakes (in Lakecat and not in Lakecat)
+Add watershed metrics compiled by Marc Weber for all NLA lakes (in Lakecat and not in Lakecat). Curiously only includes the 2006 and 2011 NLCD. Bringing in the 2016 NLCD from LakeCat.
 
 ```{r}
 # Watershed metrics for NLA lakes compiled by Marc
@@ -225,10 +225,51 @@ wsmet <- read.csv("NLA_WatershedMetrics_NoDuplicates.csv")
 # There is a duplicated set of data for one lake (UNIQUE_ID = "NLA_NV_10003") that has two different SITE_IDs for 2007. LakeCat data is identical between the two. Easiest solution is to remove one row of the data. Removing the one with the hand selected SITE_ID
 wsmet <- filter(wsmet, SITE_ID != "NLA06608-NV:4")
 
-# Select data I want to use and join with NLA data
-wsmet_nla <- wsmet %>%
-  select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, RunoffWs, Precip_Minus_EVTWs, WWTPWs, starts_with("Pct"), Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs) %>%
+# Focus on NLCD first for 2007 and 2012 NLA (pairing with 2006 and 2011 NLCD)
+nla0712_nlcd <- wsmet %>%
+  mutate(dev_ws = case_when(DSGN_CYCLE == 2007 ~ rowSums(select(wsmet, PctUrbOp2006Ws:PctUrbHi2006Ws)),
+                            TRUE ~ rowSums(select(wsmet, PctUrbOp2011Ws:PctUrbHi2011Ws))),
+         wet_ws = case_when(DSGN_CYCLE == 2007 ~ PctWdWet2006Ws + PctHbWet2006Ws,
+                            TRUE ~ PctWdWet2011Ws + PctHbWet2011Ws),
+         nondev_ws = case_when(DSGN_CYCLE == 2007 ~ rowSums(select(wsmet, c(PctOw2006Ws, PctIce2006Ws, PctBl2006Ws:PctGrs2006Ws))),
+                               TRUE ~ rowSums(select(wsmet, c(PctOw2011Ws, PctIce2011Ws, PctBl2011Ws:PctGrs2011Ws)))),
+         agr_ws = case_when(DSGN_CYCLE == 2007 ~ PctHay2006Ws + PctCrop2006Ws,
+                            TRUE ~ PctHay2011Ws + PctCrop2011Ws)) |>
+  filter(wsmet$DSGN_CYCLE != 2017) |>
+  select(UNIQUE_ID, DSGN_CYCLE, ends_with("_ws")) %>%
+  right_join(filter(nla_id, DSGN_CYCLE != 2017), by = c("UNIQUE_ID", "DSGN_CYCLE"))
+
+# Next focus on 2017 NLA to pair with 2016 NLCD data
+# Load in NLCD 2016 data
+nlcd16 <- readr::read_csv("LakeCat_NLCD2016.csv")
+
+# Find COMIDS for 2017 NLA
+nla_id17 <- nla_id |>
+  filter(DSGN_CYCLE == 2017) |>
+  pull(COMID) |>
+  unique()
+
+# Join with the NLA lake COMIDs included in the analysis
+# This is losing about 85 lakes. Are these not in lakecat?
+nla17_nlcd <- nlcd16 %>%
+  mutate(agr_ws = PctHay2016Ws + PctCrop2016Ws,
+         dev_ws = rowSums(select(nlcd16, PctUrbOp2016Ws:PctUrbHi2016Ws)),
+         nondev_ws = rowSums(select(nlcd16, c(PctOw2016Ws, PctIce2016Ws, PctBl2016Ws:PctGrs2016Ws))),
+         wet_ws = PctWdWet2016Ws + PctHbWet2016Ws) %>%
+  filter(COMID %in% nla_id17) %>%
+  select(COMID, ends_with("_ws")) |>
+  right_join(filter(nla_id, DSGN_CYCLE == 2017), by = "COMID")
+
+# Bind together 2007/2012 and 2017 NLA-NLCD data
+nla_nlcd <- bind_rows(nla0712_nlcd, nla17_nlcd)
+
+# Next pull in other relevant watershed characteristics
+ws_char <- wsmet |>
+  select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, RunoffWs, Precip_Minus_EVTWs, WWTPWs, Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs) %>%
   right_join(nla_id, by = c("UNIQUE_ID", "DSGN_CYCLE"))
+
+# Combine NLCD with other watershed characteristics
+ws_char <- right_join(ws_char, nla_nlcd, by = c("UNIQUE_ID", "DSGN_CYCLE", "VISIT_NO"))
 
 ```
 
@@ -351,8 +392,6 @@ length(uid17[uid17 %in% nni_mean$UNIQUE_ID])
 # 
 # nrow(drop_na(tmp, `2007`:`2012`))
   
-  
-
 ```
 
 
@@ -382,72 +421,8 @@ habs <- sf::st_transform(habs_nars_all, crs = 5070)
 ```
 
 
-
-Load the lakecat data
-
-```{r}
-
-# Load in NLCD 2016 data
-nlcd <- read.csv("Lakecat_NLCD2016.csv")
-
-# Watershed slope information
-# slope <- read.csv("Lakecat_Slope.csv")
-
-# Lake watershed elevation
-# elev <- read.csv("Lakecat_Elevation.csv")
-
-# NLA integrated design status as of 2019-08-21. Crosswalks NLA site IDs with NHDPlusV2 lake COMIDs
-nla_nhd <- read.csv("NLA_Integrated_Design_Status_20190821.csv")
-
-# Combine the crosswalk df with the nla_id info to see if this fixes the problem of missing lakes with NLA-Lakecat join
-master_id <- nla_nhd %>%
-  select(COMID, SITE_ID, UNIQUE_ID, DSGN_CYCLE) %>%
-  rename(NLA_YEAR = DSGN_CYCLE) %>%
-  right_join(nla_id, by = c("SITE_ID", "NLA_YEAR"))
-
-# Join with the NLA lake COMIDs included in the analysis
-# This is losing about 185 lakes. Are these not in lakecat?
-# Sounds like there may be issues in crosstalk for COMIDs listed in each NLA versus what was used for Lakecat
-nla_lakecat <- nlcd %>%
-  filter(COMID %in% nla_id$COMID) %>%
-  mutate(agr_cat = PctHay2016Cat + PctCrop2016Cat,
-         dev_cat = rowSums(select(., PctUrbOp2016Cat:PctUrbHi2016Cat)),
-         nondev_cat = rowSums(select(., c(PctOw2016Cat, PctIce2016Cat, PctBl2016Cat:PctGrs2016Cat))),
-         wet_cat = PctWdWet2016Cat + PctHbWet2016Cat,
-         agr_ws = PctHay2016Ws + PctCrop2016Ws,
-         dev_ws = rowSums(select(., PctUrbOp2016Ws:PctUrbHi2016Ws)),
-         nondev_ws = rowSums(select(., c(PctOw2016Ws, PctIce2016Ws, PctBl2016Ws:PctGrs2016Ws))),
-         wet_ws = PctWdWet2016Ws + PctHbWet2016Ws) %>%
-  select(COMID, agr_cat:wet_ws)
-
-
-# Which COMIDs are lacking from lakecat?
-included_coms <- nlcd$COMID[nlcd$COMID %in% nla_id$COMID]
-missing_coms  <- unique(nla_id$COMID[!(nla_id$COMID %in% included_coms)])
-
-included_coms <- slope$COMID[slope$COMID %in% nla_id$COMID]
-missing_coms  <- unique(nla_id$COMID[!(nla_id$COMID %in% included_coms)])
-
-included_coms <- elev$COMID[elev$COMID %in% nla_id$COMID]
-missing_coms  <- unique(nla_id$COMID[!(nla_id$COMID %in% included_coms)])
-
-tmp <- nla_id[nla_id$COMID %in% missing_coms,]
-
-unique(tmp$NLA_YEAR)
-
-# Join NLCD with NLA HAB data
-nla_nlcd <- left_join(nlahab, nlcd[,c(1,7:38)], by = "COMID")
-
-# Save that data in an RDS file
-saveRDS(nla_nlcd, "./compiled_nla17_nlcd16.rds")
-
-# Read in saved RDS file
-nla_nlcd <- readRDS("./compiled_nla17_nlcd16.rds")
-```
-
-
-
 Figures for presentations 
+
 
 ```{r}
 # Presentations for CPHEA managers call, JASM, and PESD Science Seminar
