@@ -333,6 +333,7 @@ nni12 <- mutate(nni2012, DSGN_CYCLE = 2012)
 
 nni0712 <- bind_rows(nni07, nni12)
 
+# Note that the same lake can have (usually small) differences in the nutrient inputs the same NNI year in the 2007 and 2012 NLA files. This is because the NNI was downscaled to each lake watershed using the corresponding NLCD data for the NLA survey (2007 NLA = 2006 NLCD, 2012 NLA = 2011 NLCD). Because of slight changes in the relevant land use classes in the two NLCDs, there are differences in the derived inventories based on this.
 nni_mean <- nni0712 |>
   select(SITE_ID, VISIT_NO, DSGN_CYCLE, contains(c("Total_Inputs", "Surplus"))) |>
   mutate(N_Total_Inputs = rowMeans(select(nni0712, starts_with('N_Total_Inputs')), na.rm = TRUE),
