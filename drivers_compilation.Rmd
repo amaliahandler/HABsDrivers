@@ -286,113 +286,30 @@ nni2007 <- read.csv("NLA07_NutrientInventory.csv")
 # Read in the 2012 data
 nni2012 <- read.csv("NLA12_NutrientInventory.csv")
 
-# Note they have not yet processed the 2017 NLA
+# Select the relevant columns from each and join with NLA ID info to get unique IDs
+extractor <- function(x, year){
+  x |> 
+    select(SITE_ID, VISIT_NO, contains(c("Total_Inputs", "Surplus"))) |>
+    left_join(filter(nla_id, DSGN_CYCLE == year), by = c("SITE_ID", "VISIT_NO"))
+}
 
-# Select for the inventory total N and P inputs and surplus
-nni07 <- nni2007 |>
-  select(SITE_ID, VISIT_NO, ends_with(c("Total_Inputs_2007", "Surplus_2007"))) |>
-  rename(N_Total_Inputs = N_Total_Inputs_2007, N_Surplus = N_Surplus_2007, P_Surplus = P_Surplus_2007) |>
-  mutate(DSGN_CYCLE = 2007)
-
-nni12 <- nni2012 |>
-  select(SITE_ID, VISIT_NO, ends_with(c("Total_Inputs_2012", "Surplus_2012"))) |>
-  rename(N_Total_Inputs = N_Total_Inputs_2012, N_Surplus = N_Surplus_2012, P_Surplus = P_Surplus_2012) |>
-  mutate(DSGN_CYCLE = 2012)
-
-# Bind together 2007 and 2012 data
-nni0712 <- bind_rows(nni07, nni12)
-
-# Again, issues with same UNIQUE_ID, site visit = 1, and two SITE_IDs for NLA_NV-10003
-nni0712$VISIT_NO[nni0712$SITE_ID == "NLA06608-NV:4"] <- 2
-
-# Join with ID information 
-nni0712_id <- right_join(nni0712, filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
-
-# Check for missing data
-tmp <- nni0712 |>
-  right_join(filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
-  filter(is.na(N_Total_Inputs) | is.na(N_Surplus) | is.na(P_Surplus))
-
-# How many of the site_ids from the 2007 and 2012 NNI are included in the 2017 NLA?
-
-# 2017 site ids
-uid17 <- pull(filter(nla_id, DSGN_CYCLE == 2017), var = "UNIQUE_ID")
-
-# Relate 07 and 12 SITE_IDs to UNIQUE_IDs
-tmp <- inner_join(nni0712, filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE"))
-
-# Check how many of the UNIQUE_IDs from 07 and 12 inventory are present in the 2017 data
-length(uid17[uid17 %in% tmp$UNIQUE_ID])
-
-# Half of the 2017 lakes are included in the 2007 and 2012 NLA site for which there is inventory data
-
-# Okay, new approach. Take the average of the 2002, 2007, and 2017 NNI and apply these numbers 
-
-nni07 <- mutate(nni2007, DSGN_CYCLE = 2007)
-nni12 <- mutate(nni2012, DSGN_CYCLE = 2012)
+nni07 <- extractor(nni2007, 2007)
+nni12 <- extractor(nni2012, 2012)
 
 nni0712 <- bind_rows(nni07, nni12)
 
 # Note that the same lake can have (usually small) differences in the nutrient inputs the same NNI year in the 2007 and 2012 NLA files. This is because the NNI was downscaled to each lake watershed using the corresponding NLCD data for the NLA survey (2007 NLA = 2006 NLCD, 2012 NLA = 2011 NLCD). Because of slight changes in the relevant land use classes in the two NLCDs, there are differences in the derived inventories based on this.
 nni_mean <- nni0712 |>
-  select(SITE_ID, VISIT_NO, DSGN_CYCLE, contains(c("Total_Inputs", "Surplus"))) |>
   mutate(N_Total_Inputs = rowMeans(select(nni0712, starts_with('N_Total_Inputs')), na.rm = TRUE),
          N_Surplus = rowMeans(select(nni0712, starts_with('N_Surplus')), na.rm = TRUE),
          P_Surplus = rowMeans(select(nni0712, starts_with('P_Surplus')), na.rm = TRUE)) |>
   filter(VISIT_NO == 1) |>
-  select(SITE_ID, VISIT_NO, DSGN_CYCLE, N_Total_Inputs, N_Surplus, P_Surplus) |>
-  inner_join(filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
-  arrange(UNIQUE_ID)
+  group_by(UNIQUE_ID) |>
+  summarise(N_Total_Inputs = mean(N_Total_Inputs, na.rm = T),
+            N_Surplus = mean(N_Surplus, na.rm = T),
+            P_Surplus = mean(P_Surplus, na.rm = T)) |>
+  drop_na(N_Total_Inputs, N_Surplus, P_Surplus)
 
-# Since the estimates of the inventory can differ slightly for a given lake whether it was processed for the 2007 NLA or the 2012 NLA (the 2002, 2007, and 2012 inventory was processed for each file separately, I'm guessing), will need to choose which to use
-
-nni_mean_12 <- filter(nni_mean, DSGN_CYCLE == 2012)
-nni_mean_07 <- filter(nni_mean, DSGN_CYCLE == 2007)
-
-# Take all means from the 2012 file and fill in any missing UNIQUE_IDs with the 2007 file
-nni_mean_07_filt <- filter(nni_mean_07, !(UNIQUE_ID %in% nni_mean_12$UNIQUE_ID))
-
-# Bind together the rows
-nni_mean <- bind_rows(nni_mean_12, nni_mean_07_filt)
-
-# Use this to integrate into the rest of the metrics. It covers >50% of the UNIQUE_IDs in the 2017 NLA
-length(uid17[uid17 %in% nni_mean$UNIQUE_ID])
-
-# # Estimates do differ slightly based on the source data (NLA NNI for 2007 vs 2012)
-# 
-# # How far off are the estimates?
-# tmp <- nni_mean |>
-#   select(UNIQUE_ID, DSGN_CYCLE, N_Surplus) |>
-#   pivot_wider(id_cols = UNIQUE_ID, names_from = DSGN_CYCLE, values_from = N_Surplus)
-# 
-# ggplot(tmp, aes(x = `2007`, y = `2012`)) + geom_point()
-# # Most have good agreement, but some can be quite off
-# 
-# # Is the difference due to missing values in taking the mean?
-# tmp <- nni0712 |>
-#   select(SITE_ID, VISIT_NO, DSGN_CYCLE, contains(c("Total_Inputs", "Surplus"))) |>
-#   inner_join(filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
-#   filter(VISIT_NO == 1) |>
-#   select(-c(SITE_ID:VISIT_NO, DATE_COL:COMID)) |>
-#   pivot_wider(id_cols = UNIQUE_ID, names_from = DSGN_CYCLE, values_from = N_Total_Inputs_2002:P_Surplus_2012)
-# 
-# ggplot(data = tmp, aes(x = N_Total_Inputs_2002_2007, y = N_Total_Inputs_2002_2012)) + geom_point() + geom_abline(slope = 1, intercept = 0)
-# 
-# tmp <- nni0712 |>
-#   select(SITE_ID, VISIT_NO, DSGN_CYCLE, contains(c("N_Total_Inputs"))) |>
-#   pivot_longer(cols = N_Total_Inputs_2002:N_Total_Inputs_2012,
-#                names_to = "NNI_YEAR",
-#                names_pattern = "N_Total_Inputs_?(.*)",
-#                values_to = "N_Total_Inputs") |>
-#   inner_join(filter(nla_id, DSGN_CYCLE != 2017), by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) |>
-#   filter(VISIT_NO == 1) |>
-#   select(-c(SITE_ID:VISIT_NO, DATE_COL:COMID)) |>
-#   pivot_wider(id_cols = c(UNIQUE_ID, NNI_YEAR), names_from = DSGN_CYCLE, values_from = N_Total_Inputs)
-# 
-# ggplot(data = tmp, aes(x = `2007`, y = `2012`, color = NNI_YEAR)) + geom_abline(slope = 1, intercept = 0) + geom_point() + ylab("Data Source: NLA12_Final.csv") + xlab("Data Source: NLA07_Final.csv") + ggtitle("N_Total_Inputs")
-# 
-# nrow(drop_na(tmp, `2007`:`2012`))
-  
 ```
 
 
