@@ -261,7 +261,9 @@ nla17_nlcd <- nlcd16 %>%
   right_join(filter(nla_id, DSGN_CYCLE == 2017), by = "COMID")
 
 # Bind together 2007/2012 and 2017 NLA-NLCD data
-nla_nlcd <- bind_rows(nla0712_nlcd, nla17_nlcd)
+nla_nlcd <- nla0712_nlcd |>
+  bind_rows(nla17_nlcd) |>
+  select(UNIQUE_ID, DSGN_CYCLE, VISIT_NO, ends_with("_ws"))
 
 # Next pull in other relevant watershed characteristics
 ws_char <- wsmet |>
@@ -321,8 +323,8 @@ habs_comb <- nla_long %>%
   bind_rows(evap_infl) %>%
   select(!UNITS) %>%
   pivot_wider(names_from = ANALYTE, values_from = RESULT, values_fill = NA) %>%
-  left_join(select(wsmet_nla, UNIQUE_ID:SlopeWs), by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
-  left_join(select(nni_mean, N_Total_Inputs:UNIQUE_ID), by = "UNIQUE_ID") |>
+  left_join(select(ws_char, UNIQUE_ID:SlopeWs), by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
+  left_join(nni_mean, by = "UNIQUE_ID") |>
   filter(!is.na(UNIQUE_ID)) |>
   mutate(DSGN_CYCLE = factor(DSGN_CYCLE),
          UNIQUE_ID = factor(UNIQUE_ID))
