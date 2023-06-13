@@ -18,7 +18,8 @@ Project Status: Ongoing
 
 Associated StRAP Numbers: SSWR 404.3.4
 
-Data Files Location: C:\Users\AHANDL01\OneDrive - Environmental Protection Agency (EPA)\Profile\Documents\HABs\HABsDrivers
+Data Files Location: C:/Users/AHANDL01/OneDrive - Environmental Protection Agency (EPA)/Profile/Documents/HABs/HABsDrivers
+
 GitHub Repository: https://github.com/amaliahandler/HABsDrivers
 
 
