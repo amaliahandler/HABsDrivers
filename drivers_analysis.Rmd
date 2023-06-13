@@ -15,37 +15,32 @@ library(sf)
 library(mapview)
 library(dplyr)
 library(tidyr)
+library(ggplot2)
+library(corrplot)
 
-# Detailed guide to spmodel
-# https://rdrr.io/cran/spmodel/f/inst/doc/guide.pdf
-```
-
-
-Load the data and create some composite variables
-
-
-```{r}
 # Load all data and functions from HABsDrivers package
 load_all()
 
-# Filter to only include first visits and most recent samples so that we have an independent set of data
-# habs_ind <- habs %>%
-#   filter(VISIT_NO == 1) %>%
-#   group_by(UNIQUE_ID) %>%
-#   filter(DSGN_CYCLE == max(DSGN_CYCLE))
+# Detailed guide to spmodel
+# https://usepa.github.io/spmodel/articles/guide.html
+```
 
-# Create some composite variables of land use, note that 2006 NLCD is associated with 2007 NLA, but 2011 NLCD is associated with 2012 and 2017 NLA.
-habs <- habs %>%
-  mutate(urban = case_when(DSGN_CYCLE == 2007 ~ PctUrbOp2006Ws + 
-                             PctUrbLo2006Ws + PctUrbMd2006Ws + PctUrbHi2006Ws,
-                           TRUE ~ PctUrbOp2011Ws + PctUrbLo2011Ws + 
-                             PctUrbMd2011Ws + PctUrbHi2011Ws),
-         wetland = case_when(DSGN_CYCLE == 2007 ~ PctWdWet2006Ws + PctHbWet2006Ws,
-                            TRUE ~ PctWdWet2011Ws + PctHbWet2011Ws),
-         forest = case_when(DSGN_CYCLE == 2007 ~ PctDecid2006Ws + PctConif2006Ws + PctMxFst2006Ws,
-                            TRUE ~ PctDecid2011Ws + PctConif2011Ws + PctMxFst2011Ws),
-         agriculture = case_when(DSGN_CYCLE == 2007 ~ PctHay2006Ws + PctCrop2006Ws,
-                                 TRUE ~ PctHay2011Ws + PctCrop2011Ws))
+
+Examine the predictor data for colinear variables
+- TN and DOC
+- Precip8110Ws and Precip_Minus_EVTWs and RunoffWs
+- nondev_ws and agr_ws
+- SlopeWs and ElevWs
+- N_Total_Inputs, N_Surplus, P_Surplus (r > 0.90)
+
+
+```{r}
+cormat_pred <- cor(st_drop_geometry(select(habs, TEMPERATURE:PH, EVAP_INFL:P_Surplus)), use = "pairwise.complete.obs")
+
+cormat_pred <- cor(st_drop_geometry(select(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, dev_ws, wet_ws, nondev_ws, agr_ws, lakemorpho_depth, Precip8110Ws, RunoffWs, Tmean8110Ws, ElevWs, SlopeWs, N_Surplus)), use = "pairwise.complete.obs")
+
+corrplot.mixed(cormat_pred, upper = "ellipse", diag = "n", tl.pos = "lt")
+
 ```
 
 
@@ -76,23 +71,40 @@ Experiment with some spatial models
 # Model without random effects
 # Random effect for survey year and lake, not nested
 mod_no_re <- splm(
-  log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, 
-  data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, urban, wetland, forest, agriculture, lakemorpho_depth, Precip_Minus_EVTWs, Tmean8110Ws, ElevWs, SlopeWs), 
+  log10(B_G_DENS + 1) ~ 
+    NTL + 
+    PTL + 
+    DOC + 
+    TURB + 
+    PH + 
+    TEMPERATURE + 
+    dev_ws + 
+    wet_ws + 
+    agr_ws + 
+    lakemorpho_depth + 
+    Precip8110Ws + 
+    RunoffWs +
+    Tmean8110Ws + 
+    ElevWs + 
+    SlopeWs + 
+    N_Surplus +
+    P_Surplus, 
+  data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, dev_ws, wet_ws, agr_ws, lakemorpho_depth, Precip8110Ws, RunoffWs, Tmean8110Ws, ElevWs, SlopeWs, N_Surplus, P_Surplus), 
   spcov_type = "exponential", 
   local = TRUE) 
 
 # Random effect for survey year and lake, not nested
 mod_re_unnested <- splm(
-  log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, 
-  data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, urban, wetland, forest, agriculture, lakemorpho_depth, Precip_Minus_EVTWs, Tmean8110Ws, ElevWs, SlopeWs), 
+  log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + dev_ws + wet_ws + nondev_ws + agr_ws + lakemorpho_depth + Precip8110Ws + RunoffWs + Tmean8110Ws + ElevWs + SlopeWs + N_Surplus + P_Surplus, 
+  data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, dev_ws, wet_ws, nondev_ws, agr_ws, lakemorpho_depth, Precip8110Ws, RunoffWs, Tmean8110Ws, ElevWs, SlopeWs, N_Surplus, P_Surplus), 
   random = ~ DSGN_CYCLE + UNIQUE_ID, 
   spcov_type = "exponential", 
   local = TRUE) 
 
 # Random effect for survey year and lake nested within survey year (revisits) 
 mod_re_nested <- splm(
-  log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, 
-  data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, urban, wetland, forest, agriculture, lakemorpho_depth, Precip_Minus_EVTWs, Tmean8110Ws, ElevWs, SlopeWs), 
+  log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + dev_ws + wet_ws + nondev_ws + agr_ws + lakemorpho_depth + Precip8110Ws + RunoffWs + Tmean8110Ws + ElevWs + SlopeWs + N_Surplus + P_Surplus, 
+  data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, dev_ws, wet_ws, nondev_ws, agr_ws, lakemorpho_depth, Precip8110Ws, RunoffWs, Tmean8110Ws, ElevWs, SlopeWs, N_Surplus, P_Surplus), 
   random = ~ (DSGN_CYCLE / UNIQUE_ID), 
   spcov_type = "exponential", 
   local = TRUE) 
