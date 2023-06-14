@@ -48,6 +48,62 @@ Experiment with some spatial models
 
 
 ```{r}
+create_formula <- function(dep_var, ind_vars, log = F){
+  # Log = F
+  as.formula(paste(dep_var, " ~ ", paste(ind_vars, collapse = " + ")))
+  # Log = T
+  if(log == T){
+    as.formula(paste("log10(", dep_var, "+ 1) ~ ", paste(ind_vars, collapse = " + ")))
+  }
+}
+
+# The set of in-lake, watershed, and climate variables
+in_lake_vars <- c("NTL", "PTL", "DOC", "TURB", "PH", "TURB", "TEMPERATURE", "STRATIFIED", "EVAP_INFL", "lakemorpho_depth", "Precip8110Ws", "RunoffWs", "Tmean8110Ws", "ElevWs", "SlopeWs", "dev_ws", "wet_ws", "agr_ws")
+
+# The set of variables excluding in-lake data
+no_lake_vars <- c("lakemorpho_depth", "Precip8110Ws", "RunoffWs", "Tmean8110Ws", "ElevWs", "SlopeWs", "dev_ws", "wet_ws", "agr_ws", "N_Surplus", "P_Surplus")
+
+dep_var <- "B_G_DENS"
+
+create_formula(dep_var, in_lake_vars, log = T)
+
+inlake_no_re <- splm(create_formula(dep_var, in_lake_vars, log = T),
+                     data = drop_na(habs, all_of(dep_var), all_of(in_lake_vars)),
+                     spcov_type = "exponential", 
+                     local = TRUE)
+
+inlake_unnest_re <- splm(create_formula(dep_var, in_lake_vars, log = T),
+                         data = drop_na(habs, all_of(dep_var), all_of(in_lake_vars)),
+                         spcov_type = "exponential",
+                         random = ~ DSGN_CYCLE + UNIQUE_ID,
+                         local = TRUE)
+
+inlake_nest_re <- splm(create_formula(dep_var, in_lake_vars, log = T),
+                       data = drop_na(habs, all_of(dep_var), all_of(in_lake_vars)),
+                       spcov_type = "exponential",
+                       random = ~ (DSGN_CYCLE / UNIQUE_ID),
+                       local = TRUE)
+
+nolake_no_re <- splm(create_formula(dep_var, no_lake_vars, log = T),
+                     data = drop_na(habs, all_of(dep_var), all_of(no_lake_vars)),
+                     spcov_type = "exponential", 
+                     local = TRUE)
+
+nolake_unnest_re <- splm(create_formula(dep_var, no_lake_vars, log = T),
+                         data = drop_na(habs, all_of(dep_var), all_of(no_lake_vars)),
+                         spcov_type = "exponential",
+                         random = ~ DSGN_CYCLE + UNIQUE_ID,
+                         local = TRUE)
+
+nolake_nest_re <- splm(create_formula(dep_var, no_lake_vars, log = T),
+                       data = drop_na(habs, all_of(dep_var), all_of(no_lake_vars)),
+                       spcov_type = "exponential",
+                       random = ~ (DSGN_CYCLE / UNIQUE_ID),
+                       local = TRUE)
+
+glances(inlake_no_re, nolake_no_re, inlake_unnest_re, nolake_unnest_re, inlake_nest_re, nolake_nest_re)
+
+
 # Run a few different versions of the model
 
 # Just in-lake data (NARS only) to compare spatial covariance types
