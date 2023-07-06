@@ -54,11 +54,15 @@ do.call(rbind, lapply(c("MICX", "B_G_DENS", "CHLA_RESULT"), function(x){
   df   <- habs
   
   if(x == "MICX"){
-    # df <- drop_na(df, MICX)
+    df <- drop_na(df, MICX)
   }
   
   if(x == "B_G_DENS"){
     form <- as.formula(paste("log10(", x, "+ 1) ~ 1 + (1|SITE_ID)"))
+  }
+  
+  if(x == "CHLA_RESULT"){
+    form <- as.formula(paste("log10(", x, ") ~ 1 + (1|SITE_ID)"))
   }
   
   mod         <- lme4::lmer(form, data = df, REML = T, verbose = F)
