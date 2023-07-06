@@ -44,6 +44,35 @@ corrplot.mixed(cormat_pred, upper = "ellipse", diag = "n", tl.pos = "lt")
 ```
 
 
+How much of the variation in the response variables is potentially explainable based on the spatial versus temporal variation?
+
+
+```{r}
+# Assess spatial (signal) to temporal (noise) in response variables
+do.call(rbind, lapply(c("MICX", "B_G_DENS", "CHLA_RESULT"), function(x){
+  form <- as.formula(paste(x, " ~ 1 + (1|SITE_ID)"))
+  df   <- habs
+  
+  if(x == "MICX"){
+    # df <- drop_na(df, MICX)
+  }
+  
+  if(x == "B_G_DENS"){
+    form <- as.formula(paste("log10(", x, "+ 1) ~ 1 + (1|SITE_ID)"))
+  }
+  
+  mod         <- lme4::lmer(form, data = df, REML = T, verbose = F)
+  site.var    <- as.numeric(lme4::VarCorr(mod)) 
+  visit.var   <- attr(lme4::VarCorr(mod), "sc")^2
+  sn          <- site.var / visit.var
+  maxR2       <- sn/(sn + 1)
+  return(data.frame(variable = x, maxR2))
+}))
+
+
+```
+
+
 Experiment with some spatial models
 
 
@@ -108,6 +137,7 @@ nolake_nest_re <- splm(create_formula(dep_var, no_lake_vars, log = T),
 glances(inlake_no_re, nolake_no_re, inlake_unnest_re, nolake_unnest_re, inlake_nest_re, nolake_nest_re)
 
 # Try random forest
+# A good tutorial introducing random forest https://uc-r.github.io/random_forests
 modRF <- splmRF(create_formula(dep_var, all_vars, log = T),
                 data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
                 spcov_type = "exponential",
