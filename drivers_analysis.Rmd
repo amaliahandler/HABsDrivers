@@ -63,6 +63,9 @@ in_lake_vars <- c("NTL", "PTL", "DOC", "TURB", "PH", "TURB", "TEMPERATURE", "STR
 # The set of variables excluding in-lake data
 no_lake_vars <- c("lakemorpho_depth", "Precip8110Ws", "RunoffWs", "Tmean8110Ws", "ElevWs", "SlopeWs", "dev_ws", "wet_ws", "agr_ws", "N_Surplus", "P_Surplus")
 
+# All variables combined
+all_vars <- c("NTL", "PTL", "DOC", "TURB", "PH", "TURB", "TEMPERATURE", "STRATIFIED", "EVAP_INFL", "lakemorpho_depth", "Precip8110Ws", "RunoffWs", "Tmean8110Ws", "ElevWs", "SlopeWs", "dev_ws", "wet_ws", "agr_ws", "N_Surplus", "P_Surplus", "N_Total_Inputs")
+
 dep_var <- "B_G_DENS"
 
 create_formula(dep_var, in_lake_vars, log = T)
@@ -101,115 +104,121 @@ nolake_nest_re <- splm(create_formula(dep_var, no_lake_vars, log = T),
                        random = ~ (DSGN_CYCLE / UNIQUE_ID),
                        local = TRUE)
 
+# Compared models
 glances(inlake_no_re, nolake_no_re, inlake_unnest_re, nolake_unnest_re, inlake_nest_re, nolake_nest_re)
 
+# Try random forest
+modRF <- splmRF(create_formula(dep_var, all_vars, log = T),
+                data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
+                spcov_type = "exponential",
+                random = ~ (DSGN_CYCLE / UNIQUE_ID),
+                local = TRUE,
+                num.trees       = 500,
+                mtry            = 7,
+                min.node.size   = 3,
+                sample.fraction = .8,
+                importance = "impurity")
 
-# Run a few different versions of the model
+imp <- tibble(var = names(modRF$ranger$variable.importance), var_imp = modRF$ranger$variable.importance)
 
-# Just in-lake data (NARS only) to compare spatial covariance types
-# mod_lake_exp <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE), spcov_type = "exponential")
-# 
-# mod_lake_sph <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "spherical")
-# 
-# mod_lake_gau <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE, data = habs_ind, spcov_type = "gaussian")
+imp %>% 
+  dplyr::arrange(desc(var_imp)) %>%
+  # dplyr::top_n(25) %>%
+  ggplot(aes(x = reorder(var, var_imp), y = var_imp)) +
+  geom_col() +
+  coord_flip() +
+  xlab("Variable") + ylab("Variable Importance")
 
-# glances(mod_lake_exp, mod_lake_sph, mod_lake_gau)
-# Exponential and spherical spatial covariance performs the same according to AIC, gaussian performs worse
+# Examine if the error stabilizes with the number of trees
+m1 <- randomForest::randomForest(
+  formula = create_formula(dep_var, all_vars, log = T),
+  data = drop_na(habs, all_of(dep_var), all_of(all_vars))
+)
+plot(m1)
 
-# NARS and watershed data
-# mod_lake_land <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture, data = habs_ind, spcov_type = "exponential")
-# 
-# glances(mod_lake_exp, mod_lake_land)
-# Adding more variables does not substantially increase the variation explained
+# Tune the mTry parameter
+na_free <- drop_na(habs, all_of(dep_var), all_of(all_vars))
 
-# Compare with random effects and without random effects
+m2 <- randomForest::tuneRF(
+  x          = st_drop_geometry(na_free[all_vars]),
+  y          = log10(na_free$B_G_DENS + 1),
+  ntreeTry   = 500,
+  mtryStart  = 4,
+  stepFactor = 1.5,
+  improve    = 0.01,
+  trace      = FALSE      # to not show real-time progress 
+)
 
-# Model without random effects
-# Random effect for survey year and lake, not nested
-mod_no_re <- splm(
-  log10(B_G_DENS + 1) ~ 
-    NTL + 
-    PTL + 
-    DOC + 
-    TURB + 
-    PH + 
-    TEMPERATURE + 
-    dev_ws + 
-    wet_ws + 
-    agr_ws + 
-    lakemorpho_depth + 
-    Precip8110Ws + 
-    RunoffWs +
-    Tmean8110Ws + 
-    ElevWs + 
-    SlopeWs + 
-    N_Surplus +
-    P_Surplus, 
-  data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, dev_ws, wet_ws, agr_ws, lakemorpho_depth, Precip8110Ws, RunoffWs, Tmean8110Ws, ElevWs, SlopeWs, N_Surplus, P_Surplus), 
-  spcov_type = "exponential", 
-  local = TRUE) 
+# hyperparameter grid search
+hyper_grid <- expand.grid(
+  mtry       = seq(4, 8, by = 1),
+  node_size  = seq(3, 9, by = 2),
+  sampe_size = c(.55, .632, .70, .80),
+  OOB_RMSE   = 0
+)
 
-# Random effect for survey year and lake, not nested
-mod_re_unnested <- splm(
-  log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + dev_ws + wet_ws + nondev_ws + agr_ws + lakemorpho_depth + Precip8110Ws + RunoffWs + Tmean8110Ws + ElevWs + SlopeWs + N_Surplus + P_Surplus, 
-  data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, dev_ws, wet_ws, nondev_ws, agr_ws, lakemorpho_depth, Precip8110Ws, RunoffWs, Tmean8110Ws, ElevWs, SlopeWs, N_Surplus, P_Surplus), 
-  random = ~ DSGN_CYCLE + UNIQUE_ID, 
-  spcov_type = "exponential", 
-  local = TRUE) 
+for(i in 1:nrow(hyper_grid)) {
+  
+  # train model
+  model <- ranger::ranger(
+    formula         = create_formula(dep_var, all_vars, log = T),
+    data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(all_vars))), 
+    num.trees       = 500,
+    mtry            = hyper_grid$mtry[i],
+    min.node.size   = hyper_grid$node_size[i],
+    sample.fraction = hyper_grid$sampe_size[i],
+    seed            = 123
+  )
+  
+  # add OOB error to grid
+  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
+}
 
-# Random effect for survey year and lake nested within survey year (revisits) 
-mod_re_nested <- splm(
-  log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + dev_ws + wet_ws + nondev_ws + agr_ws + lakemorpho_depth + Precip8110Ws + RunoffWs + Tmean8110Ws + ElevWs + SlopeWs + N_Surplus + P_Surplus, 
-  data = drop_na(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, dev_ws, wet_ws, nondev_ws, agr_ws, lakemorpho_depth, Precip8110Ws, RunoffWs, Tmean8110Ws, ElevWs, SlopeWs, N_Surplus, P_Surplus), 
-  random = ~ (DSGN_CYCLE / UNIQUE_ID), 
-  spcov_type = "exponential", 
-  local = TRUE) 
+# Which set of parameters yields the lowest OOB RMSE?
+hyper_grid %>% 
+  dplyr::arrange(OOB_RMSE) %>%
+  head(10)
 
-# Compare models
-glances(mod_no_re, mod_re_unnested, mod_re_nested)
-# AIC: random effects nested < no random effects < random effects not nested
+# Check expected error for optimal set of hyperparameters
+OOB_RMSE <- vector(mode = "numeric", length = 100)
+
+for(i in seq_along(OOB_RMSE)) {
+
+  optimal_ranger <- ranger::ranger(
+    formula         = create_formula(dep_var, all_vars, log = T),
+    data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(all_vars))), 
+    num.trees       = 500,
+    mtry            = 7,
+    min.node.size   = 3,
+    sample.fraction = .8,
+    importance      = 'impurity'
+  )
+  
+  OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
+}
+
+hist(OOB_RMSE, breaks = 20)
+
+imp <- tibble(var = names(optimal_ranger$variable.importance), var_imp = optimal_ranger$variable.importance)
+
+imp %>% 
+  dplyr::arrange(desc(var_imp)) %>%
+  # dplyr::top_n(25) %>%
+  ggplot(aes(x = reorder(var, var_imp), y = var_imp)) +
+  geom_col() +
+  coord_flip() +
+  xlab("Variable") + ylab("Variable Importance")
 
 # Check model performance by loocv
 # These take a very long time to run. Running the nested model went for 1.25 hours and didn't finish. Should maybe explore doing a k-folds cross validation.
-loocv(mod_re_nested, local = T) # 0.8567984
-loocv(mod_re_unnested, local = T)
-
-# The error in LOOCV seems to be related to the random effect. Does it still fail for a model run without a random effect?
-mod_no_re <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, spcov_type = "exponential", local = TRUE) 
-
-loocv(mod_no_re, local = T)
-# This runs
+loocv(inlake_nest_re, local = T) # 0.8567984
+loocv(nolake_nest_re, local = T)
 
 # Split data into training and predictor sets
-habs_train <- habs[1:500,]
-habs_pred  <- habs[501:600,]
-
-train_mod_re_nested <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs_train, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "exponential", local = TRUE)
-
-predict(train_mod_re_nested, newdata = habs_pred, local = TRUE)
-
-# How about with one random effect?
-mod_lake_re <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, random = ~ UNIQUE_ID, spcov_type = "exponential", local = TRUE)
-
-loocv(mod_lake_re, local = T)
-# This throws an error
-# Seems to be an issue with the inclusion of random effects
-
-# Does a reprex create the same error?
-tmp <- data.frame(dep = rnorm(100, mean = 10), 
-                  ind = rnorm(100, mean = 1000, sd = 50), 
-                  re = rep(c("a","b"),50),
-                  xcoord = rnorm(100, mean = 50),
-                  ycoord = rnorm(100, mean = 50))
-
-tmp_mod <- splm(dep ~ ind, random = ~ re, xcoord = xcoord, ycoord = ycoord, data = tmp, spcov_type = "exponential")
-
-loocv(tmp_mod)
-# This runs
-# Okay, there's some problem with my models, but I don't know what it is.
+habs_pred <- predict(inlake_nest_re, newdata = habs, local = TRUE)
 
 # Visualize the standardized residuals
-re_nested_resid <- augment(mod_re_nested)
+re_nested_resid <- augment(inlake_nest_re)
 mapview(re_nested_resid, zcol = ".std.resid", legend = TRUE)
 
 # Filter to just the big residuals
@@ -233,10 +242,14 @@ plot(mod_re_nested)
 plot(mod_re_unnested)
 
 # Check that the spatial model performs better than a non-spatial model
-mod_nonsp <- splm(log10(B_G_DENS + 1) ~ NTL + PTL + DOC + TURB + PH + TEMPERATURE + urban + wetland + forest + agriculture + lakemorpho_depth + Precip_Minus_EVTWs + Tmean8110Ws + ElevWs + SlopeWs, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "none", local = TRUE) 
+inlake_nonsp <- splm(create_formula(dep_var, in_lake_vars, log = T),
+                     data = drop_na(habs, all_of(dep_var), all_of(in_lake_vars)),
+                     spcov_type = "none",
+                     random = ~ (DSGN_CYCLE / UNIQUE_ID),
+                     local = TRUE)
 
 # Compare spatial and non-spatial models with nested random effects
-glances(mod_nonsp, mod_re_nested)
+glances(inlake_nonsp, inlake_nest_re)
 # Hmmm, the non-spatial model performs just as well (maybe a little better) than the spatial model
 
 # Is it because there are so many independent variables?
