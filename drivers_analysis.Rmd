@@ -372,7 +372,8 @@ comp <- habs |>
   mutate(Month = as.numeric(format(as.Date(DATE_COL, format = "%m/%d/%Y"), "%m")),
          Day = as.numeric(format(as.Date(DATE_COL, format = "%m/%d/%Y"), "%d")),
          Year = as.numeric(as.character(DSGN_CYCLE))) |>
-  select(SITE_ID, Year, Month, Day, B_G_DENS, TEMPERATURE, DOC, TURB, PH, EVAP_INFL, lakemorpho_depth, ElevWs, SlopeWs) 
+  # select(SITE_ID, Year, Month, Day, B_G_DENS, TEMPERATURE, DOC, TURB, PH, EVAP_INFL, lakemorpho_depth, ElevWs, SlopeWs) 
+  select(-NTL, -PTL, -RunoffWs)
 
 # Merge with cyanobacteria counts
 comp <- left_join(nni, comp, by = c("SITE_ID", "Year", "Month", "Day"))
@@ -464,6 +465,65 @@ imp %>%
   ggtitle("NLA '07,'12_All Variables")
 
 ggsave("./figures/Variable importance_NLA'07,'12_all.png", dpi = 300, width = 5, height = 5)
+
+########################################################
+
+# Have to break out the month and day of the compiled HABs data
+comp <- habs |>
+  mutate(Month = as.numeric(format(as.Date(DATE_COL, format = "%m/%d/%Y"), "%m")),
+         Day = as.numeric(format(as.Date(DATE_COL, format = "%m/%d/%Y"), "%d")),
+         Year = as.numeric(as.character(DSGN_CYCLE))) |>
+  select(-NTL, -PTL, -RunoffWs) |>
+  right_join(nni, by = c("SITE_ID", "Year", "Month", "Day"))
+
+# Investigate how the year random effect interacts with some data that is specific to the sample year
+nni_sub <- c(all_vars, "LSTAnomaly_YrMean", "NPP_YrMean", "Precip_YrMean", "Tmean_YrMean")
+
+nni_no_re_no_sp <- splm(create_formula(dep_var, nni_sub, log = T),
+                     data = drop_na(comp, all_of(dep_var), all_of(nni_sub)),
+                     spcov_type = "none", 
+                     local = TRUE)
+
+nni_no_re <- splm(create_formula(dep_var, nni_sub, log = T),
+                     data = drop_na(comp, all_of(dep_var), all_of(nni_sub)),
+                     spcov_type = "exponential", 
+                     local = TRUE)
+
+nni_re_site <- splm(create_formula(dep_var, nni_sub, log = T),
+                         data = drop_na(comp, all_of(dep_var), all_of(nni_sub)),
+                         spcov_type = "exponential",
+                         random = ~  UNIQUE_ID,
+                         local = TRUE)
+
+nni_re_year <- splm(create_formula(dep_var, nni_sub, log = T),
+                         data = drop_na(comp, all_of(dep_var), all_of(nni_sub)),
+                         spcov_type = "exponential",
+                         random = ~  DSGN_CYCLE,
+                         local = TRUE)
+
+nni_unnest_re <- splm(create_formula(dep_var, nni_sub, log = T),
+                       data = drop_na(comp, all_of(dep_var), all_of(nni_sub)),
+                       spcov_type = "exponential",
+                       random = ~ DSGN_CYCLE + UNIQUE_ID,
+                       local = TRUE)
+
+nni_nest_re <- splm(create_formula(dep_var, nni_sub, log = T),
+                       data = drop_na(comp, all_of(dep_var), all_of(nni_sub)),
+                       spcov_type = "exponential",
+                       random = ~ (DSGN_CYCLE / UNIQUE_ID),
+                       local = TRUE)
+
+# Compare model with no spatial component, with spatial component, random effect for site alone, random effect for year along, random effect for site and year unnested, random effect for site nested within year.
+# How does the AIC and R2 change with these model configurations
+glances(nni_no_re_no_sp,
+        nni_no_re,
+        nni_re_site,
+        nni_re_year,
+        nni_unnest_re,
+        nni_nest_re)
+# Nested random effects had the lowest AIC and R2 followed by unnested random effects
+# About the same amount of variation is explained with no random effects
+
 
 ```
 
