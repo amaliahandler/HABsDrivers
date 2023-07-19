@@ -103,22 +103,54 @@ dep_var <- "B_G_DENS"
 
 create_formula(dep_var, in_lake_vars, log = T)
 
-inlake_no_re <- splm(create_formula(dep_var, in_lake_vars, log = T),
-                     data = drop_na(habs, all_of(dep_var), all_of(in_lake_vars)),
+all_no_re_no_sp <- splm(create_formula(dep_var, all_vars, log = T),
+                     data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
+                     spcov_type = "none", 
+                     local = TRUE)
+
+all_no_re <- splm(create_formula(dep_var, all_vars, log = T),
+                     data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
                      spcov_type = "exponential", 
                      local = TRUE)
 
-inlake_unnest_re <- splm(create_formula(dep_var, in_lake_vars, log = T),
-                         data = drop_na(habs, all_of(dep_var), all_of(in_lake_vars)),
+all_re_site <- splm(create_formula(dep_var, all_vars, log = T),
+                         data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
                          spcov_type = "exponential",
-                         random = ~ DSGN_CYCLE + UNIQUE_ID,
+                         random = ~  UNIQUE_ID,
                          local = TRUE)
 
-inlake_nest_re <- splm(create_formula(dep_var, in_lake_vars, log = T),
-                       data = drop_na(habs, all_of(dep_var), all_of(in_lake_vars)),
+all_re_year <- splm(create_formula(dep_var, all_vars, log = T),
+                         data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
+                         spcov_type = "exponential",
+                         random = ~  DSGN_CYCLE,
+                         local = TRUE)
+
+all_unnest_re <- splm(create_formula(dep_var, all_vars, log = T),
+                       data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
+                       spcov_type = "exponential",
+                       random = ~ DSGN_CYCLE + UNIQUE_ID,
+                       local = TRUE)
+
+all_nest_re <- splm(create_formula(dep_var, all_vars, log = T),
+                       data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
                        spcov_type = "exponential",
                        random = ~ (DSGN_CYCLE / UNIQUE_ID),
                        local = TRUE)
+
+# Compare model with no spatial component, with spatial component, random effect for site alone, random effect for year along, random effect for site and year unnested, random effect for site nested within year.
+# How does the AIC and R2 change with these model configurations
+glances(all_no_re_no_sp,
+        all_no_re,
+        all_re_site,
+        all_re_year,
+        all_unnest_re,
+        all_nest_re)
+
+# Unnested random effects performed the best
+# Model with random effect for year (no site random effect) performed almost as well with respect to AIC with slightly higher pseudo R2
+
+# Would be good to investigate this with Robert's data as well since that includes a bunch of data about the weather for that specific year
+
 
 nolake_no_re <- splm(create_formula(dep_var, no_lake_vars, log = T),
                      data = drop_na(habs, all_of(dep_var), all_of(no_lake_vars)),
@@ -151,8 +183,8 @@ glances(inlake_no_re, nolake_no_re, inlake_unnest_re, nolake_unnest_re, inlake_n
 modRF <- splmRF(create_formula(dep_var, all_vars, log = T),
                 data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
                 spcov_type = "exponential",
-                # random = ~ (DSGN_CYCLE / UNIQUE_ID),
-                random = ~ DSGN_CYCLE,
+                random = ~ (DSGN_CYCLE / UNIQUE_ID),
+                # random = ~ DSGN_CYCLE,
                 local = TRUE,
                 num.trees       = 500,
                 mtry            = 7,
