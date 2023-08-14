@@ -12,9 +12,10 @@ Investigate the patterns, drivers, and risk of cyanobacterial harmful algal bloo
 * Michael Dumelle
 * Marc Weber
 
-###### Information Tracking
+### Information Tracking
 
 Research Start Date: Oct 1, 2022
+
 Project Status: Ongoing
 
 Associated StRAP Numbers: SSWR 404.3.1.4
