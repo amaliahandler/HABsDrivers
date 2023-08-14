@@ -22,9 +22,11 @@ Associated StRAP Numbers: SSWR 404.3.1.4
 
 Project QAPP ID: L-PESD-32002-QP-1-2
 
-Individual Notebook Location: C:\Users\AHANDL01\OneDrive - Environmental Protection Agency (EPA)\Profile\Documents\Amalia @ Environmental Protection Agency (EPA)\Lake HABs Risk
+Individual Notebook QA Tracking ID: L-PESD-NB-3173
 
-NARS Project Notebook Location: Patti Meeks\OneDrive - Environmental Protection Agency (EPA)\Profile\Documents\OneNote Notebooks\NARS Projects\Handler\HABs Risk in US Lakes
+Individual Notebook Location: [Sharepoint Link](https://usepa-my.sharepoint.com/personal/handler_amalia_epa_gov/_layouts/OneNote.aspx?id=%2Fpersonal%2Fhandler_amalia_epa_gov%2FDocuments%2FAmalia%20%40%20Environmental%20Protection%20Agency%20%28EPA%29)
+
+NARS Project Notebook Location: [Sharepoint Link](https://usepa-my.sharepoint.com/personal/meeks_patti_epa_gov/_layouts/OneNote.aspx?id=%2Fpersonal%2Fmeeks_patti_epa_gov%2FDocuments%2FProfile%2FDocuments%2FOneNote%20Notebooks%2FNARS%20projects)
 
 Data Files Location: C:/Users/AHANDL01/OneDrive - Environmental Protection Agency (EPA)/Profile/Documents/HABs/HABsDrivers
 
