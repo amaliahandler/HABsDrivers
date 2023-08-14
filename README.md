@@ -1,22 +1,29 @@
 # HABs Drivers
 
-###### Project Description
+### Project Description
 
 Investigate the patterns, drivers, and risk of cyanobacterial harmful algal blooms and toxins in the lakes of the conterminous United States. Combine data from the EPA's National Lakes Assessments, LakeCat, and National Nutrient Inventory in spatially-explicit statistical models to examine the variables associated with cyanobacteria and cyanotoxins among lakes in the US. The project goal is to estimate the risk of cyanobacteria blooms and cyanotoxins in a large number of US lakes. 
 
-###### Project Contributors
+### Project Contributors
 
-* Amalia Handler (project lead)
+* Amalia Handler (project lead, [handler.amalia\@epa.gov](mailto:handler.amalia@epa.gov))
 * Jana Compton
 * Ryan Hill
 * Michael Dumelle
+* Marc Weber
 
 ###### Information Tracking
 
 Research Start Date: Oct 1, 2022
 Project Status: Ongoing
 
-Associated StRAP Numbers: SSWR 404.3.4
+Associated StRAP Numbers: SSWR 404.3.1.4
+
+Project QAPP ID: L-PESD-32002-QP-1-2
+
+Individual Notebook Location: C:\Users\AHANDL01\OneDrive - Environmental Protection Agency (EPA)\Profile\Documents\Amalia @ Environmental Protection Agency (EPA)\Lake HABs Risk
+
+NARS Project Notebook Location: Patti Meeks\OneDrive - Environmental Protection Agency (EPA)\Profile\Documents\OneNote Notebooks\NARS Projects\Handler\HABs Risk in US Lakes
 
 Data Files Location: C:/Users/AHANDL01/OneDrive - Environmental Protection Agency (EPA)/Profile/Documents/HABs/HABsDrivers
 
