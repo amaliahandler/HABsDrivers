@@ -16,6 +16,7 @@ library(ggplot2)
 library(scales)
 library(ggpubr)
 library(tidyr)
+library(stars)
 ```
 
 List of variables to compile
@@ -276,6 +277,43 @@ ws_char <- right_join(ws_char, nla_nlcd, by = c("UNIQUE_ID", "DSGN_CYCLE", "VISI
 ```
 
 
+Pull in 2016 NLCD data for watersheds missing from LakeCat for 2017 NLA
+
+
+```{r}
+# 2016 NLCD data
+rast <- read_stars('O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/StreamCat/LandscapeRasters/QAComplete/nlcd_2006_land_cover_l48_20210604.tif')
+
+# Watershed areas for 2017 NLA lakes
+ws17 <- read_sf(dsn='O:/PRIV/CPHEA/PESD/COR/CORFiles/Geospatial_Library_Resource/PHYSICAL/WATERSHEDS/NLA2017_Basins/NLA2017_AllBasins.gdb', layer='NLA17_Basins')
+
+# ID the lakes that were not covered by LakeCat
+missing_site_ids <- nla_id |>
+  filter(!(COMID %in% nlcd16$COMID)) |>
+  pull(SITE_ID) |>
+  unique()
+
+# Still short 14 lakes?
+missing_lakes <- filter(ws17, SITE_ID %in% missing_site_ids)
+
+# Ensure they are in the same projection
+missing_lakes <- st_transform(missing_lakes, st_crs(rast))
+
+# Try renaming the column holding the geometry
+missing_lakes <- rename(missing_lakes, geometry = Shape)
+
+# Stuck here. Not sure how to do zonal stats in stars. Seems like there's aggregate for polygons, but this requires a function to summarize data. 
+# starsExtra might have this functionality: https://rdrr.io/github/michaeldorman/starsExtra/man/extract2.html
+# Calculate zonal statistics
+st_extract(rast, missing_lakes)
+
+starsExtra::extract2(rast, missing_lakes, table)
+
+
+
+```
+
+
 Add in nutrient inventory data compiled by Robert Sabo and others
 
 
@@ -323,7 +361,7 @@ habs_comb <- nla_long %>%
   bind_rows(evap_infl) %>%
   select(!UNITS) %>%
   pivot_wider(names_from = ANALYTE, values_from = RESULT, values_fill = NA) %>%
-  left_join(select(ws_char, UNIQUE_ID:SlopeWs), by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
+  left_join(select(ws_char, UNIQUE_ID:SlopeWs, dev_ws:agr_ws), by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
   left_join(nni_mean, by = "UNIQUE_ID") |>
   filter(!is.na(UNIQUE_ID)) |>
   mutate(DSGN_CYCLE = factor(DSGN_CYCLE),
