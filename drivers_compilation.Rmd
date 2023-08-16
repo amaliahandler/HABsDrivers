@@ -302,12 +302,72 @@ missing_lakes <- st_transform(missing_lakes, st_crs(rast))
 # Try renaming the column holding the geometry
 missing_lakes <- rename(missing_lakes, geometry = Shape)
 
+# Issues with basin for COMID 133250246 SITE_ID NLA17_KS_10011. Some kind of weird multisurface geometry that refuses to be transformed into a multipolygon.
+missing_lakes <- filter(missing_lakes, !SITE_ID == "NLA17_KS-10011")
+
+missing_nlcd <- lapply(c(1:nrow(missing_lakes)), function(i){
+  print(i)
+  
+  # Polygon of the missing lake's watershed area
+  lake <- missing_lakes[i,]
+  
+  # Crop the NLCD 2016 data, as_points = F to include all pixels intersecting the basin shape
+  ws_pix <- st_crop(rast, missing_lakes[i,], as_points = FALSE)
+  
+  # Convert from stars proxy to stars object and create table of NLCD pixel counts within watershed boundary
+  table(st_as_stars(ws_pix))
+  
+})
+
+# Convert tables to dataframes
+df_nlcd <- do.call(rbind, lapply(1:length(missing_nlcd), function(i){
+  obs <- missing_nlcd[[i]]
+  
+  names(obs) <- c("Unclassified", "PctOw2016Ws", "PctIce2011Ws", "PctUrbOp2011Ws", "PctUrbLo2011Ws", "PctUrbMd2011Ws", "PctUrbHi2011Ws", "PctBl2011Ws", "PctDecid2011Ws", "PctConif2011Ws", "PctMxFst2011Ws", "PctShrb2011Ws", "PctGrs2011Ws", "PctHay2011Ws", "PctCrop2011Ws", "PctWdWet2011Ws", "PctHbWet2011Ws")
+  
+  total_area = sum(obs) * 900
+  
+  df_wide <- obs |>
+    as.data.frame() |>
+    rename(cover_type = 1) |>
+    filter(!cover_type == "Unclassified") |>
+    mutate(props = (Freq * 900) / total_area * 100, .keep = "unused") |>
+    tidyr::pivot_wider(names_from = cover_type, values_from = props) |>
+    mutate(SITE_ID = missing_lakes$SITE_ID[i],
+           COMID = missing_lakes$COMID[i], .before = 1) 
+  
+  return(df_wide)
+}))
+
+
+
+
 # Stuck here. Not sure how to do zonal stats in stars. Seems like there's aggregate for polygons, but this requires a function to summarize data. 
 # starsExtra might have this functionality: https://rdrr.io/github/michaeldorman/starsExtra/man/extract2.html
 # Calculate zonal statistics
 st_extract(rast, missing_lakes)
 
-starsExtra::extract2(rast, missing_lakes, table)
+starsExtra::extract2(rast, missing_lakes, mean)
+
+i <- 20
+
+# Crop the raster to the lake extent
+lk_pix <- st_crop(rast, missing_lakes[i,], as_points = FALSE)
+
+# Convert from a proxy object to a STARS object
+lk_pix <- st_as_stars(lk_pix)
+
+tab <- table(lk_pix)
+
+data.frame(nld)
+
+
+plot(missing_lakes[i,]$geometry)
+plot(lk_pix, add = T)
+plot(missing_lakes[i,]$geometry, add = T)
+
+st_cast(st_sfc(missing_lakes[i,]), "MULTIPOLYGON")
+st_cast(st_sf(a = 1, st_sfc(missing_lakes[i,])), "MULTIPOLYGON")
 
 
 
