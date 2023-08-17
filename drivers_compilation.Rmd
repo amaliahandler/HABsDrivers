@@ -261,6 +261,12 @@ nla17_nlcd <- nlcd16 %>%
   select(COMID, ends_with("_ws")) |>
   right_join(filter(nla_id, DSGN_CYCLE == 2017), by = "COMID")
 
+# How many lakes are missing data from LakeCat for 2017?
+length(nla_id17) - nrow(filter(nlcd16, COMID %in% nla_id17))
+
+# What are the COMIDS of the missing lakes? 
+nla_id17[!(nla_id17 %in% nlcd16$COMID)]
+
 # Bind together 2007/2012 and 2017 NLA-NLCD data
 nla_nlcd <- nla0712_nlcd |>
   bind_rows(nla17_nlcd) |>
@@ -289,6 +295,7 @@ ws17 <- read_sf(dsn='O:/PRIV/CPHEA/PESD/COR/CORFiles/Geospatial_Library_Resource
 
 # ID the lakes that were not covered by LakeCat
 missing_site_ids <- nla_id |>
+  filter(DSGN_CYCLE == 2017) |>
   filter(!(COMID %in% nlcd16$COMID)) |>
   pull(SITE_ID) |>
   unique()
@@ -302,10 +309,19 @@ missing_lakes <- st_transform(missing_lakes, st_crs(rast))
 # Try renaming the column holding the geometry
 missing_lakes <- rename(missing_lakes, geometry = Shape)
 
-# Issues with basin for COMID 133250246 SITE_ID NLA17_KS_10011. Some kind of weird multisurface geometry that refuses to be transformed into a multipolygon.
+# Check graphically that there is data within the basin
+# i <- 81
+# lk_pix <- st_crop(rast, missing_lakes[i,], as_points = FALSE)
+# lk_pix <- st_as_stars(lk_pix)
+# plot(missing_lakes[i,]$geometry)
+# plot(lk_pix, add = T)
+# plot(missing_lakes[i,]$geometry, add = T)
+
+# Issues with basin for COMID 133250246 SITE_ID NLA17_KS_10011. Some kind of weird multisurface geometry that refuses to be transformed into a multipolygon. Removing for now.
 missing_lakes <- filter(missing_lakes, !SITE_ID == "NLA17_KS-10011")
 
-missing_nlcd <- lapply(c(1:nrow(missing_lakes)), function(i){
+# Extract NLCD for each missing watershed area
+missing_nlcd <- do.call(rbind, lapply(c(1:nrow(missing_lakes)), function(i){
   print(i)
   
   # Polygon of the missing lake's watershed area
@@ -315,19 +331,16 @@ missing_nlcd <- lapply(c(1:nrow(missing_lakes)), function(i){
   ws_pix <- st_crop(rast, missing_lakes[i,], as_points = FALSE)
   
   # Convert from stars proxy to stars object and create table of NLCD pixel counts within watershed boundary
-  table(st_as_stars(ws_pix))
-  
-})
+  nlcd_extract <- table(st_as_stars(ws_pix))
 
-# Convert tables to dataframes
-df_nlcd <- do.call(rbind, lapply(1:length(missing_nlcd), function(i){
-  obs <- missing_nlcd[[i]]
+  # Preemptively rename the attributes to match that in LakeCat
+  names(nlcd_extract) <- c("Unclassified", "PctOw2016Ws", "PctIce2016Ws", "PctUrbOp2016Ws", "PctUrbLo2016Ws", "PctUrbMd2016Ws", "PctUrbHi2016Ws", "PctBl2016Ws", "PctDecid2016Ws", "PctConif2016Ws", "PctMxFst2016Ws", "PctShrb2016Ws", "PctGrs2016Ws", "PctHay2016Ws", "PctCrop2016Ws", "PctWdWet2016Ws", "PctHbWet2016Ws")
   
-  names(obs) <- c("Unclassified", "PctOw2016Ws", "PctIce2011Ws", "PctUrbOp2011Ws", "PctUrbLo2011Ws", "PctUrbMd2011Ws", "PctUrbHi2011Ws", "PctBl2011Ws", "PctDecid2011Ws", "PctConif2011Ws", "PctMxFst2011Ws", "PctShrb2011Ws", "PctGrs2011Ws", "PctHay2011Ws", "PctCrop2011Ws", "PctWdWet2011Ws", "PctHbWet2011Ws")
+  # Calculate total area included in the basin
+  total_area = sum(nlcd_extract) * 900
   
-  total_area = sum(obs) * 900
-  
-  df_wide <- obs |>
+  # Calculate proportions of each land cover type and convert to wide format to match LakeCat
+  nlcd_wide <- nlcd_extract |>
     as.data.frame() |>
     rename(cover_type = 1) |>
     filter(!cover_type == "Unclassified") |>
@@ -336,38 +349,28 @@ df_nlcd <- do.call(rbind, lapply(1:length(missing_nlcd), function(i){
     mutate(SITE_ID = missing_lakes$SITE_ID[i],
            COMID = missing_lakes$COMID[i], .before = 1) 
   
-  return(df_wide)
+  return(nlcd_wide)
 }))
 
+# Sum into categories and join with NLA ID
+# Note: one of the sites was visited twice in 2017, so this produces a dataframe of nrow(missing_nlcd) + 1
+# Note: Two sites ("NLA17_MO-HP005", "NLA17_TX-HP005") are hand picked sites and lack COMIDs (NLA COMID = 0)
+missing_nlcd_sums <- missing_nlcd %>%
+  mutate(agr_ws = PctHay2016Ws + PctCrop2016Ws,
+         dev_ws = rowSums(select(missing_nlcd, PctUrbOp2016Ws:PctUrbHi2016Ws)),
+         nondev_ws = rowSums(select(missing_nlcd, c(PctOw2016Ws, PctIce2016Ws, PctBl2016Ws:PctGrs2016Ws))),
+         wet_ws = PctWdWet2016Ws + PctHbWet2016Ws) |>
+  select(SITE_ID, ends_with("_ws")) |>
+  left_join(filter(nla_id, DSGN_CYCLE == 2017), by = c("SITE_ID"))
 
+# There's one more row than expected due to two site visits for one of the lakes
+dup_site <- nlcd_sums$SITE_ID[duplicated(nlcd_sums$SITE_ID)]
+filter(nlcd_sums, SITE_ID == dup_site)
 
-
-# Stuck here. Not sure how to do zonal stats in stars. Seems like there's aggregate for polygons, but this requires a function to summarize data. 
-# starsExtra might have this functionality: https://rdrr.io/github/michaeldorman/starsExtra/man/extract2.html
-# Calculate zonal statistics
-st_extract(rast, missing_lakes)
-
-starsExtra::extract2(rast, missing_lakes, mean)
-
-i <- 20
-
-# Crop the raster to the lake extent
-lk_pix <- st_crop(rast, missing_lakes[i,], as_points = FALSE)
-
-# Convert from a proxy object to a STARS object
-lk_pix <- st_as_stars(lk_pix)
-
-tab <- table(lk_pix)
-
-data.frame(nld)
-
-
-plot(missing_lakes[i,]$geometry)
-plot(lk_pix, add = T)
-plot(missing_lakes[i,]$geometry, add = T)
-
-st_cast(st_sfc(missing_lakes[i,]), "MULTIPOLYGON")
-st_cast(st_sf(a = 1, st_sfc(missing_lakes[i,])), "MULTIPOLYGON")
+# Two sites ("NLA17_MO-HP005", "NLA17_TX-HP005") are hand picked sites and lack COMIDs (NLA COMID = 0)
+filter(nlcd_sums, SITE_ID %in% c("NLA17_MO-HP005", "NLA17_TX-HP005"))
+filter(missing_lakes, SITE_ID %in% c("NLA17_MO-HP005", "NLA17_TX-HP005"))
+filter(nla_id, SITE_ID %in% c("NLA17_MO-HP005", "NLA17_TX-HP005"))
 
 
 
