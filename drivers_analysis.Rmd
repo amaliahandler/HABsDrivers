@@ -374,14 +374,14 @@ comp <- habs |>
          Day = as.numeric(format(as.Date(DATE_COL, format = "%m/%d/%Y"), "%d")),
          Year = as.numeric(as.character(DSGN_CYCLE))) |>
   # select(SITE_ID, Year, Month, Day, B_G_DENS, TEMPERATURE, DOC, TURB, PH, EVAP_INFL, lakemorpho_depth, ElevWs, SlopeWs) 
-  select(-NTL, -PTL, -RunoffWs, -LAT_DD83, -LON_DD83, -DATE_COL, -DSGN_CYCLE, -VISIT_NO, -COMID, -MICX, -CHLA_RESULT, -CYLSPER)
+  # Remove redundant variables
+  select(-NTL, -PTL, -RunoffWs, -LAT_DD83, -LON_DD83, -DATE_COL, -DSGN_CYCLE, -VISIT_NO, -COMID, -MICX, -CHLA_RESULT, -CYLSPER, -UNIQUE_ID)
 
 # Merge with cyanobacteria counts
 comp <- left_join(nni, comp, by = c("SITE_ID", "Year", "Month", "Day"))
 
 # Create a vector of the independent variables
-nni_vars <- colnames(comp)[c(9:84,86:92,94:(length(colnames(comp))-1))] #
-
+nni_vars <- colnames(comp)[c(9:91,93:(length(colnames(comp))-1))] #
 
 # Examine if the error stabilizes with the number of trees
 m1 <- randomForest::randomForest(
@@ -405,7 +405,7 @@ m2 <- randomForest::tuneRF(
 
 # hyperparameter grid search
 hyper_grid <- expand.grid(
-  mtry       = seq(21, 31, by = 2),
+  mtry       = seq(25, 35, by = 2),
   node_size  = seq(3, 9, by = 2),
   sampe_size = c(.55, .632, .70, .80),
   OOB_RMSE   = 0
@@ -443,7 +443,7 @@ for(i in seq_along(OOB_RMSE)) {
     formula         = create_formula(dep_var, nni_vars, log = T),
     data            = st_drop_geometry(drop_na(comp, all_of(dep_var), all_of(nni_vars))), 
     num.trees       = 500,
-    mtry            = 27,
+    mtry            = 29,
     min.node.size   = 3,
     sample.fraction = .8,
     num.threads     = 8, 
@@ -459,7 +459,7 @@ optimal_ranger <- ranger::ranger(
   formula         = create_formula(dep_var, nni_vars, log = T),
   data            = drop_na(comp, all_of(dep_var), all_of(nni_vars)), 
   num.trees       = 500,
-  mtry            = 32,
+  mtry            = 29,
   min.node.size   = 3,
   sample.fraction = .8,
   num.threads     = 8, 
