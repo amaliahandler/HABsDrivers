@@ -250,35 +250,29 @@ nla_id17 <- nla_id |>
   pull(COMID) |>
   unique()
 
-# Join with the NLA lake COMIDs included in the analysis
-# This is losing about 85 lakes. Are these not in lakecat?
-nla17_nlcd <- nlcd16 %>%
+# Filter to NLA lake IDs in LakeCat for 2017
+nla17_nlcd_lakecat <- nla17_lakecat_ids <- nla_id |>
+  filter(DSGN_CYCLE == 2017) |>
+  filter(COMID %in% nlcd16$COMID)
+
+# Calculate land use category sums
+nlcd16_sums <- nlcd16 %>%
   mutate(agr_ws = PctHay2016Ws + PctCrop2016Ws,
          dev_ws = rowSums(select(nlcd16, PctUrbOp2016Ws:PctUrbHi2016Ws)),
          nondev_ws = rowSums(select(nlcd16, c(PctOw2016Ws, PctIce2016Ws, PctBl2016Ws:PctGrs2016Ws))),
          wet_ws = PctWdWet2016Ws + PctHbWet2016Ws) %>%
-  filter(COMID %in% nla_id17) %>%
-  select(COMID, ends_with("_ws")) |>
-  right_join(filter(nla_id, DSGN_CYCLE == 2017), by = "COMID")
+  filter(COMID %in% nla17_nlcd_lakecat$COMID) %>%
+  select(COMID, ends_with("_ws"))   
 
-# How many lakes are missing data from LakeCat for 2017?
-length(nla_id17) - nrow(filter(nlcd16, COMID %in% nla_id17))
-
-# What are the COMIDS of the missing lakes? 
-nla_id17[!(nla_id17 %in% nlcd16$COMID)]
+# Join with NLA ID info
+nla17_nlcd16_lakecat <- right_join(nlcd16_sums, nla17_lakecat_ids, by = "COMID")
 
 # Bind together 2007/2012 and 2017 NLA-NLCD data
-nla_nlcd <- nla0712_nlcd |>
-  bind_rows(nla17_nlcd) |>
-  select(UNIQUE_ID, DSGN_CYCLE, VISIT_NO, ends_with("_ws"))
+# nla_nlcd_lakecat <- nla0712_nlcd |>
+#   bind_rows(nla17_nlcd) |>
+#   select(UNIQUE_ID, DSGN_CYCLE, VISIT_NO, ends_with("_ws"))
 
-# Next pull in other relevant watershed characteristics
-ws_char <- wsmet |>
-  select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, RunoffWs, Precip_Minus_EVTWs, WWTPWs, Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs) %>%
-  right_join(nla_id, by = c("UNIQUE_ID", "DSGN_CYCLE"))
-
-# Combine NLCD with other watershed characteristics
-ws_char <- right_join(ws_char, nla_nlcd, by = c("UNIQUE_ID", "DSGN_CYCLE", "VISIT_NO"))
+# Binding rows takes place in code chunk below where missing lakes from LakeCat are pulled in a processed with NLCD data directly
 
 ```
 
@@ -372,9 +366,28 @@ filter(nlcd_sums, SITE_ID %in% c("NLA17_MO-HP005", "NLA17_TX-HP005"))
 filter(missing_lakes, SITE_ID %in% c("NLA17_MO-HP005", "NLA17_TX-HP005"))
 filter(nla_id, SITE_ID %in% c("NLA17_MO-HP005", "NLA17_TX-HP005"))
 
-
+# Bind together with other NLCD data
+nla_nlcd <- missing_nlcd_sums |>
+  bind_rows(nla0712_nlcd, nla17_nlcd16_lakecat) |>
+  select(UNIQUE_ID, DSGN_CYCLE, VISIT_NO, ends_with("_ws"))
 
 ```
+
+
+Pull in other watershed data compiled by Marc
+
+
+```{r}
+# Pull in other relevant watershed characteristics
+ws_char <- wsmet |>
+  select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, RunoffWs, Precip_Minus_EVTWs, WWTPWs, Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs) %>%
+  right_join(nla_id, by = c("UNIQUE_ID", "DSGN_CYCLE"))
+
+# Combine NLCD with other watershed characteristics
+ws_char <- right_join(ws_char, nla_nlcd, by = c("UNIQUE_ID", "DSGN_CYCLE", "VISIT_NO"))
+
+```
+
 
 
 Add in nutrient inventory data compiled by Robert Sabo and others
