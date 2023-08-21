@@ -217,7 +217,7 @@ nrow(nla_id) - nrow(ei17) - nrow(ei0712) # Didn't lose anything in the joining p
 ```
 
 
-Add watershed metrics compiled by Marc Weber for all NLA lakes (in Lakecat and not in Lakecat). Curiously only includes the 2006 and 2011 NLCD. Bringing in the 2016 NLCD from LakeCat.
+Add NLCD compiled by Marc Weber for all NLA 2007 and 2012 lakes (in Lakecat and not in Lakecat). Note that Marc did not include data from 2016 NLCD to pair with 2017 NLA. The code below also brings in the 2016 NLCD from LakeCat for 2017 NLA lakes included in LakeCat.
 
 ```{r}
 # Watershed metrics for NLA lakes compiled by Marc
@@ -374,13 +374,34 @@ nla_nlcd <- missing_nlcd_sums |>
 ```
 
 
+Match PRISM monthly precipitation and temperature data to NLA sample dates 
+
+
+```{r}
+# Get the year and the month that the sample was collected
+yr_mon <- nla_id |>
+  mutate(month = format(as.Date(DATE_COL, format = "%m/%d/%Y"), "%m"))
+
+# Convert watershed precip and temp data to long format for easier joining
+monthly_precip <- wsmet |>
+  select(UNIQUE_ID, SITE_ID, COMID, DSGN_CYCLE, PRECIP_200701_PT:TMEAN_201709_PT) |>
+  pivot_longer(cols = PRECIP_200701_PT:TMEAN_201709_PT,
+               names_to = c("Type", "Year_Month", "PT"),
+               names_sep = "_",
+               values_to = "Value") |>
+  mutate(Month = substr(Year_Month, 5,6))
+
+```
+
+
+
 Pull in other watershed data compiled by Marc
 
 
 ```{r}
 # Pull in other relevant watershed characteristics
 ws_char <- wsmet |>
-  select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, RunoffWs, Precip_Minus_EVTWs, WWTPWs, Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs) %>%
+  select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, lakemorpho_fetch, lakemorpho_shoreline.length, BFIWs, AgKffactWs, KffactWs, RunoffWs, Precip_Minus_EVTWs, WWTPWs, Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs) %>%
   right_join(nla_id, by = c("UNIQUE_ID", "DSGN_CYCLE"))
 
 # Combine NLCD with other watershed characteristics
