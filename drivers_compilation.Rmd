@@ -195,7 +195,10 @@ ei17 <- ratio17 %>%
 evap_infl <- rbind(ei0712, ei17)
 
 # Rearrange columns
-evap_infl <- relocate(evap_infl, SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, LAT_DD83, LON_DD83, COMID, ANALYTE, RESULT, UNITS)
+evap_infl <- evap_infl |>
+  relocate(SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, LAT_DD83, LON_DD83, COMID, ANALYTE, RESULT, UNITS) |>
+  # There are 3 rows with no UNIQUE_ID that have no data. They are VISIT_NO = 2 for one site that was only visited once (SITE_ID = NLA12_MI-107) and two sites (NLA12_OAHU12-12, NLA12_OAHU12-12) that have no record in the NLA data I received.
+  filter(!is.na(UNIQUE_ID))
 
 # From Emi and Renee: NA values mean that E/I was not calculated for some reason. Generally missing data or unrealistic E/I values were removed
 # # Investigating missing values
@@ -374,25 +377,39 @@ nla_nlcd <- missing_nlcd_sums |>
 ```
 
 
-Match PRISM monthly precipitation and temperature data to NLA sample dates 
+Match PRISM monthly precipitation and temperature data to NLA sample dates
+Description:
+* Precipitation (mm), cumulative precipitation for the specified month and year in which the sample was collected
+* Temperature (degrees C), mean temperature for the month and year in which the sample was collected 
 
 
 ```{r}
 # Get the year and the month that the sample was collected
 yr_mon <- nla_id |>
-  mutate(month = format(as.Date(DATE_COL, format = "%m/%d/%Y"), "%m"))
+  mutate(Month = format(as.Date(DATE_COL, format = "%m/%d/%Y"), "%m"))
 
 # Convert watershed precip and temp data to long format for easier joining
-monthly_precip <- wsmet |>
-  select(UNIQUE_ID, SITE_ID, COMID, DSGN_CYCLE, PRECIP_200701_PT:TMEAN_201709_PT) |>
+monthly_clim <- wsmet |>
+  select(UNIQUE_ID, DSGN_CYCLE, PRECIP_200701_PT:TMEAN_201709_PT) |>
   pivot_longer(cols = PRECIP_200701_PT:TMEAN_201709_PT,
                names_to = c("Type", "Year_Month", "PT"),
                names_sep = "_",
                values_to = "Value") |>
-  mutate(Month = substr(Year_Month, 5,6))
+  mutate(Month = substr(Year_Month, 5,6),
+         Year = as.integer(substr(Year_Month, 1,4))) |>
+  filter(DSGN_CYCLE == Year) |>
+  select(-c(PT, Year_Month, Year))
+
+# Join the two
+precip_temp <- yr_mon |>
+  left_join(filter(monthly_clim, Type == "PRECIP"), by = c("UNIQUE_ID", "DSGN_CYCLE", "Month")) |>
+  select(-Type) |>
+  rename(precip_mean_month = Value) |>
+  left_join(filter(monthly_clim, Type == "TMEAN"), by = c("UNIQUE_ID", "DSGN_CYCLE", "Month")) |>
+  select(-Type) |>
+  rename(temp_mean_month = Value)
 
 ```
-
 
 
 Pull in other watershed data compiled by Marc
@@ -404,11 +421,7 @@ ws_char <- wsmet |>
   select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, lakemorpho_fetch, lakemorpho_shoreline.length, BFIWs, AgKffactWs, KffactWs, RunoffWs, Precip_Minus_EVTWs, WWTPWs, Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs) %>%
   right_join(nla_id, by = c("UNIQUE_ID", "DSGN_CYCLE"))
 
-# Combine NLCD with other watershed characteristics
-ws_char <- right_join(ws_char, nla_nlcd, by = c("UNIQUE_ID", "DSGN_CYCLE", "VISIT_NO"))
-
 ```
-
 
 
 Add in nutrient inventory data compiled by Robert Sabo and others
@@ -453,13 +466,29 @@ nni_mean <- nni0712 |>
 Compile together NLA, NLA+, LakeCat, and Nutrient Inventory data
 
 ```{r}
-# Convert from long to wide format
+# Start with NLA data
 habs_comb <- nla_long %>%
+  
+  # Add evaporation and inflow data (NLA+)
   bind_rows(evap_infl) %>%
   select(!UNITS) %>%
+  
+  # Pivot from long to wide format
   pivot_wider(names_from = ANALYTE, values_from = RESULT, values_fill = NA) %>%
-  left_join(select(ws_char, UNIQUE_ID:SlopeWs, dev_ws:agr_ws), by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
+  
+  filter(is.na(UNIQUE_ID)) |>
+  select(SITE_ID:TEMPERATURE)
+  
+  # Add NLCD (from Marc, LakeCat, and self-compiled)
+  left_join(nla_nlcd, by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
+  
+  # Add watershed characterstics from LakeCat
+  left_join(select(ws_char, UNIQUE_ID:SlopeWs), by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
+  
+  # Add nutrient inventory means
   left_join(nni_mean, by = "UNIQUE_ID") |>
+  
+  # Cleanup
   filter(!is.na(UNIQUE_ID)) |>
   mutate(DSGN_CYCLE = factor(DSGN_CYCLE),
          UNIQUE_ID = factor(UNIQUE_ID))
