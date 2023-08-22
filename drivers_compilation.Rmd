@@ -476,20 +476,19 @@ habs_comb <- nla_long %>%
   # Pivot from long to wide format
   pivot_wider(names_from = ANALYTE, values_from = RESULT, values_fill = NA) %>%
   
-  filter(is.na(UNIQUE_ID)) |>
-  select(SITE_ID:TEMPERATURE)
-  
   # Add NLCD (from Marc, LakeCat, and self-compiled)
-  left_join(nla_nlcd, by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
+  left_join(nla_nlcd, by = c("UNIQUE_ID", "DSGN_CYCLE", "VISIT_NO")) %>%
+  
+  # Add the precipitation and temperature for the month in which the sample was collected
+  left_join(select(precip_temp, UNIQUE_ID, DSGN_CYCLE, VISIT_NO, precip_mean_month, temp_mean_month), by = c("UNIQUE_ID", "DSGN_CYCLE", "VISIT_NO")) |>
   
   # Add watershed characterstics from LakeCat
-  left_join(select(ws_char, UNIQUE_ID:SlopeWs), by = c("UNIQUE_ID", "DSGN_CYCLE")) %>%
+  left_join(select(ws_char, UNIQUE_ID:SlopeWs, VISIT_NO), by = c("UNIQUE_ID", "DSGN_CYCLE", "VISIT_NO")) |>
   
   # Add nutrient inventory means
   left_join(nni_mean, by = "UNIQUE_ID") |>
   
-  # Cleanup
-  filter(!is.na(UNIQUE_ID)) |>
+  # Format
   mutate(DSGN_CYCLE = factor(DSGN_CYCLE),
          UNIQUE_ID = factor(UNIQUE_ID))
 
