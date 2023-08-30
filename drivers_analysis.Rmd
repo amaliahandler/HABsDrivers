@@ -37,11 +37,11 @@ Examine the predictor data for colinear variables
 
 
 ```{r}
-cormat_pred <- cor(st_drop_geometry(select(habs, TEMPERATURE:PH, EVAP_INFL:P_Surplus)), use = "pairwise.complete.obs")
+cormat_pred <- cor(st_drop_geometry(select(habs, TEMPERATURE:P_Surplus)), use = "pairwise.complete.obs")
 
-cormat_pred <- cor(st_drop_geometry(select(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, dev_ws, wet_ws, nondev_ws, agr_ws, lakemorpho_depth, Precip8110Ws, RunoffWs, Tmean8110Ws, ElevWs, SlopeWs, N_Surplus)), use = "pairwise.complete.obs")
+# cormat_pred <- cor(st_drop_geometry(select(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, dev_ws, wet_ws, nondev_ws, agr_ws, lakemorpho_depth, Precip8110Ws, RunoffWs, Tmean8110Ws, ElevWs, SlopeWs, N_Surplus)), use = "pairwise.complete.obs")
 
-corrplot.mixed(cormat_pred, upper = "ellipse", diag = "n", tl.pos = "lt")
+corrplot.mixed(cormat_pred, upper = "ellipse", diag = "n", tl.pos = "lt", tl.col = "black", tl.srt = 45)
 
 ```
 
@@ -83,6 +83,7 @@ Experiment with some spatial models
 
 
 ```{r}
+# Function that creates the formula. When the response variable is cyanobacteria cell counts, add 1 and log-transform.
 create_formula <- function(dep_var, ind_vars, log = F){
   # Log = F
   as.formula(paste(dep_var, " ~ ", paste(ind_vars, collapse = " + ")))
@@ -92,49 +93,54 @@ create_formula <- function(dep_var, ind_vars, log = F){
   }
 }
 
-# The set of in-lake, watershed, and climate variables
-in_lake_vars <- c("NTL", "PTL", "DOC", "TURB", "PH", "TURB", "TEMPERATURE", "STRATIFIED", "EVAP_INFL", "lakemorpho_depth", "Precip8110Ws", "RunoffWs", "Tmean8110Ws", "ElevWs", "SlopeWs", "dev_ws", "wet_ws", "agr_ws")
+# Create variable groups
+all_vars     <- colnames(habs)[match("TEMPERATURE", colnames(habs)):match("P_Surplus", colnames(habs))]
+dep_vars     <- c("B_G_DENS", "MICX", "CYLSPER", "CHLA_RESULT")
+all_ind_vars <- all_vars[!all_vars %in% dep_vars]
 
-# The set of variables excluding in-lake data
-no_lake_vars <- c("lakemorpho_depth", "Precip8110Ws", "RunoffWs", "Tmean8110Ws", "ElevWs", "SlopeWs", "dev_ws", "wet_ws", "agr_ws", "N_Surplus", "P_Surplus")
-
-# All variables combined
-all_vars <- c("NTL", "PTL", "DOC", "TURB", "PH", "TURB", "TEMPERATURE", "STRATIFIED", "EVAP_INFL", "lakemorpho_depth", "Precip8110Ws", "RunoffWs", "Tmean8110Ws", "ElevWs", "SlopeWs", "dev_ws", "wet_ws", "agr_ws", "N_Surplus", "P_Surplus", "N_Total_Inputs")
+# NLA water variables
+nla_ind_vars <- c("TEMPERATURE", "STRATIFIED", "AMMONIA_N", "DOC", "NTL", "PTL", "TURB", "NITRATE_N", "PH", "EVAP_INFL")
+  
+# All non-NLA variables
+non_nla_vars <- all_ind_vars[!all_ind_vars %in% nla_ind_vars]
 
 dep_var <- "B_G_DENS"
 
-create_formula(dep_var, in_lake_vars, log = T)
+create_formula(dep_var, all_vars, log = T)
 
-all_no_re_no_sp <- splm(create_formula(dep_var, all_vars, log = T),
-                     data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
+# Dropping non-developed area of the watershed due to issues of colinearity with deveoped area. Also dropping nitrate data since it is missing for a large number of observations.
+all_ind_vars <- all_ind_vars[!all_ind_vars %in% c("nondev_ws", "NITRATE_N")]
+
+all_no_re_no_sp <- splm(create_formula(dep_var, all_ind_vars, log = T),
+                     data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
                      spcov_type = "none", 
                      local = TRUE)
 
-all_no_re <- splm(create_formula(dep_var, all_vars, log = T),
-                     data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
+all_no_re <- splm(create_formula(dep_var, all_ind_vars, log = T),
+                     data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
                      spcov_type = "exponential", 
                      local = TRUE)
 
-all_re_site <- splm(create_formula(dep_var, all_vars, log = T),
-                         data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
+all_re_site <- splm(create_formula(dep_var, all_ind_vars, log = T),
+                         data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
                          spcov_type = "exponential",
                          random = ~  UNIQUE_ID,
                          local = TRUE)
 
-all_re_year <- splm(create_formula(dep_var, all_vars, log = T),
-                         data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
+all_re_year <- splm(create_formula(dep_var, all_ind_vars, log = T),
+                         data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
                          spcov_type = "exponential",
                          random = ~  DSGN_CYCLE,
                          local = TRUE)
 
-all_unnest_re <- splm(create_formula(dep_var, all_vars, log = T),
-                       data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
+all_unnest_re <- splm(create_formula(dep_var, all_ind_vars, log = T),
+                       data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
                        spcov_type = "exponential",
                        random = ~ DSGN_CYCLE + UNIQUE_ID,
                        local = TRUE)
 
-all_nest_re <- splm(create_formula(dep_var, all_vars, log = T),
-                       data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
+all_nest_re <- splm(create_formula(dep_var, all_ind_vars, log = T),
+                       data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
                        spcov_type = "exponential",
                        random = ~ (DSGN_CYCLE / UNIQUE_ID),
                        local = TRUE)
@@ -148,7 +154,7 @@ glances(all_no_re_no_sp,
         all_unnest_re,
         all_nest_re)
 
-# Unnested random effects performed the best
+# Nested random effects performed the best
 # Model with random effect for year (no site random effect) performed almost as well with respect to AIC with slightly higher pseudo R2
 
 # Would be good to investigate this with Robert's data as well since that includes a bunch of data about the weather for that specific year
@@ -182,8 +188,8 @@ glances(inlake_no_re, nolake_no_re, inlake_unnest_re, nolake_unnest_re, inlake_n
 
 # Try random forest
 # A good tutorial introducing random forest https://uc-r.github.io/random_forests
-modRF <- splmRF(create_formula(dep_var, all_vars, log = T),
-                data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
+modRF <- splmRF(create_formula(dep_var, all_ind_vars, log = T),
+                data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
                 spcov_type = "exponential",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
                 # random = ~ DSGN_CYCLE,
@@ -207,16 +213,16 @@ ggsave("./figures/Variable importance_spMod_NLA'07,'12,'17_all.png", dpi = 300, 
 
 # Examine if the error stabilizes with the number of trees
 m1 <- randomForest::randomForest(
-  formula = create_formula(dep_var, all_vars, log = T),
-  data = drop_na(habs, all_of(dep_var), all_of(all_vars))
+  formula = create_formula(dep_var, all_ind_vars, log = T),
+  data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars))
 )
 plot(m1)
 
 # Tune the mTry parameter
-na_free <- drop_na(habs, all_of(dep_var), all_of(all_vars))
+na_free <- drop_na(habs, all_of(dep_var), all_of(all_ind_vars))
 
 m2 <- randomForest::tuneRF(
-  x          = st_drop_geometry(na_free[all_vars]),
+  x          = st_drop_geometry(na_free[all_ind_vars]),
   y          = log10(na_free$B_G_DENS + 1),
   ntreeTry   = 500,
   mtryStart  = 4,
@@ -237,8 +243,8 @@ for(i in 1:nrow(hyper_grid)) {
   
   # train model
   model <- ranger::ranger(
-    formula         = create_formula(dep_var, all_vars, log = T),
-    data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(all_vars))), 
+    formula         = create_formula(dep_var, all_ind_vars, log = T),
+    data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(all_ind_vars))), 
     num.trees       = 500,
     mtry            = hyper_grid$mtry[i],
     min.node.size   = hyper_grid$node_size[i],
@@ -261,11 +267,11 @@ OOB_RMSE <- vector(mode = "numeric", length = 100)
 for(i in seq_along(OOB_RMSE)) {
 
   optimal_ranger <- ranger::ranger(
-    formula         = create_formula(dep_var, all_vars, log = T),
-    data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(all_vars))), 
+    formula         = create_formula(dep_var, all_ind_vars, log = T),
+    data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(all_ind_vars))), 
     num.trees       = 500,
-    mtry            = 7,
-    min.node.size   = 3,
+    mtry            = 8,
+    min.node.size   = 9,
     sample.fraction = .8,
     importance      = 'impurity'
   )
