@@ -7,7 +7,9 @@ editor_options:
   chunk_output_type: console
 ---
 
-Compiling NLA 2007, 2012, and 2017 cyanobacteria data
+## Script Purpose and Background
+
+Compiling data from the 2007, 2012, and 2017 NLA and data associated with the watersheds for each of these lakes from LakeCat and National Nutrient Inventor, in addition to NLA derived data.
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
 library(devtools)
@@ -67,8 +69,9 @@ Lakemorpho
 * Surface area
 * Perimeter
 
-Load NLA data on cyanobacteria and water physiochemical characteristics
-These data were compiled by Karen Blocksom
+#### NLA Data
+
+Physical, chemical, and algal (phytoplankton) data from the NLA. These data were compiled by Karen Blocksom.
 
 
 ```{r}
@@ -165,8 +168,9 @@ nla_long |>
 ```
 
 
-Add evaporation to inflow ratio data from Emi Fergus and Renee Brooks
+#### NLA+ Evaporation/Inflow
 
+Add evaporation to inflow ratio data from Emi Fergus and Renee Brooks.
 
 ```{r}
 
@@ -219,6 +223,8 @@ nrow(nla_id) - nrow(ei17) - nrow(ei0712) # Didn't lose anything in the joining p
 
 ```
 
+
+#### NLCD
 
 Add NLCD compiled by Marc Weber for all NLA 2007 and 2012 lakes (in Lakecat and not in Lakecat). Note that Marc did not include data from 2016 NLCD to pair with 2017 NLA. The code below also brings in the 2016 NLCD from LakeCat for 2017 NLA lakes included in LakeCat.
 
@@ -377,6 +383,8 @@ nla_nlcd <- missing_nlcd_sums |>
 ```
 
 
+#### PRISM Precipitation and Temperature
+
 Match PRISM monthly precipitation and temperature data to NLA sample dates
 Description:
 * Precipitation (mm), cumulative precipitation for the specified month and year in which the sample was collected
@@ -412,8 +420,9 @@ precip_temp <- yr_mon |>
 ```
 
 
-Pull in other watershed data compiled by Marc
+#### LakeCat Watershed Characteristics
 
+Pull in other watershed data compiled by Marc
 
 ```{r}
 # Pull in other relevant watershed characteristics
@@ -424,8 +433,9 @@ ws_char <- wsmet |>
 ```
 
 
-Add in nutrient inventory data compiled by Robert Sabo and others
+#### National Nutrient Inventory
 
+Add in nutrient inventory data compiled by Robert Sabo, Meredith Brehob, and others
 
 ```{r}
 # Note that nutrient inventory data is in units of kg N/yr or kg P/yr
@@ -462,6 +472,20 @@ nni_mean <- nni0712 |>
 
 ```
 
+#### Ecoregions
+
+Identify the ecoregion for each NLA Lake
+
+Data request to Marc: I’m looking for the ecoregions data to pair with the 2007, 2012, and 2017 NLAs. I’m thinking the level 3 ecoregions and the 3 and 9 aggregated ecoregions to start. I’m attaching the ID information for the set of lakes I have for this project.
+
+```{r}
+# Read in data
+nla_ecor <- readr::read_csv("NLA_UniqueIDs_HABsDrivers_Ecoregions.csv")
+
+```
+
+
+#### Final Data Compilation
 
 Compile together NLA, NLA+, LakeCat, and Nutrient Inventory data
 
@@ -482,11 +506,14 @@ habs_comb <- nla_long %>%
   # Add the precipitation and temperature for the month in which the sample was collected
   left_join(select(precip_temp, UNIQUE_ID, DSGN_CYCLE, VISIT_NO, precip_mean_month, temp_mean_month), by = c("UNIQUE_ID", "DSGN_CYCLE", "VISIT_NO")) |>
   
-  # Add watershed characterstics from LakeCat
+  # Add watershed characteristics from LakeCat
   left_join(select(ws_char, UNIQUE_ID:SlopeWs, VISIT_NO), by = c("UNIQUE_ID", "DSGN_CYCLE", "VISIT_NO")) |>
   
   # Add nutrient inventory means
   left_join(nni_mean, by = "UNIQUE_ID") |>
+  
+  # Add the ecoregion of each lake
+  left_join(select(nla_ecor, -LAT_DD83, -LON_DD83, -COMID), by = "UNIQUE_ID") |>
   
   # Format
   mutate(DSGN_CYCLE = factor(DSGN_CYCLE),
@@ -504,7 +531,7 @@ habs <- sf::st_transform(habs_nars_all, crs = 5070)
 ```
 
 
-Figures for presentations 
+#### Figures for presentations 
 
 
 ```{r}
