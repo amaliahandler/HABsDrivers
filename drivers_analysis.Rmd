@@ -188,7 +188,24 @@ glances(nolake_no_re,
         all_unnest_re,
         all_nest_re)
 
+# Explore specifying a random effect for ecoregion
+# First, a model just using total N as an independent variable
+ecor_test1 <- splm(create_formula(dep_var, "NTL", log = T),
+                         data = drop_na(habs, all_of(dep_var), NTL),
+                         spcov_type = "exponential",
+                         random = ~ DSGN_CYCLE + UNIQUE_ID,
+                         local = TRUE)
 
+# Second, add in the ecoregion and allow slopes to vary by ecoregions
+ecor_test2 <- splm(create_formula(dep_var, "NTL", log = T),
+                         data = drop_na(habs, all_of(dep_var), NTL),
+                         spcov_type = "exponential",
+                         random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM),
+                         local = TRUE)
+
+# How does have a slope for each ecoregion change the model?
+glimpse(ecor_test1, ecor_test2)
+varcomp(ecor_test1, ecor_test2)
 
 # Try random forest
 # A good tutorial introducing random forest https://uc-r.github.io/random_forests
