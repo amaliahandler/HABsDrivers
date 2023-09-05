@@ -98,6 +98,9 @@ all_vars     <- colnames(habs)[match("TEMPERATURE", colnames(habs)):match("P_Sur
 dep_vars     <- c("B_G_DENS", "MICX", "CYLSPER", "CHLA_RESULT")
 all_ind_vars <- all_vars[!all_vars %in% dep_vars]
 
+# Dropping non-developed area of the watershed due to issues of colinearity with developed area. Also dropping nitrate data since it is missing for a large number of observations.
+all_ind_vars <- all_ind_vars[!all_ind_vars %in% c("nondev_ws", "NITRATE_N")]
+
 # NLA water variables
 nla_ind_vars <- c("TEMPERATURE", "STRATIFIED", "AMMONIA_N", "DOC", "NTL", "PTL", "TURB", "NITRATE_N", "PH", "EVAP_INFL")
   
@@ -105,11 +108,6 @@ nla_ind_vars <- c("TEMPERATURE", "STRATIFIED", "AMMONIA_N", "DOC", "NTL", "PTL",
 non_nla_vars <- all_ind_vars[!all_ind_vars %in% nla_ind_vars]
 
 dep_var <- "B_G_DENS"
-
-create_formula(dep_var, all_vars, log = T)
-
-# Dropping non-developed area of the watershed due to issues of colinearity with deveoped area. Also dropping nitrate data since it is missing for a large number of observations.
-all_ind_vars <- all_ind_vars[!all_ind_vars %in% c("nondev_ws", "NITRATE_N")]
 
 all_no_re_no_sp <- splm(create_formula(dep_var, all_ind_vars, log = T),
                      data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
@@ -154,37 +152,43 @@ glances(all_no_re_no_sp,
         all_unnest_re,
         all_nest_re)
 
-# Nested random effects performed the best
+# Unnested random effects performed the best
 # Model with random effect for year (no site random effect) performed almost as well with respect to AIC with slightly higher pseudo R2
+
+# Explore 
 
 # Would be good to investigate this with Robert's data as well since that includes a bunch of data about the weather for that specific year
 
 
-nolake_no_re <- splm(create_formula(dep_var, no_lake_vars, log = T),
-                     data = drop_na(habs, all_of(dep_var), all_of(no_lake_vars)),
+nolake_no_re <- splm(create_formula(dep_var, non_nla_vars, log = T),
+                     data = drop_na(habs, all_of(dep_var), all_of(non_nla_vars)),
                      spcov_type = "exponential", 
                      local = TRUE)
 
-nolake_unnest_re <- splm(create_formula(dep_var, no_lake_vars, log = T),
-                         data = drop_na(habs, all_of(dep_var), all_of(no_lake_vars)),
+nolake_unnest_re <- splm(create_formula(dep_var, non_nla_vars, log = T),
+                         data = drop_na(habs, all_of(dep_var), all_of(non_nla_vars)),
                          spcov_type = "exponential",
                          random = ~ DSGN_CYCLE + UNIQUE_ID,
                          local = TRUE)
 
-nolake_nest_re <- splm(create_formula(dep_var, no_lake_vars, log = T),
-                       data = drop_na(habs, all_of(dep_var), all_of(no_lake_vars)),
+nolake_nest_re <- splm(create_formula(dep_var, non_nla_vars, log = T),
+                       data = drop_na(habs, all_of(dep_var), all_of(non_nla_vars)),
                        spcov_type = "exponential",
                        random = ~ (DSGN_CYCLE / UNIQUE_ID),
                        local = TRUE)
 
-allvars_nest_re <- splm(create_formula(dep_var, all_vars, log = T),
-                       data = drop_na(habs, all_of(dep_var), all_of(all_vars)),
-                       spcov_type = "exponential",
-                       random = ~ (DSGN_CYCLE / UNIQUE_ID),
-                       local = TRUE)
 
-# Compared models
-glances(inlake_no_re, nolake_no_re, inlake_unnest_re, nolake_unnest_re, inlake_nest_re, nolake_nest_re)
+# Compare models
+glances(nolake_no_re, nolake_unnest_re, nolake_nest_re)
+
+glances(nolake_no_re, 
+        nolake_unnest_re, 
+        nolake_nest_re,
+        all_re_year,
+        all_unnest_re,
+        all_nest_re)
+
+
 
 # Try random forest
 # A good tutorial introducing random forest https://uc-r.github.io/random_forests
@@ -289,14 +293,14 @@ imp %>%
   geom_col() +
   coord_flip() +
   xlab("Variable") + ylab("Variable Importance") +
-  ggtitle("NLA '07,'12,'17_All Variabbles")
+  ggtitle("NLA '07,'12,'17_All Variables")
 
 ggsave("./figures/Variable importance_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
   
 # Check model performance by loocv
 # These take a very long time to run. Running the nested model went for 1.25 hours and didn't finish. Should maybe explore doing a k-folds cross validation.
-loocv(inlake_nest_re, local = T) # 0.8567984
-loocv(nolake_nest_re, local = T)
+# loocv(inlake_nest_re, local = T) # 0.8567984
+# loocv(nolake_nest_re, local = T)
 
 # Split data into training and predictor sets
 habs_pred <- predict(inlake_nest_re, newdata = habs, local = TRUE)
