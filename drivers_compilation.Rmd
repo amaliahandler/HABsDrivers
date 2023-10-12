@@ -79,7 +79,7 @@ Physical, chemical, and algal (phytoplankton) data from the NLA. These data were
 # all_nla <- read.csv("NLA2007-2012-2017_LakeData_forHABs_4April2022.csv")
 
 # Updated from Karen to include temperature data whenever a profile was collected
-all_nla <- read.csv("NLA2007-2012-2017_LakeData_forHABs_12April2022.csv")
+all_nla <- read.csv("NLA2007-2012-2017_LakeData_forHABs_28Sept2023.csv")
 
 # Note that one site (UNIQUE_ID = "NLA_NV-10003") is creating problems since it was sampled twice in 2007 and both visits are coded a VISIT_NO = 1. Quick fix is to recode the site visit number in September to be VISIT_NO = 2.
 all_nla$VISIT_NO[all_nla$UNIQUE_ID == "NLA_NV-10003" & all_nla$DATE_COL == "09/17/2007"] <- 2
@@ -95,11 +95,12 @@ unique_nla_lakecat <- nla_lakecat %>%
   select(UNIQUE_ID, COMID) %>%
   distinct()
 
-# Define needed columns
+# Define needed columns (will deal with missing pH values below)
 nla_comid <- all_nla %>%
-  select(SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, LAT_DD83, LON_DD83, 
-         TEMPERATURE, STRATIFIED, AMMONIA_N, DOC, NTL, PTL, TURB, 
-         NITRATE_N, PH, CHLA_RESULT, MICX, CYLSPER, B_G_DENS) %>%
+  select(SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, LAT_DD83, LON_DD83,  
+         TEMPERATURE, MAXDEPTH, STRATIFIED, AMMONIA_N, DO_SURF, DOC, NTL, PTL, 
+         TURB, NITRATE_N, PH, CHLA_RESULT, MICX, CYLSPER, B_G_DENS, BG_BIOVOL,
+         PHYT_BIOVOL) %>%
   left_join(unique_nla_lakecat, by = "UNIQUE_ID")
 
 # For sites still missing COMIDs, get from the alternate integrated NLA document
@@ -122,7 +123,7 @@ nla_all_coms <- nla_comid %>%
 nla_long <- nla_all_coms %>%
   mutate(STRATIFIED = ifelse(is.na(STRATIFIED), 0, 1)) %>%
   mutate(AMMONIA_N = as.numeric(replace(AMMONIA_N, AMMONIA_N == "< 0.03", NA))) %>%
-  pivot_longer(TEMPERATURE:B_G_DENS, names_to = "ANALYTE", values_to = "RESULT")
+  pivot_longer(TEMPERATURE:PHYT_BIOVOL, names_to = "ANALYTE", values_to = "RESULT")
 
 # Where PH data was not measured in the lab, retrieve the top-most pH measurement from the profile
 ph_profile <- nla_long %>%
@@ -133,7 +134,7 @@ ph_profile <- nla_long %>%
             by = c("UNIQUE_ID", "DSGN_CYCLE", "VISIT_NO")) %>%
   rename(RESULT = PH_FIELD)
 
-# Remove the rows with missing pH data from the lab and add the field data and add the rows with pH data from the profile data
+# Remove the rows with missing pH data from the lab and add the rows with pH data from the profile data
 # Remove NA rows for cylindrospermopsin from 2007 and 2012 surveys because this analysis was not run during those years. Want any NA values present in the df to imply that the analysis was run, but result was below the detection limit.
 # Add a units columns
 nla_long <- nla_long %>%
@@ -141,10 +142,13 @@ nla_long <- nla_long %>%
   bind_rows(ph_profile) %>%
   filter(!(ANALYTE == "CYLSPER" & DSGN_CYCLE %in% c(2007, 2012))) %>%
   mutate(UNITS = case_when(ANALYTE == "TEMPERATURE" ~ "DEG_C",
+                           ANALYTE == "MAXDEPTH" ~ "M",
                            ANALYTE == "STRATIFIED" ~ "Y/N_1/0",
+                           ANALYTE == "DO_SURF" ~ "DEG_C",
                            ANALYTE %in% c("PTL", "MICX", "CYLSPER") ~ "UG/L",
                            ANALYTE == "TURB" ~ "NTU",
                            ANALYTE == "B_G_DENS" ~ "CELLS/ML",
+                           ANALYTE %in% c("BG_BIOVOL", "PHYT_BIOVOL") ~ "UM3/ML",
                            ANALYTE == "PH" ~ "STD_UNITS",
                            ANALYTE %in% c("AMMONIA_N", "DOC", "NTL", "NITRATE_N", "CHLA_RESULT") ~ "MG/L"))
 
@@ -449,16 +453,42 @@ nni2012 <- read.csv("NLA12_NutrientInventory.csv")
 # Select the relevant columns from each and join with NLA ID info to get unique IDs
 extractor <- function(x, year){
   x |> 
-    select(SITE_ID, VISIT_NO, contains(c("Total_Inputs", "Surplus"))) |>
+    select(SITE_ID, VISIT_NO, N_Total_Deposition_2002:Recovered_P_2012) |> # contains(c("Total_Inputs", "Surplus"))) |>
     left_join(filter(nla_id, DSGN_CYCLE == year), by = c("SITE_ID", "VISIT_NO"))
 }
 
+# Frustratingly, column names are not consistent across years from the NNI, have to manually fix a few of these
 nni07 <- extractor(nni2007, 2007)
-nni12 <- extractor(nni2012, 2012)
+
+nni12 <- nni2012 |>
+  extractor(2012) |>
+  rename(N_Crop_N_Rem_2002 = N_Crop_N_Rem,
+         N_Human_N_Demand_2012 = Human_N_Demand_2012)
 
 nni0712 <- bind_rows(nni07, nni12)
 
-# Note that the same lake can have (usually small) differences in the nutrient inputs the same NNI year in the 2007 and 2012 NLA files. This is because the NNI was downscaled to each lake watershed using the corresponding NLCD data for the NLA survey (2007 NLA = 2006 NLCD, 2012 NLA = 2011 NLCD). Because of slight changes in the relevant land use classes in the two NLCDs, there are differences in the derived inventories based on this.
+
+# Note that the same lake can have (usually small) differences in the nutrient inputs the same NNI year in the 2007 and 2012 NLA files. This is because the NNI was down-scaled to each lake watershed using the corresponding NLCD data for the NLA survey (2007 NLA = 2006 NLCD, 2012 NLA = 2011 NLCD). Because of slight changes in the relevant land use classes in the two NLCDs, there are differences in the derived inventories based on this.
+nni0712 |>
+  rename(N_Human_N_Demand_2007 = Human_N_Demand_2007,
+         N_Human_N_Demand_2002 = Human_N_Demand_2002,
+         P_Legacy_P_2002 = Legacy_P_2002,
+         P_Recovered_P_2002 = Recovered_P_2002,
+         P_Legacy_P_2007 = Legacy_P_2007,
+         P_Recovered_P_2007 = Recovered_P_2007,
+         P_Legacy_P_2012 = Legacy_P_2012,
+         P_Recovered_P_2012 = Recovered_P_2012) |>
+  pivot_longer(cols = N_Total_Deposition_2002:P_Recovered_P_2012,
+               names_to = c("nutrient", "type", "year"),
+               # Stuck here, trying to figure out how to breakup the string after the N/P_, then anything in the middle, then the year after the final underscore.
+               # Now stuck with leading and trailing underscores
+               names_sep = c(1, -4),
+               values_to = "amount") |>
+  filter(VISIT_NO == 1) |>
+  group_by(UNIQUE_ID, nutrient, type) |>
+  summarise(mean020712 = mean(amount, na.rm = T))
+  select(UNIQUE_ID, nutrient:amount)
+
 nni_mean <- nni0712 |>
   mutate(N_Total_Inputs = rowMeans(select(nni0712, starts_with('N_Total_Inputs')), na.rm = TRUE),
          N_Surplus = rowMeans(select(nni0712, starts_with('N_Surplus')), na.rm = TRUE),
@@ -517,7 +547,9 @@ habs_comb <- nla_long %>%
   
   # Format
   mutate(DSGN_CYCLE = factor(DSGN_CYCLE),
-         UNIQUE_ID = factor(UNIQUE_ID))
+         UNIQUE_ID = factor(UNIQUE_ID),
+         AG_ECO3 = factor(AG_ECO3),
+         AG_ECO9_NM = factor(AG_ECO9_NM))
 
 # Convert to a sf object
 habs_nars_all <- sf::st_as_sf(habs_comb, coords = c('LON_DD83', 'LAT_DD83'), crs = 4269, remove = FALSE)
