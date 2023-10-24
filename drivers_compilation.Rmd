@@ -469,7 +469,8 @@ nni0712 <- bind_rows(nni07, nni12)
 
 
 # Note that the same lake can have (usually small) differences in the nutrient inputs the same NNI year in the 2007 and 2012 NLA files. This is because the NNI was down-scaled to each lake watershed using the corresponding NLCD data for the NLA survey (2007 NLA = 2006 NLCD, 2012 NLA = 2011 NLCD). Because of slight changes in the relevant land use classes in the two NLCDs, there are differences in the derived inventories based on this.
-nni0712 |>
+tmp <- nni0712 |>
+  # A bunch of variables were not named consistently among years or input types
   rename(N_Human_N_Demand_2007 = Human_N_Demand_2007,
          N_Human_N_Demand_2002 = Human_N_Demand_2002,
          P_Legacy_P_2002 = Legacy_P_2002,
@@ -484,6 +485,21 @@ nni0712 |>
                # Now stuck with leading and trailing underscores
                names_sep = c(1, -4),
                values_to = "amount") |>
+  # Remove leading and trailing underscores in type column. 
+  mutate(type = stringr::str_sub(type, 2, -2)) |>
+  # Fix inconsistencies in how input types are labeled so these will group when calculating the 2002, 2007, 2012 mean
+  mutate(type = case_when(type == "Livestock.Waste" ~ "livestock_Waste",
+                          type == "Agriculture_NHy" ~ "Agricultural_NHy",
+                          TRUE ~ type)) |>
+  # What is Low P and High_P? 2007 seems to be missing high_P. Need to check that all three years are present for each data type
+  filter(VISIT_NO == 1) |>
+  select(SITE_ID, nutrient, type, year, amount) |>
+  group_by(SITE_ID, nutrient, type) |>
+  summarise(count = n()) |>
+  filter(count < 3)
+  pull(type) |>
+  unique()
+
   filter(VISIT_NO == 1) |>
   group_by(UNIQUE_ID, nutrient, type) |>
   summarise(mean020712 = mean(amount, na.rm = T))
