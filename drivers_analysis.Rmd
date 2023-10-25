@@ -105,17 +105,20 @@ create_formula <- function(dep_var, ind_vars, log = F){
 
 # Create variable groups
 all_vars     <- colnames(habs)[match("TEMPERATURE", colnames(habs)):match("P_Surplus", colnames(habs))]
-dep_vars     <- c("B_G_DENS", "MICX", "CYLSPER", "CHLA_RESULT", "CHLA_CYANO")
+dep_vars     <- c("B_G_DENS", "MICX", "CYLSPER", "CHLA_RESULT", "CHLA_CYANO", "BG_BIOVOL", "PHYT_BIOVOL")
 all_ind_vars <- all_vars[!all_vars %in% dep_vars]
 
 # Dropping non-developed area of the watershed due to issues of colinearity with developed area. Also dropping nitrate data since it is missing for a large number of observations.
 all_ind_vars <- all_ind_vars[!all_ind_vars %in% c("nondev_ws", "NITRATE_N")]
 
 # NLA water variables
-nla_ind_vars <- c("TEMPERATURE", "STRATIFIED", "AMMONIA_N", "DOC", "NTL", "PTL", "TURB", "NITRATE_N", "PH", "EVAP_INFL")
+nla_ind_vars <- c("TEMPERATURE", "MAXDEPTH", "STRATIFIED", "AMMONIA_N", "DO_SURF", "DOC", "NTL", "PTL", "TURB", "NITRATE_N", "PH", "EVAP_INFL")
   
 # All non-NLA variables
 non_nla_vars <- all_ind_vars[!all_ind_vars %in% nla_ind_vars]
+
+# All nutrient inventory variables
+nni_vars <- colnames(habs)[match("N_AG_N2O_INPUTS", colnames(habs)):match("P_Surplus", colnames(habs))]
 
 dep_var <- "B_G_DENS"
 
@@ -225,7 +228,88 @@ glances(ecor_test1, ecor_test2)
 varcomp(ecor_test1)
 varcomp(ecor_test2)
 
+
+# Check model performance by loocv
+# These take a very long time to run. Running the nested model went for 1.25 hours and didn't finish. Should maybe explore doing a k-folds cross validation.
+# loocv(inlake_nest_re, local = T) # 0.8567984
+# loocv(nolake_nest_re, local = T)
+
+# Split data into training and predictor sets
+habs_pred <- predict(inlake_nest_re, newdata = habs, local = TRUE)
+
+# Visualize the standardized residuals
+re_nested_resid <- augment(inlake_nest_re)
+mapview(re_nested_resid, zcol = ".std.resid", legend = TRUE)
+
+# Filter to just the big residuals
+tmp <- filter(re_nested_resid, .std.resid < -2 | .std.resid > 2)
+mapview(tmp, zcol = ".std.resid", legend = TRUE)
+# Seem fairly randomly distributed across the country
+
+mapview(re_nested_resid, zcol = ".std.resid", at = c(-5.4, -2, 2.6), legend = TRUE)
+
+ggplot(data = re_nested_resid, aes(x = .fitted, y = `log10(B_G_DENS + 1)`)) + 
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1)
+
+ggplot(data = re_nested_resid, aes(x = .std.resid)) + 
+  geom_histogram() + 
+
+summary(mod_re_nested)
+summary(mod_re_unnested)
+
+plot(mod_re_nested)
+plot(mod_re_unnested)
+
+# Check that the spatial model performs better than a non-spatial model
+inlake_nonsp <- splm(create_formula(dep_var, in_lake_vars, log = T),
+                     data = drop_na(habs, all_of(dep_var), all_of(in_lake_vars)),
+                     spcov_type = "none",
+                     random = ~ (DSGN_CYCLE / UNIQUE_ID),
+                     local = TRUE)
+
+# Compare spatial and non-spatial models with nested random effects
+glances(inlake_nonsp, inlake_nest_re)
+# Hmmm, the non-spatial model performs just as well (maybe a little better) than the spatial model
+
+# Is it because there are so many independent variables?
+basic_spat <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "exponential", local = TRUE) 
+
+basic_nonsp <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "none", local = TRUE)
+
+glances(basic_nonsp, basic_spat)
+# Reducing the number of independent variables doesn't change the answer. The spatial and non-spatial forms of the model perform about the same
+
+# Try a few different spatial convariance types
+gaussian <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "gaussian", local = TRUE) 
+
+sphere <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "spherical", local = TRUE) 
+
+triangular <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "triangular", local = TRUE)
+
+circular <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "circular", local = TRUE)
+
+cubic <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "cubic", local = TRUE)
+
+glances(basic_nonsp, basic_spat, gaussian, sphere, triangular, circular, cubic)
+# Conclusion: Exponential and cubic covariance structure perform the same and only slightly better than other form.
+
+summary(mod_re_nested)
+summary(mod_re_unnested)
+
+tidy(mod_re_nested)
+glance(mod_re_nested)
+plot(mod_re_nested)
+plot(mod_re_unnested)
+
+```
+
+Random forest experimenting
+
+```{r}
+
 # Try random forest
+
 # A good tutorial introducing random forest https://uc-r.github.io/random_forests
 modRF <- splmRF(create_formula(dep_var, all_ind_vars, log = T),
                 data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
@@ -332,79 +416,6 @@ imp %>%
 
 ggsave("./figures/Variable importance_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
   
-# Check model performance by loocv
-# These take a very long time to run. Running the nested model went for 1.25 hours and didn't finish. Should maybe explore doing a k-folds cross validation.
-# loocv(inlake_nest_re, local = T) # 0.8567984
-# loocv(nolake_nest_re, local = T)
-
-# Split data into training and predictor sets
-habs_pred <- predict(inlake_nest_re, newdata = habs, local = TRUE)
-
-# Visualize the standardized residuals
-re_nested_resid <- augment(inlake_nest_re)
-mapview(re_nested_resid, zcol = ".std.resid", legend = TRUE)
-
-# Filter to just the big residuals
-tmp <- filter(re_nested_resid, .std.resid < -2 | .std.resid > 2)
-mapview(tmp, zcol = ".std.resid", legend = TRUE)
-# Seem fairly randomly distributed across the country
-
-mapview(re_nested_resid, zcol = ".std.resid", at = c(-5.4, -2, 2.6), legend = TRUE)
-
-ggplot(data = re_nested_resid, aes(x = .fitted, y = `log10(B_G_DENS + 1)`)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1)
-
-ggplot(data = re_nested_resid, aes(x = .std.resid)) + 
-  geom_histogram() + 
-
-summary(mod_re_nested)
-summary(mod_re_unnested)
-
-plot(mod_re_nested)
-plot(mod_re_unnested)
-
-# Check that the spatial model performs better than a non-spatial model
-inlake_nonsp <- splm(create_formula(dep_var, in_lake_vars, log = T),
-                     data = drop_na(habs, all_of(dep_var), all_of(in_lake_vars)),
-                     spcov_type = "none",
-                     random = ~ (DSGN_CYCLE / UNIQUE_ID),
-                     local = TRUE)
-
-# Compare spatial and non-spatial models with nested random effects
-glances(inlake_nonsp, inlake_nest_re)
-# Hmmm, the non-spatial model performs just as well (maybe a little better) than the spatial model
-
-# Is it because there are so many independent variables?
-basic_spat <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "exponential", local = TRUE) 
-
-basic_nonsp <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "none", local = TRUE)
-
-glances(basic_nonsp, basic_spat)
-# Reducing the number of independent variables doesn't change the answer. The spatial and non-spatial forms of the model perform about the same
-
-# Try a few different spatial convariance types
-gaussian <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "gaussian", local = TRUE) 
-
-sphere <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "spherical", local = TRUE) 
-
-triangular <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "triangular", local = TRUE)
-
-circular <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "circular", local = TRUE)
-
-cubic <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "cubic", local = TRUE)
-
-glances(basic_nonsp, basic_spat, gaussian, sphere, triangular, circular, cubic)
-# Conclusion: Exponential and cubic covariance structure perform the same and only slightly better than other form.
-
-summary(mod_re_nested)
-summary(mod_re_unnested)
-
-tidy(mod_re_nested)
-glance(mod_re_nested)
-plot(mod_re_nested)
-plot(mod_re_unnested)
-
 ```
 
 
