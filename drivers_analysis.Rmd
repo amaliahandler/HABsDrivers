@@ -120,7 +120,7 @@ non_nla_vars <- all_ind_vars[!all_ind_vars %in% nla_ind_vars]
 # All nutrient inventory variables
 nni_vars <- colnames(habs)[match("N_AG_N2O_INPUTS", colnames(habs)):match("P_Surplus", colnames(habs))]
 
-dep_var <- "B_G_DENS"
+dep_var <- "CHLA_CYANO"
 
 all_no_re_no_sp <- splm(create_formula(dep_var, all_ind_vars, log = T),
                      data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
@@ -307,32 +307,7 @@ plot(mod_re_unnested)
 Random forest experimenting
 
 ```{r}
-
-# Try random forest
-
 # A good tutorial introducing random forest https://uc-r.github.io/random_forests
-modRF <- splmRF(create_formula(dep_var, all_ind_vars, log = T),
-                data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
-                spcov_type = "exponential",
-                random = ~ DSGN_CYCLE + UNIQUE_ID,
-                # random = ~ DSGN_CYCLE,
-                local = TRUE,
-                num.trees       = 500,
-                mtry            = 7,
-                min.node.size   = 3,
-                sample.fraction = .8,
-                importance = "impurity")
-
-imp <- tibble(var = names(modRF$ranger$variable.importance), var_imp = modRF$ranger$variable.importance)
-
-imp %>% 
-  dplyr::arrange(desc(var_imp)) %>%
-  # dplyr::top_n(25) %>%
-  ggplot(aes(x = reorder(var, var_imp), y = var_imp)) +
-  geom_col() +
-  coord_flip() +
-  xlab("Variable") + ylab("Variable Importance")
-ggsave("./figures/Variable importance_spMod_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
 
 # Examine if the error stabilizes with the number of trees
 m1 <- randomForest::randomForest(
@@ -346,7 +321,7 @@ na_free <- drop_na(habs, all_of(dep_var), all_of(all_ind_vars))
 
 m2 <- randomForest::tuneRF(
   x          = st_drop_geometry(na_free[all_ind_vars]),
-  y          = log10(na_free$B_G_DENS + 1),
+  y          = log10(na_free$CHLA_CYANO + 1),
   ntreeTry   = 500,
   mtryStart  = 4,
   stepFactor = 1.5,
@@ -356,7 +331,7 @@ m2 <- randomForest::tuneRF(
 
 # hyperparameter grid search
 hyper_grid <- expand.grid(
-  mtry       = seq(4, 8, by = 1),
+  mtry       = seq(20, 30, by = 2),
   node_size  = seq(3, 9, by = 2),
   sampe_size = c(.55, .632, .70, .80),
   OOB_RMSE   = 0
@@ -393,9 +368,9 @@ for(i in seq_along(OOB_RMSE)) {
     formula         = create_formula(dep_var, all_ind_vars, log = T),
     data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(all_ind_vars))), 
     num.trees       = 500,
-    mtry            = 8,
-    min.node.size   = 9,
-    sample.fraction = .8,
+    mtry            = 28,
+    min.node.size   = 3,
+    sample.fraction = .7,
     importance      = 'impurity'
   )
   
@@ -415,6 +390,32 @@ imp %>%
   ggtitle("NLA '07,'12,'17_All Variables")
 
 ggsave("./figures/Variable importance_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
+
+
+# Given the parameter tuning, now pass the data to spmodel
+modRF <- splmRF(create_formula(dep_var, all_ind_vars, log = T),
+                data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
+                spcov_type = "exponential",
+                random = ~ DSGN_CYCLE + UNIQUE_ID,
+                # random = ~ DSGN_CYCLE,
+                local = TRUE,
+                num.trees       = 500,
+                mtry            = 28,
+                min.node.size   = 3,
+                sample.fraction = .7,
+                importance = "impurity")
+
+imp <- tibble(var = names(modRF$ranger$variable.importance), var_imp = modRF$ranger$variable.importance)
+
+imp %>% 
+  dplyr::arrange(desc(var_imp)) %>%
+  dplyr::top_n(25) %>%
+  ggplot(aes(x = reorder(var, var_imp), y = var_imp)) +
+  geom_col() +
+  coord_flip() +
+  xlab("Variable") + ylab("Variable Importance")
+
+ggsave("./figures/Variable importance_spMod_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
   
 ```
 
