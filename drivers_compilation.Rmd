@@ -469,7 +469,7 @@ nni0712 <- bind_rows(nni07, nni12)
 
 
 # Note that the same lake can have (usually small) differences in the nutrient inputs the same NNI year in the 2007 and 2012 NLA files. This is because the NNI was down-scaled to each lake watershed using the corresponding NLCD data for the NLA survey (2007 NLA = 2006 NLCD, 2012 NLA = 2011 NLCD). Because of slight changes in the relevant land use classes in the two NLCDs, there are differences in the derived inventories based on this.
-tmp <- nni0712 |>
+nni_mean <- nni0712 |>
   # A bunch of variables were not named consistently among years or input types
   rename(N_Human_N_Demand_2007 = Human_N_Demand_2007,
          N_Human_N_Demand_2002 = Human_N_Demand_2002,
@@ -481,8 +481,6 @@ tmp <- nni0712 |>
          P_Recovered_P_2012 = Recovered_P_2012) |>
   pivot_longer(cols = N_Total_Deposition_2002:P_Recovered_P_2012,
                names_to = c("nutrient", "type", "year"),
-               # Stuck here, trying to figure out how to breakup the string after the N/P_, then anything in the middle, then the year after the final underscore.
-               # Now stuck with leading and trailing underscores
                names_sep = c(1, -4),
                values_to = "amount") |>
   # Remove leading and trailing underscores in type column. 
@@ -491,30 +489,29 @@ tmp <- nni0712 |>
   mutate(type = case_when(type == "Livestock.Waste" ~ "livestock_Waste",
                           type == "Agriculture_NHy" ~ "Agricultural_NHy",
                           TRUE ~ type)) |>
-  # What is Low P and High_P? 2007 seems to be missing high_P. Need to check that all three years are present for each data type
-  filter(VISIT_NO == 1) |>
-  select(SITE_ID, nutrient, type, year, amount) |>
-  group_by(SITE_ID, nutrient, type) |>
-  summarise(count = n()) |>
-  filter(count < 3)
-  pull(type) |>
-  unique()
-
+  # What is Low P and High_P?
+  # Missing N_Lightning_2002, N_AG_N2_2007, and P_Hi_P_2007. For now, removing these.
+  filter(!type %in% c("Lightning", "AG_N2", "Hi_P")) |>
+  # Established already that revisits have identical data
   filter(VISIT_NO == 1) |>
   group_by(UNIQUE_ID, nutrient, type) |>
-  summarise(mean020712 = mean(amount, na.rm = T))
-  select(UNIQUE_ID, nutrient:amount)
+  summarise(mean020712 = mean(amount, na.rm = T)) |>
+  pivot_wider(id_cols = UNIQUE_ID,
+              names_from = c(nutrient, type),
+              values_from = mean020712)
 
-nni_mean <- nni0712 |>
-  mutate(N_Total_Inputs = rowMeans(select(nni0712, starts_with('N_Total_Inputs')), na.rm = TRUE),
-         N_Surplus = rowMeans(select(nni0712, starts_with('N_Surplus')), na.rm = TRUE),
-         P_Surplus = rowMeans(select(nni0712, starts_with('P_Surplus')), na.rm = TRUE)) |>
-  filter(VISIT_NO == 1) |>
-  group_by(UNIQUE_ID) |>
-  summarise(N_Total_Inputs = mean(N_Total_Inputs, na.rm = T),
-            N_Surplus = mean(N_Surplus, na.rm = T),
-            P_Surplus = mean(P_Surplus, na.rm = T)) |>
-  drop_na(N_Total_Inputs, N_Surplus, P_Surplus)
+
+# Old code, for when I just wanted to total inputs
+# nni_mean <- nni0712 |>
+#   mutate(N_Total_Inputs = rowMeans(select(nni0712, starts_with('N_Total_Inputs')), na.rm = TRUE),
+#          N_Surplus = rowMeans(select(nni0712, starts_with('N_Surplus')), na.rm = TRUE),
+#          P_Surplus = rowMeans(select(nni0712, starts_with('P_Surplus')), na.rm = TRUE)) |>
+#   filter(VISIT_NO == 1) |>
+#   group_by(UNIQUE_ID) |>
+#   summarise(N_Total_Inputs = mean(N_Total_Inputs, na.rm = T),
+#             N_Surplus = mean(N_Surplus, na.rm = T),
+#             P_Surplus = mean(P_Surplus, na.rm = T)) |>
+#   drop_na(N_Total_Inputs, N_Surplus, P_Surplus)
 
 ```
 
