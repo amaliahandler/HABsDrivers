@@ -27,6 +27,12 @@ load_all()
 # https://usepa.github.io/spmodel/articles/guide.html
 ```
 
+Calculate the chlorophyll a associated with cyanobacteria
+
+```{r}
+habs <- mutate(habs, CHLA_CYANO = CHLA_RESULT * BG_BIOVOL/PHYT_BIOVOL, .after = CHLA_RESULT)
+```
+
 
 Examine the predictor data for colinear variables
 - TN and DOC
@@ -51,7 +57,7 @@ How much of the variation in the response variables is potentially explainable b
 
 ```{r}
 # Assess spatial (signal) to temporal (noise) in response variables
-do.call(rbind, lapply(c("MICX", "B_G_DENS", "CHLA_RESULT"), function(x){
+do.call(rbind, lapply(c("MICX", "B_G_DENS", "CHLA_RESULT", "CHLA_CYANO"), function(x){
   form <- as.formula(paste(x, " ~ 1 + (1|SITE_ID)"))
   df   <- habs
   
@@ -64,6 +70,10 @@ do.call(rbind, lapply(c("MICX", "B_G_DENS", "CHLA_RESULT"), function(x){
   }
   
   if(x == "CHLA_RESULT"){
+    form <- as.formula(paste("log10(", x, ") ~ 1 + (1|SITE_ID)"))
+  }
+  
+  if(x == "CHLA_CYANO"){
     form <- as.formula(paste("log10(", x, ") ~ 1 + (1|SITE_ID)"))
   }
   
@@ -95,7 +105,7 @@ create_formula <- function(dep_var, ind_vars, log = F){
 
 # Create variable groups
 all_vars     <- colnames(habs)[match("TEMPERATURE", colnames(habs)):match("P_Surplus", colnames(habs))]
-dep_vars     <- c("B_G_DENS", "MICX", "CYLSPER", "CHLA_RESULT")
+dep_vars     <- c("B_G_DENS", "MICX", "CYLSPER", "CHLA_RESULT", "CHLA_CYANO")
 all_ind_vars <- all_vars[!all_vars %in% dep_vars]
 
 # Dropping non-developed area of the watershed due to issues of colinearity with developed area. Also dropping nitrate data since it is missing for a large number of observations.
@@ -203,9 +213,17 @@ ecor_test2 <- splm(create_formula(dep_var, "NTL", log = T),
                          random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM),
                          local = TRUE)
 
+# Add a few other potential covariates
+ecor_test3 <- splm(log10(B_G_DENS + 1) ~ NTL + precip_mean_month,
+                         data = drop_na(habs, B_G_DENS, NTL, precip_mean_month),
+                         spcov_type = "exponential",
+                         random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM) + (precip_mean_month | AG_ECO9_NM),
+                         local = TRUE)
+
 # How does have a slope for each ecoregion change the model?
-glimpse(ecor_test1, ecor_test2)
-varcomp(ecor_test1, ecor_test2)
+glances(ecor_test1, ecor_test2)
+varcomp(ecor_test1)
+varcomp(ecor_test2)
 
 # Try random forest
 # A good tutorial introducing random forest https://uc-r.github.io/random_forests
