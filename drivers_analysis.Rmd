@@ -251,13 +251,15 @@ summary(ecor_test3)
 varcomp(ecor_test3)
 
 # Test to see if the behavior is based on random effects
+# Nope, each time I run this, the amount of variation explained by the fixed effect stays relatively steady, but the independent and spatially-dependent error terms vary wildly
 test <- splm(create_formula(dep_var, try_vars, log = T),
              data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
              spcov_type = "exponential",
              # random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM),
-             local = TRUE)
+             local = F)
 # summary(test)
 varcomp(test)
+# Got it! It the term local. When local = F (the default), I ge tthe same answer each time. When local = T, I get different answers.
 
 # Check model performance by loocv
 # These take a very long time to run. Running the nested model went for 1.25 hours and didn't finish. Should maybe explore doing a k-folds cross validation.
