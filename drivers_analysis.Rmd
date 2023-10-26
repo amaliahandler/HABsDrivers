@@ -257,9 +257,19 @@ test <- splm(create_formula(dep_var, try_vars, log = T),
              spcov_type = "exponential",
              random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM),
              local = T)
-# summary(test)
+summary(test)
 varcomp(test)
 # Got it! It the term local. When local = F (the default), I ge tthe same answer each time. When local = T, I get different answers.
+
+# TP is never important so far. Does it become important when TN is removed from independent variables?
+no_tn <- splm(create_formula(dep_var, try_vars[!try_vars == "NTL"], log = T),
+             data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
+             spcov_type = "exponential",
+             random = ~ DSGN_CYCLE + UNIQUE_ID, # + (NTL | AG_ECO9_NM),
+             local = T)
+summary(no_tn)
+varcomp(no_tn)
+# Answer is yes, when TN is removed from the model, TP becomes very important
 
 # Check model performance by loocv
 # These take a very long time to run. Running the nested model went for 1.25 hours and didn't finish. Should maybe explore doing a k-folds cross validation.
