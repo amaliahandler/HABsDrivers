@@ -236,7 +236,7 @@ ecor_test2 <- splm(create_formula(dep_var, try_vars, log = T),
                          data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
                          spcov_type = "exponential",
                          random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM),
-                         local = TRUE)
+                         local = F)
 summary(ecor_test2)
 varcomp(ecor_test2)
 # Need to follow up with Mike. It seems quite random how the model is partitioning independent and spatially dependent random error.
@@ -255,8 +255,8 @@ varcomp(ecor_test3)
 test <- splm(create_formula(dep_var, try_vars, log = T),
              data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
              spcov_type = "exponential",
-             # random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM),
-             local = F)
+             random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM),
+             local = T)
 # summary(test)
 varcomp(test)
 # Got it! It the term local. When local = F (the default), I ge tthe same answer each time. When local = T, I get different answers.
