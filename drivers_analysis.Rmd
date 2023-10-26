@@ -168,11 +168,6 @@ glances(all_no_re_no_sp,
 # Unnested random effects performed the best
 # Model with random effect for year (no site random effect) performed almost as well with respect to AIC with slightly higher pseudo R2
 
-# Explore 
-
-# Would be good to investigate this with Robert's data as well since that includes a bunch of data about the weather for that specific year
-
-
 nolake_no_re <- splm(create_formula(dep_var, non_nla_vars, log = T),
                      data = drop_na(habs, all_of(dep_var), all_of(non_nla_vars)),
                      spcov_type = "exponential", 
@@ -217,8 +212,8 @@ ecor_test2 <- splm(create_formula(dep_var, "NTL", log = T),
                          local = TRUE)
 
 # Add a few other potential covariates
-ecor_test3 <- splm(log10(B_G_DENS + 1) ~ NTL + precip_mean_month,
-                         data = drop_na(habs, B_G_DENS, NTL, precip_mean_month),
+ecor_test3 <- splm(log10(CHLA_CYANO + 1) ~ NTL + precip_mean_month,
+                         data = drop_na(habs, CHLA_CYANO, NTL, precip_mean_month),
                          spcov_type = "exponential",
                          random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM) + (precip_mean_month | AG_ECO9_NM),
                          local = TRUE)
@@ -227,7 +222,42 @@ ecor_test3 <- splm(log10(B_G_DENS + 1) ~ NTL + precip_mean_month,
 glances(ecor_test1, ecor_test2)
 varcomp(ecor_test1)
 varcomp(ecor_test2)
+varcomp(ecor_test3)
 
+# Adding an ecoregion random effect where the slopes can vary
+# Add a few other potential covariates
+
+try_vars <- c(nla_ind_vars[!nla_ind_vars %in% c("AMMONIA_N", "NITRATE_N", "STRATIFIED")], c("agr_ws", "Precip_Minus_EVTWs", "BFIWs", "SlopeWs"))
+
+# This model has 9% independent error and 55% spatially dependent error the first time I ran it
+# It had 63% independent error and <0.01% spatially dependent error the second time I ran it
+# It had 18% independent error and 43% spatially dependent error the third time I ran it
+ecor_test2 <- splm(create_formula(dep_var, try_vars, log = T),
+                         data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
+                         spcov_type = "exponential",
+                         random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM),
+                         local = TRUE)
+summary(ecor_test2)
+varcomp(ecor_test2)
+# Need to follow up with Mike. It seems quite random how the model is partitioning independent and spatially dependent random error.
+
+# This model has 60% independent error and 4% spatially dependent error 
+ecor_test3 <- splm(create_formula(dep_var, try_vars, log = T),
+                         data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
+                         spcov_type = "exponential",
+                         random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL + PTL | AG_ECO9_NM),
+                         local = TRUE)
+summary(ecor_test3)
+varcomp(ecor_test3)
+
+# Test to see if the behavior is based on random effects
+test <- splm(create_formula(dep_var, try_vars, log = T),
+             data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
+             spcov_type = "exponential",
+             # random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM),
+             local = TRUE)
+# summary(test)
+varcomp(test)
 
 # Check model performance by loocv
 # These take a very long time to run. Running the nested model went for 1.25 hours and didn't finish. Should maybe explore doing a k-folds cross validation.
