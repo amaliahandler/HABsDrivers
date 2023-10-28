@@ -271,6 +271,26 @@ summary(no_tn)
 varcomp(no_tn)
 # Answer is yes, when TN is removed from the model, TP becomes very important
 
+# What if there are two nested random effects?
+# When I nested a DOC random effect within ecoregion, it was no longer significant and the RE accounted for <1% of the variation. Similar effect when I do the same with watershed agriculture of BFI.
+two_nre <- splm(create_formula(dep_var, try_vars, log = T),
+             data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
+             spcov_type = "exponential",
+             random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL + BFIWs | AG_ECO9_NM),
+             local = T)
+summary(two_nre)
+varcomp(two_nre)
+
+# Starting the suspect that the survey year isn't adding much to the analysis
+# When ecoregion is included as a random effect alone (no slope interactions), TP becomes significant
+re2 <- splm(create_formula(dep_var, try_vars, log = T),
+             data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
+             spcov_type = "exponential",
+             random = ~ UNIQUE_ID + (NTL | AG_ECO9_NM),
+             local = T)
+summary(re2)
+varcomp(re2)
+
 # Check model performance by loocv
 # These take a very long time to run. Running the nested model went for 1.25 hours and didn't finish. Should maybe explore doing a k-folds cross validation.
 # loocv(inlake_nest_re, local = T) # 0.8567984
