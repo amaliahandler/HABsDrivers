@@ -124,6 +124,9 @@ dep_var <- "B_G_DENS"
 
 # 2024-01-24 Models on cyanobacteria cell counts using all available explanatory variables
 # Lessons learned: 
+
+# There is a lot of missing biovolume data. Enough that I switched back to cyano count data. Will need to check with Karen about why so much data is missing for this parameter.
+
 # TP isn't important unless TN is removed from the model. These two variables are likely highly colinear. Watershed mean slope and elevation were coming out as highly related to cyanos, but the effect diminished with the addition of the ecoregional data as a categorical variable. It's likely that slope and elevation were acting as proxies for the western mountain and xeric ecoregions that have much lower cyanos compared to other regions. Therefore, decided to include just the three aggregated ecoregions. 
 
 # Also, the ecoregions are included as a fixed rather than a random effect now since the effect seems to be important and not an artifact of the NLA design. 
