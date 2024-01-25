@@ -120,7 +120,48 @@ non_nla_vars <- all_ind_vars[!all_ind_vars %in% nla_ind_vars]
 # All nutrient inventory variables
 nni_vars <- colnames(habs)[match("N_AG_N2O_INPUTS", colnames(habs)):match("P_Surplus", colnames(habs))]
 
-dep_var <- "CHLA_CYANO"
+dep_var <- "B_G_DENS"
+
+# 2024-01-24 Models on cyanobacteria cell counts using all available explanatory variables
+# Lessons learned: 
+# TP isn't important unless TN is removed from the model. These two variables are likely highly colinear. Watershed mean slope and elevation were coming out as highly related to cyanos, but the effect diminished with the addition of the ecoregional data as a categorical variable. It's likely that slope and elevation were acting as proxies for the western mountain and xeric ecoregions that have much lower cyanos compared to other regions. Therefore, decided to include just the three aggregated ecoregions. 
+
+# Also, the ecoregions are included as a fixed rather than a random effect now since the effect seems to be important and not an artifact of the NLA design. 
+
+# Might consider playing around with having an ecoregional interaction term with some of the variables. This seemed promising when there was an interaction between ecoregion and TN, but not with any other variables (tried temp and agriculture). 
+
+# The 30-year climate normals for temp and precip always outperformed the monthly means in which the sample was collected and the water temperature at the time of sampling. This is likely at least in part to the inclusion of a survey year random effect, but when survey year is removed and monthly means included, the model performs substantially worse.
+
+# Note that the model below explains ~55% of the variation in the cyano data while the random forest model explains ~28%.
+
+dep_var  <- "B_G_DENS"
+mod_vars <- c("NTL","DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "agr_ws", "AG_ECO3")
+cyano    <- splm(create_formula(dep_var, mod_vars, log = T),
+                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
+                 spcov_type = "exponential",
+                 random = ~ DSGN_CYCLE + UNIQUE_ID,
+                 local = T)
+summary(cyano)
+varcomp(cyano)
+
+obs <- habs |>
+  drop_na(all_of(dep_var), all_of(mod_vars)) |>
+  st_drop_geometry() |>
+  mutate(obs = log10(B_G_DENS + 1)) |>
+  pull(obs)
+
+tmp <- tibble(obs, mod = cyano$fitted$response)
+
+ggplot(data = tmp, aes(x = obs, y = mod)) + geom_point(alpha=0.5) + xlim(0,max(tmp)) + ylim(0,max(tmp))
+
+cyano    <- splm(log10(B_G_DENS + 1) ~ NTL + DOC + PH + Precip8110Ws + Tmean8110Ws + EVAP_INFL + MAXDEPTH + agr_ws + AG_ECO3 + NTL*AG_ECO3,
+                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
+                 spcov_type = "exponential",
+                 random = ~ DSGN_CYCLE + UNIQUE_ID,
+                 local = T)
+
+#######################################################################
+
 
 all_no_re_no_sp <- splm(create_formula(dep_var, all_ind_vars, log = T),
                      data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
@@ -212,8 +253,8 @@ ecor_test2 <- splm(create_formula(dep_var, "NTL", log = T),
                          local = TRUE)
 
 # Add a few other potential covariates
-ecor_test3 <- splm(log10(CHLA_CYANO + 1) ~ NTL + precip_mean_month,
-                         data = drop_na(habs, CHLA_CYANO, NTL, precip_mean_month),
+ecor_test3 <- splm(log10(B_G_DENS + 1) ~ NTL + precip_mean_month,
+                         data = drop_na(habs, B_G_DENS, NTL, precip_mean_month),
                          spcov_type = "exponential",
                          random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM) + (precip_mean_month | AG_ECO9_NM),
                          local = TRUE)
@@ -227,7 +268,7 @@ varcomp(ecor_test3)
 # Adding an ecoregion random effect where the slopes can vary
 # Add a few other potential covariates
 
-try_vars <- c(nla_ind_vars[!nla_ind_vars %in% c("AMMONIA_N", "NITRATE_N", "STRATIFIED")], c("agr_ws", "Precip_Minus_EVTWs", "BFIWs", "SlopeWs"))
+try_vars <- c("NTL", "DOC", "PH", "TEMPERATURE", "precip_mean_month", "ElevWs", "SlopeWs", "EVAP_INFL", "MAXDEPTH")
 
 # This model has 9% independent error and 55% spatially dependent error the first time I ran it
 # It had 63% independent error and <0.01% spatially dependent error the second time I ran it
@@ -240,6 +281,40 @@ ecor_test2 <- splm(create_formula(dep_var, try_vars, log = T),
 summary(ecor_test2)
 varcomp(ecor_test2)
 # Need to follow up with Mike. It seems quite random how the model is partitioning independent and spatially dependent random error.
+
+try_vars <- c("TURB", "PTL", "NTL", "DOC", "PH", "TEMPERATURE", "precip_mean_month", "ElevWs", "SlopeWs", "EVAP_INFL", "MAXDEPTH")
+
+# This model has 9% independent error and 55% spatially dependent error the first time I ran it
+# It had 63% independent error and <0.01% spatially dependent error the second time I ran it
+# It had 18% independent error and 43% spatially dependent error the third time I ran it
+ecor_test3 <- splm(create_formula(dep_var, try_vars, log = T),
+                         data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
+                         spcov_type = "exponential",
+                         random = ~ DSGN_CYCLE + UNIQUE_ID + AG_ECO9_NM,
+                         local = F)
+summary(ecor_test3)
+varcomp(ecor_test3)
+
+like_this_set <- c("NTL","DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "agr_ws", "AG_ECO3")
+
+try_vars <- c("NTL","DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "agr_ws", "wet_ws", "AG_ECO3")
+ecor_test4 <- splm(create_formula(dep_var, like_this_set, log = T),
+                         data = drop_na(habs, all_of(dep_var), all_of(like_this_set)),
+                         spcov_type = "exponential",
+                         random = ~ DSGN_CYCLE + UNIQUE_ID,
+                         local = T)
+summary(ecor_test4)
+varcomp(ecor_test4)
+
+obs <- habs |>
+  drop_na(all_of(dep_var), all_of(try_vars)) |>
+  st_drop_geometry() |>
+  mutate(obs = log10(B_G_DENS + 1)) |>
+  pull(obs)
+
+tmp <- tibble(obs, mod = ecor_test4$fitted$response)
+
+ggplot(data = tmp, aes(x = obs, y = mod)) + geom_point(alpha=0.5)
 
 # This model has 60% independent error and 4% spatially dependent error 
 ecor_test3 <- splm(create_formula(dep_var, try_vars, log = T),
@@ -371,6 +446,13 @@ Random forest experimenting
 ```{r}
 # A good tutorial introducing random forest https://uc-r.github.io/random_forests
 
+# How much missingness is there in the data?
+tmp <- habs |>
+  st_drop_geometry() |>
+  summarize_all(funs(sum(is.na(.)))) |>
+  pivot_longer(SITE_ID:UUS_L4NAME, names_to = "variable", values_to = "num_missing")
+
+
 # Examine if the error stabilizes with the number of trees
 m1 <- randomForest::randomForest(
   formula = create_formula(dep_var, all_ind_vars, log = T),
@@ -383,7 +465,7 @@ na_free <- drop_na(habs, all_of(dep_var), all_of(all_ind_vars))
 
 m2 <- randomForest::tuneRF(
   x          = st_drop_geometry(na_free[all_ind_vars]),
-  y          = log10(na_free$CHLA_CYANO + 1),
+  y          = log10(na_free$B_G_DENS + 1),
   ntreeTry   = 500,
   mtryStart  = 4,
   stepFactor = 1.5,
@@ -393,7 +475,7 @@ m2 <- randomForest::tuneRF(
 
 # hyperparameter grid search
 hyper_grid <- expand.grid(
-  mtry       = seq(20, 30, by = 2),
+  mtry       = seq(25, 35, by = 2),
   node_size  = seq(3, 9, by = 2),
   sampe_size = c(.55, .632, .70, .80),
   OOB_RMSE   = 0
@@ -430,9 +512,9 @@ for(i in seq_along(OOB_RMSE)) {
     formula         = create_formula(dep_var, all_ind_vars, log = T),
     data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(all_ind_vars))), 
     num.trees       = 500,
-    mtry            = 28,
-    min.node.size   = 3,
-    sample.fraction = .7,
+    mtry            = 29,
+    min.node.size   = 5,
+    sample.fraction = .632,
     importance      = 'impurity'
   )
   
@@ -462,14 +544,14 @@ modRF <- splmRF(create_formula(dep_var, all_ind_vars, log = T),
                 # random = ~ DSGN_CYCLE,
                 local = TRUE,
                 num.trees       = 500,
-                mtry            = 28,
-                min.node.size   = 3,
-                sample.fraction = .7,
+                mtry            = 29,
+                min.node.size   = 5,
+                sample.fraction = .632,
                 importance = "impurity")
 
-imp <- tibble(var = names(modRF$ranger$variable.importance), var_imp = modRF$ranger$variable.importance)
+modRF.imp <- tibble(var = names(modRF$ranger$variable.importance), var_imp = modRF$ranger$variable.importance)
 
-imp %>% 
+modRF.imp %>% 
   dplyr::arrange(desc(var_imp)) %>%
   dplyr::top_n(25) %>%
   ggplot(aes(x = reorder(var, var_imp), y = var_imp)) +
@@ -478,6 +560,18 @@ imp %>%
   xlab("Variable") + ylab("Variable Importance")
 
 ggsave("./figures/Variable importance_spMod_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
+
+tmp <- habs |>
+  drop_na(all_of(dep_var), all_of(all_ind_vars)) |>
+  st_drop_geometry() |>
+  pull(B_G_DENS)
+
+plot(optimal_ranger$predictions, log10(tmp+1))
+cor.test(optimal_ranger$predictions, log10(tmp+1))
+
+plot(modRF$ranger$predictions, log10(tmp+1))
+cor.test(modRF$ranger$predictions, log10(tmp+1))
+
   
 ```
 
