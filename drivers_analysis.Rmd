@@ -94,12 +94,16 @@ Experiment with some spatial models
 
 ```{r}
 # Function that creates the formula. When the response variable is cyanobacteria cell counts, add 1 and log-transform.
-create_formula <- function(dep_var, ind_vars, log = F){
+create_formula <- function(dep_var, ind_vars, log = F, interact = NULL){
   # Log = F
   as.formula(paste(dep_var, " ~ ", paste(ind_vars, collapse = " + ")))
   # Log = T
   if(log == T){
     as.formula(paste("log10(", dep_var, "+ 1) ~ ", paste(ind_vars, collapse = " + ")))
+  }
+  # Adding an interaction term
+  if(is.null(interact) == F){
+    as.formula(paste("log10(", dep_var, "+ 1) ~ ", paste(ind_vars, collapse = " + "), " + ", interact))
   }
 }
 
@@ -127,7 +131,9 @@ dep_var <- "B_G_DENS"
 
 # There is a lot of missing biovolume data. Enough that I switched back to cyano count data. Will need to check with Karen about why so much data is missing for this parameter.
 
-# TP isn't important unless TN is removed from the model. These two variables are likely highly colinear. Watershed mean slope and elevation were coming out as highly related to cyanos, but the effect diminished with the addition of the ecoregional data as a categorical variable. It's likely that slope and elevation were acting as proxies for the western mountain and xeric ecoregions that have much lower cyanos compared to other regions. Therefore, decided to include just the three aggregated ecoregions. 
+# TP isn't important unless TN is removed from the model. These two variables are likely highly colinear. Both TN and TP come out as important in the model if one of them has an interaction with three aggregated ecoregions. With TN*AG_ECO3, both the plains and western mountains come out as important plus the interaction between the plains and TN. With TP*AG_ECO3, the plains are important alone and there is an interaction between the plains and the western mountains and TP. When the interaction term is present between TN and the ecoregions, the effect of precipitation 30 yr normals and EVAP/INFL is lessened. However, the model with the lowest AIC lacks the interaction term. 
+
+# Watershed mean slope and elevation were coming out as highly related to cyanos, but the effect diminished with the addition of the ecoregional data as a categorical variable. It's likely that slope and elevation were acting as proxies for the western mountain and xeric ecoregions that have much lower cyanos compared to other regions. Therefore, decided to include just the three aggregated ecoregions. 
 
 # Also, the ecoregions are included as a fixed rather than a random effect now since the effect seems to be important and not an artifact of the NLA design. 
 
@@ -144,8 +150,25 @@ cyano    <- splm(create_formula(dep_var, mod_vars, log = T),
                  spcov_type = "exponential",
                  random = ~ DSGN_CYCLE + UNIQUE_ID,
                  local = T)
-summary(cyano)
-varcomp(cyano)
+
+cyano_c <- splm(create_formula(dep_var, mod_vars, log = T, interact = "AG_ECO3*PTL"),
+                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
+                 spcov_type = "exponential",
+                 random = ~ DSGN_CYCLE + UNIQUE_ID,
+                 local = T)
+
+summary(cyano_c)
+varcomp(cyano_c)
+
+# cyano1 <- cyano
+
+cyano2    <- splm(create_formula(dep_var, mod_vars, log = T),
+                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
+                 spcov_type = "exponential",
+                 random = ~ DSGN_CYCLE + UNIQUE_ID,
+                 local = F)
+summary(cyano2)
+varcomp(cyano2)
 
 obs <- habs |>
   drop_na(all_of(dep_var), all_of(mod_vars)) |>
@@ -153,15 +176,13 @@ obs <- habs |>
   mutate(obs = log10(B_G_DENS + 1)) |>
   pull(obs)
 
-tmp <- tibble(obs, mod = cyano$fitted$response)
+tmp <- tibble(obs, mod = cyano2$fitted$response)
 
-ggplot(data = tmp, aes(x = obs, y = mod)) + geom_point(alpha=0.5) + xlim(0,max(tmp)) + ylim(0,max(tmp))
+ggplot(data = tmp, aes(x = obs, y = mod)) + geom_point(alpha=0.5) + xlim(0,max(tmp,obs)) + ylim(0,max(tmp, obs))
 
-cyano    <- splm(log10(B_G_DENS + 1) ~ NTL + DOC + PH + Precip8110Ws + Tmean8110Ws + EVAP_INFL + MAXDEPTH + agr_ws + AG_ECO3 + NTL*AG_ECO3,
-                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                 spcov_type = "exponential",
-                 random = ~ DSGN_CYCLE + UNIQUE_ID,
-                 local = T)
+cor.test(tmp$obs, tmp$mod)
+
+
 
 #######################################################################
 
