@@ -88,11 +88,9 @@ do.call(rbind, lapply(c("MICX", "B_G_DENS", "CHLA_RESULT", "CHLA_CYANO"), functi
 
 ```
 
+Model setup
 
-Experiment with some spatial models
-
-
-```{r}
+```{r model setup}
 # Function that creates the formula. When the response variable is cyanobacteria cell counts, add 1 and log-transform.
 create_formula <- function(dep_var, ind_vars, log = F, interact = NULL){
   # Log = F
@@ -124,7 +122,13 @@ non_nla_vars <- all_ind_vars[!all_ind_vars %in% nla_ind_vars]
 # All nutrient inventory variables
 nni_vars <- colnames(habs)[match("N_AG_N2O_INPUTS", colnames(habs)):match("P_Surplus", colnames(habs))]
 
-dep_var <- "B_G_DENS"
+```
+
+
+Experiment with some spatial models
+
+
+```{r cyano models}
 
 # 2024-01-24 Models on cyanobacteria cell counts using all available explanatory variables
 # Lessons learned: 
@@ -141,7 +145,7 @@ dep_var <- "B_G_DENS"
 
 # The 30-year climate normals for temp and precip always outperformed the monthly means in which the sample was collected and the water temperature at the time of sampling. This is likely at least in part to the inclusion of a survey year random effect, but when survey year is removed and monthly means included, the model performs substantially worse.
 
-# Note that the model below explains ~55% of the variation in the cyano data while the random forest model explains ~28%.
+# Note that in some preliminary tests the spatial regression models are explianing ~40-55% of the variation cyano count data while the random forest model explains ~28%.
 
 dep_var  <- "B_G_DENS"
 mod_vars <- c("NTL","DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "agr_ws", "AG_ECO3")
@@ -182,287 +186,6 @@ ggplot(data = tmp, aes(x = obs, y = mod)) + geom_point(alpha=0.5) + xlim(0,max(t
 
 cor.test(tmp$obs, tmp$mod)
 
-
-
-#######################################################################
-
-
-all_no_re_no_sp <- splm(create_formula(dep_var, all_ind_vars, log = T),
-                     data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
-                     spcov_type = "none", 
-                     local = TRUE)
-
-all_no_re <- splm(create_formula(dep_var, all_ind_vars, log = T),
-                     data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
-                     spcov_type = "exponential", 
-                     local = TRUE)
-
-all_re_site <- splm(create_formula(dep_var, all_ind_vars, log = T),
-                         data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
-                         spcov_type = "exponential",
-                         random = ~  UNIQUE_ID,
-                         local = TRUE)
-
-all_re_year <- splm(create_formula(dep_var, all_ind_vars, log = T),
-                         data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
-                         spcov_type = "exponential",
-                         random = ~  DSGN_CYCLE,
-                         local = TRUE)
-
-all_unnest_re <- splm(create_formula(dep_var, all_ind_vars, log = T),
-                       data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
-                       spcov_type = "exponential",
-                       random = ~ DSGN_CYCLE + UNIQUE_ID,
-                       local = TRUE)
-
-all_nest_re <- splm(create_formula(dep_var, all_ind_vars, log = T),
-                       data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
-                       spcov_type = "exponential",
-                       random = ~ (DSGN_CYCLE / UNIQUE_ID),
-                       local = TRUE)
-
-# Compare model with no spatial component, with spatial component, random effect for site alone, random effect for year along, random effect for site and year unnested, random effect for site nested within year.
-# How does the AIC and R2 change with these model configurations
-glances(all_no_re_no_sp,
-        all_no_re,
-        all_re_site,
-        all_re_year,
-        all_unnest_re,
-        all_nest_re)
-
-# Unnested random effects performed the best
-# Model with random effect for year (no site random effect) performed almost as well with respect to AIC with slightly higher pseudo R2
-
-nolake_no_re <- splm(create_formula(dep_var, non_nla_vars, log = T),
-                     data = drop_na(habs, all_of(dep_var), all_of(non_nla_vars)),
-                     spcov_type = "exponential", 
-                     local = TRUE)
-
-nolake_unnest_re <- splm(create_formula(dep_var, non_nla_vars, log = T),
-                         data = drop_na(habs, all_of(dep_var), all_of(non_nla_vars)),
-                         spcov_type = "exponential",
-                         random = ~ DSGN_CYCLE + UNIQUE_ID,
-                         local = TRUE)
-
-nolake_nest_re <- splm(create_formula(dep_var, non_nla_vars, log = T),
-                       data = drop_na(habs, all_of(dep_var), all_of(non_nla_vars)),
-                       spcov_type = "exponential",
-                       random = ~ (DSGN_CYCLE / UNIQUE_ID),
-                       local = TRUE)
-
-
-# Compare models
-glances(nolake_no_re, nolake_unnest_re, nolake_nest_re)
-
-glances(nolake_no_re, 
-        nolake_unnest_re, 
-        nolake_nest_re,
-        all_re_year,
-        all_unnest_re,
-        all_nest_re)
-
-# Explore specifying a random effect for ecoregion
-# First, a model just using total N as an independent variable
-ecor_test1 <- splm(create_formula(dep_var, "NTL", log = T),
-                         data = drop_na(habs, all_of(dep_var), NTL),
-                         spcov_type = "exponential",
-                         random = ~ DSGN_CYCLE + UNIQUE_ID,
-                         local = TRUE)
-
-# Second, add in the ecoregion and allow slopes to vary by ecoregions
-ecor_test2 <- splm(create_formula(dep_var, "NTL", log = T),
-                         data = drop_na(habs, all_of(dep_var), NTL),
-                         spcov_type = "exponential",
-                         random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM),
-                         local = TRUE)
-
-# Add a few other potential covariates
-ecor_test3 <- splm(log10(B_G_DENS + 1) ~ NTL + precip_mean_month,
-                         data = drop_na(habs, B_G_DENS, NTL, precip_mean_month),
-                         spcov_type = "exponential",
-                         random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM) + (precip_mean_month | AG_ECO9_NM),
-                         local = TRUE)
-
-# How does have a slope for each ecoregion change the model?
-glances(ecor_test1, ecor_test2)
-varcomp(ecor_test1)
-varcomp(ecor_test2)
-varcomp(ecor_test3)
-
-# Adding an ecoregion random effect where the slopes can vary
-# Add a few other potential covariates
-
-try_vars <- c("NTL", "DOC", "PH", "TEMPERATURE", "precip_mean_month", "ElevWs", "SlopeWs", "EVAP_INFL", "MAXDEPTH")
-
-# This model has 9% independent error and 55% spatially dependent error the first time I ran it
-# It had 63% independent error and <0.01% spatially dependent error the second time I ran it
-# It had 18% independent error and 43% spatially dependent error the third time I ran it
-ecor_test2 <- splm(create_formula(dep_var, try_vars, log = T),
-                         data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
-                         spcov_type = "exponential",
-                         random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM),
-                         local = F)
-summary(ecor_test2)
-varcomp(ecor_test2)
-# Need to follow up with Mike. It seems quite random how the model is partitioning independent and spatially dependent random error.
-
-try_vars <- c("TURB", "PTL", "NTL", "DOC", "PH", "TEMPERATURE", "precip_mean_month", "ElevWs", "SlopeWs", "EVAP_INFL", "MAXDEPTH")
-
-# This model has 9% independent error and 55% spatially dependent error the first time I ran it
-# It had 63% independent error and <0.01% spatially dependent error the second time I ran it
-# It had 18% independent error and 43% spatially dependent error the third time I ran it
-ecor_test3 <- splm(create_formula(dep_var, try_vars, log = T),
-                         data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
-                         spcov_type = "exponential",
-                         random = ~ DSGN_CYCLE + UNIQUE_ID + AG_ECO9_NM,
-                         local = F)
-summary(ecor_test3)
-varcomp(ecor_test3)
-
-like_this_set <- c("NTL","DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "agr_ws", "AG_ECO3")
-
-try_vars <- c("NTL","DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "agr_ws", "wet_ws", "AG_ECO3")
-ecor_test4 <- splm(create_formula(dep_var, like_this_set, log = T),
-                         data = drop_na(habs, all_of(dep_var), all_of(like_this_set)),
-                         spcov_type = "exponential",
-                         random = ~ DSGN_CYCLE + UNIQUE_ID,
-                         local = T)
-summary(ecor_test4)
-varcomp(ecor_test4)
-
-obs <- habs |>
-  drop_na(all_of(dep_var), all_of(try_vars)) |>
-  st_drop_geometry() |>
-  mutate(obs = log10(B_G_DENS + 1)) |>
-  pull(obs)
-
-tmp <- tibble(obs, mod = ecor_test4$fitted$response)
-
-ggplot(data = tmp, aes(x = obs, y = mod)) + geom_point(alpha=0.5)
-
-# This model has 60% independent error and 4% spatially dependent error 
-ecor_test3 <- splm(create_formula(dep_var, try_vars, log = T),
-                         data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
-                         spcov_type = "exponential",
-                         random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL + PTL | AG_ECO9_NM),
-                         local = TRUE)
-summary(ecor_test3)
-varcomp(ecor_test3)
-
-# Test to see if the behavior is based on random effects
-# Nope, each time I run this, the amount of variation explained by the fixed effect stays relatively steady, but the independent and spatially-dependent error terms vary wildly
-test <- splm(create_formula(dep_var, try_vars, log = T),
-             data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
-             spcov_type = "exponential",
-             random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL | AG_ECO9_NM),
-             local = T)
-summary(test)
-varcomp(test)
-# Got it! It the term local. When local = F (the default), I ge tthe same answer each time. When local = T, I get different answers.
-
-# TP is never important so far. Does it become important when TN is removed from independent variables?
-no_tn <- splm(create_formula(dep_var, try_vars[!try_vars == "NTL"], log = T),
-             data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
-             spcov_type = "exponential",
-             random = ~ DSGN_CYCLE + UNIQUE_ID, # + (NTL | AG_ECO9_NM),
-             local = T)
-summary(no_tn)
-varcomp(no_tn)
-# Answer is yes, when TN is removed from the model, TP becomes very important
-
-# What if there are two nested random effects?
-# When I nested a DOC random effect within ecoregion, it was no longer significant and the RE accounted for <1% of the variation. Similar effect when I do the same with watershed agriculture of BFI.
-two_nre <- splm(create_formula(dep_var, try_vars, log = T),
-             data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
-             spcov_type = "exponential",
-             random = ~ DSGN_CYCLE + UNIQUE_ID + (NTL + BFIWs | AG_ECO9_NM),
-             local = T)
-summary(two_nre)
-varcomp(two_nre)
-
-# Starting the suspect that the survey year isn't adding much to the analysis
-# When ecoregion is included as a random effect alone (no slope interactions), TP becomes significant
-re2 <- splm(create_formula(dep_var, try_vars, log = T),
-             data = drop_na(habs, all_of(dep_var), all_of(try_vars)),
-             spcov_type = "exponential",
-             random = ~ UNIQUE_ID + (NTL | AG_ECO9_NM),
-             local = T)
-summary(re2)
-varcomp(re2)
-
-# Check model performance by loocv
-# These take a very long time to run. Running the nested model went for 1.25 hours and didn't finish. Should maybe explore doing a k-folds cross validation.
-# loocv(inlake_nest_re, local = T) # 0.8567984
-# loocv(nolake_nest_re, local = T)
-
-# Split data into training and predictor sets
-habs_pred <- predict(inlake_nest_re, newdata = habs, local = TRUE)
-
-# Visualize the standardized residuals
-re_nested_resid <- augment(inlake_nest_re)
-mapview(re_nested_resid, zcol = ".std.resid", legend = TRUE)
-
-# Filter to just the big residuals
-tmp <- filter(re_nested_resid, .std.resid < -2 | .std.resid > 2)
-mapview(tmp, zcol = ".std.resid", legend = TRUE)
-# Seem fairly randomly distributed across the country
-
-mapview(re_nested_resid, zcol = ".std.resid", at = c(-5.4, -2, 2.6), legend = TRUE)
-
-ggplot(data = re_nested_resid, aes(x = .fitted, y = `log10(B_G_DENS + 1)`)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1)
-
-ggplot(data = re_nested_resid, aes(x = .std.resid)) + 
-  geom_histogram() + 
-
-summary(mod_re_nested)
-summary(mod_re_unnested)
-
-plot(mod_re_nested)
-plot(mod_re_unnested)
-
-# Check that the spatial model performs better than a non-spatial model
-inlake_nonsp <- splm(create_formula(dep_var, in_lake_vars, log = T),
-                     data = drop_na(habs, all_of(dep_var), all_of(in_lake_vars)),
-                     spcov_type = "none",
-                     random = ~ (DSGN_CYCLE / UNIQUE_ID),
-                     local = TRUE)
-
-# Compare spatial and non-spatial models with nested random effects
-glances(inlake_nonsp, inlake_nest_re)
-# Hmmm, the non-spatial model performs just as well (maybe a little better) than the spatial model
-
-# Is it because there are so many independent variables?
-basic_spat <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "exponential", local = TRUE) 
-
-basic_nonsp <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "none", local = TRUE)
-
-glances(basic_nonsp, basic_spat)
-# Reducing the number of independent variables doesn't change the answer. The spatial and non-spatial forms of the model perform about the same
-
-# Try a few different spatial convariance types
-gaussian <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "gaussian", local = TRUE) 
-
-sphere <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "spherical", local = TRUE) 
-
-triangular <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "triangular", local = TRUE)
-
-circular <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "circular", local = TRUE)
-
-cubic <- splm(log10(B_G_DENS + 1) ~ NTL, data = habs, random = ~ (DSGN_CYCLE / UNIQUE_ID), spcov_type = "cubic", local = TRUE)
-
-glances(basic_nonsp, basic_spat, gaussian, sphere, triangular, circular, cubic)
-# Conclusion: Exponential and cubic covariance structure perform the same and only slightly better than other form.
-
-summary(mod_re_nested)
-summary(mod_re_unnested)
-
-tidy(mod_re_nested)
-glance(mod_re_nested)
-plot(mod_re_nested)
-plot(mod_re_unnested)
-
 ```
 
 Random forest experimenting
@@ -471,11 +194,10 @@ Random forest experimenting
 # A good tutorial introducing random forest https://uc-r.github.io/random_forests
 
 # How much missingness is there in the data?
-tmp <- habs |>
+missing_data <- habs |>
   st_drop_geometry() |>
   summarize_all(funs(sum(is.na(.)))) |>
   pivot_longer(SITE_ID:UUS_L4NAME, names_to = "variable", values_to = "num_missing")
-
 
 # Examine if the error stabilizes with the number of trees
 m1 <- randomForest::randomForest(
