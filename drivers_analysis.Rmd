@@ -94,15 +94,18 @@ Model setup
 # Function that creates the formula. When the response variable is cyanobacteria cell counts, add 1 and log-transform.
 create_formula <- function(dep_var, ind_vars, log = F, interact = NULL){
   # Log = F
-  as.formula(paste(dep_var, " ~ ", paste(ind_vars, collapse = " + ")))
+  form <- paste(dep_var, " ~ ", paste(ind_vars, collapse = " + "))
   # Log = T
   if(log == T){
-    as.formula(paste("log10(", dep_var, "+ 1) ~ ", paste(ind_vars, collapse = " + ")))
+    form <- paste("log10(", dep_var, "+ 1) ~ ", paste(ind_vars, collapse = " + "))
   }
   # Adding an interaction term
   if(is.null(interact) == F){
-    as.formula(paste("log10(", dep_var, "+ 1) ~ ", paste(ind_vars, collapse = " + "), " + ", interact))
+    form <- paste(form, "+", interact)
   }
+  # Create formula object
+  form_obj <- as.formula(form)
+  return(form_obj)
 }
 
 # Create variable groups
@@ -188,10 +191,42 @@ cor.test(tmp$obs, tmp$mod)
 
 ```
 
+
+Models for microcystin detection (presence/absence)
+
+
+```{r}
+# Create the binary microcystin variable
+habs <- mutate(habs, MICX_DET = ifelse(is.finite(MICX), 1, 0))
+
+dep_var  <- "MICX_DET"
+
+mod_vars <- c("NTL", "PTL", "DOC", "PH", "TURB","DO_SURF", "dev_ws", "precip_mean_month", "temp_mean_month","TEMPERATURE", "BFIWs", "EVAP_INFL", "MAXDEPTH", "agr_ws", "AG_ECO3")
+
+micx    <- splm(create_formula(dep_var, mod_vars, log = F),
+                family = "binomial",
+                data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
+                spcov_type = "exponential",
+                random = ~ DSGN_CYCLE + UNIQUE_ID,
+                local = T)
+
+summary(micx)
+varcomp(micx)
+
+```
+
+
+
 Random forest experimenting
 
 ```{r}
 # A good tutorial introducing random forest https://uc-r.github.io/random_forests
+
+# Create a binary for microcystin detections
+habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
+
+# Dependent variable 
+dep_var <- "MICX_DET"
 
 # How much missingness is there in the data?
 missing_data <- habs |>
@@ -201,7 +236,7 @@ missing_data <- habs |>
 
 # Examine if the error stabilizes with the number of trees
 m1 <- randomForest::randomForest(
-  formula = create_formula(dep_var, all_ind_vars, log = T),
+  formula = create_formula(dep_var, all_ind_vars, log = F),
   data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars))
 )
 plot(m1)
@@ -211,7 +246,7 @@ na_free <- drop_na(habs, all_of(dep_var), all_of(all_ind_vars))
 
 m2 <- randomForest::tuneRF(
   x          = st_drop_geometry(na_free[all_ind_vars]),
-  y          = log10(na_free$B_G_DENS + 1),
+  y          = na_free$MICX_DET,
   ntreeTry   = 500,
   mtryStart  = 4,
   stepFactor = 1.5,
@@ -221,7 +256,7 @@ m2 <- randomForest::tuneRF(
 
 # hyperparameter grid search
 hyper_grid <- expand.grid(
-  mtry       = seq(25, 35, by = 2),
+  mtry       = seq(18, 30, by = 2),
   node_size  = seq(3, 9, by = 2),
   sampe_size = c(.55, .632, .70, .80),
   OOB_RMSE   = 0
@@ -231,7 +266,7 @@ for(i in 1:nrow(hyper_grid)) {
   
   # train model
   model <- ranger::ranger(
-    formula         = create_formula(dep_var, all_ind_vars, log = T),
+    formula         = create_formula(dep_var, all_ind_vars, log = F),
     data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(all_ind_vars))), 
     num.trees       = 500,
     mtry            = hyper_grid$mtry[i],
@@ -255,11 +290,11 @@ OOB_RMSE <- vector(mode = "numeric", length = 100)
 for(i in seq_along(OOB_RMSE)) {
 
   optimal_ranger <- ranger::ranger(
-    formula         = create_formula(dep_var, all_ind_vars, log = T),
+    formula         = create_formula(dep_var, all_ind_vars, log = F),
     data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(all_ind_vars))), 
     num.trees       = 500,
-    mtry            = 29,
-    min.node.size   = 5,
+    mtry            = 20,
+    min.node.size   = 3,
     sample.fraction = .632,
     importance      = 'impurity'
   )
@@ -279,11 +314,11 @@ imp %>%
   xlab("Variable") + ylab("Variable Importance") +
   ggtitle("NLA '07,'12,'17_All Variables")
 
-ggsave("./figures/Variable importance_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
+# ggsave("./figures/Variable importance_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
 
 
 # Given the parameter tuning, now pass the data to spmodel
-modRF <- splmRF(create_formula(dep_var, all_ind_vars, log = T),
+modRF <- splmRF(create_formula(dep_var, all_ind_vars, log = F),
                 data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
                 spcov_type = "exponential",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
@@ -305,18 +340,21 @@ modRF.imp %>%
   coord_flip() +
   xlab("Variable") + ylab("Variable Importance")
 
-ggsave("./figures/Variable importance_spMod_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
+# ggsave("./figures/Variable importance_spMod_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
 
-tmp <- habs |>
+obs <- habs |>
   drop_na(all_of(dep_var), all_of(all_ind_vars)) |>
   st_drop_geometry() |>
-  pull(B_G_DENS)
+  mutate(obs = log10(B_G_DENS +1)) |>
+  pull(obs)
 
-plot(optimal_ranger$predictions, log10(tmp+1))
+plot(optimal_ranger$predictions, obs)
 cor.test(optimal_ranger$predictions, log10(tmp+1))
 
-plot(modRF$ranger$predictions, log10(tmp+1))
-cor.test(modRF$ranger$predictions, log10(tmp+1))
+mod <- modRF$ranger$predictions
+
+plot(obs, mod, ylim = c(0, max(mod, obs)), xlim = c(0, max(mod, obs)))
+cor.test(mod, obs)
 
   
 ```
