@@ -197,21 +197,39 @@ Models for microcystin detection (presence/absence)
 
 ```{r}
 # Create the binary microcystin variable
-habs <- mutate(habs, MICX_DET = ifelse(is.finite(MICX), 1, 0))
+habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
 
 dep_var  <- "MICX_DET"
 
-mod_vars <- c("NTL", "PTL", "DOC", "PH", "TURB","DO_SURF", "dev_ws", "precip_mean_month", "temp_mean_month","TEMPERATURE", "BFIWs", "EVAP_INFL", "MAXDEPTH", "agr_ws", "AG_ECO3")
-
-micx    <- splm(create_formula(dep_var, mod_vars, log = F),
+run_micx <- function(mod_vars, int = NULL){
+  spglm(create_formula(dep_var, mod_vars, log = F, interact = int),
                 family = "binomial",
                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
                 spcov_type = "exponential",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
-                local = T)
+                local = F)
+}
 
-summary(micx)
-varcomp(micx)
+micx1 <- run_micx(mod_vars = c("NTL","PTL", "DOC", "PH", "dev_ws", "agr_ws", "KffactWs", "precip_mean_month", "TEMPERATURE", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
+micx2 <- run_micx(mod_vars = c("NTL","PTL", "DOC", "PH", "dev_ws", "agr_ws", "wet_ws", "KffactWs", "precip_mean_month", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"), int = "PTL*AG_ECO3")
+
+micx3 <- run_micx(mod_vars = c("NTL","PTL", "DOC", "PH", "dev_ws", "agr_ws", "KffactWs", "precip_mean_month", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"), int = "NTL*AG_ECO3")
+
+micx4 <- run_micx(mod_vars = c("NTL", "DOC", "PH", "dev_ws", "agr_ws", "KffactWs", "precip_mean_month", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
+micx5 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
+# Set local = F here since it seems like the estimates are changing quite a bit between estimated runs
+micx6 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
+summary(micx6)
+varcomp(micx5)
+
+aug_micx <- augment(micx6)
+
+pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
+
 
 ```
 
