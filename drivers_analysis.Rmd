@@ -207,9 +207,15 @@ run_micx <- function(mod_vars, int = NULL){
                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
                 spcov_type = "exponential",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
-                local = F)
+                local = T)
 }
 
+# Lessons learned
+# These models take substantially longer to run than the linear models and the estimated covariates are most unstable when run using approximation methods (local = T).
+
+
+
+# These were all run with local = T
 micx1 <- run_micx(mod_vars = c("NTL","PTL", "DOC", "PH", "dev_ws", "agr_ws", "KffactWs", "precip_mean_month", "TEMPERATURE", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
 micx2 <- run_micx(mod_vars = c("NTL","PTL", "DOC", "PH", "dev_ws", "agr_ws", "wet_ws", "KffactWs", "precip_mean_month", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"), int = "PTL*AG_ECO3")
@@ -223,13 +229,77 @@ micx5 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "tem
 # Set local = F here since it seems like the estimates are changing quite a bit between estimated runs
 micx6 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
+# Back to local = T
+micx7 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "RunoffWs", "AG_ECO3"))
+
 summary(micx6)
-varcomp(micx5)
+varcomp(micx7)
 
 aug_micx <- augment(micx6)
 
 pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
 
+
+```
+
+
+Models for microcystin concentration, when present
+
+
+```{r}
+dep_var  <- "MICX"
+
+run_micxlm <- function(mod_vars, int = NULL){
+  splm(create_formula(dep_var, mod_vars, log = T, interact = int),
+                data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
+                spcov_type = "exponential",
+                random = ~ DSGN_CYCLE + UNIQUE_ID,
+                local = T)
+}
+
+# Lessons learned
+# Similarly to cyanobacteria cell counts, TP only becomes important when TN is removed as a covariate, signaling that these are colinear.
+
+micxlm1 <- run_micxlm(mod_vars = c("NTL","PTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"))
+
+micxlm2 <- run_micxlm(mod_vars = c("NTL","PTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"), int = "NTL*AG_ECO3")
+
+micxlm3 <- run_micxlm(mod_vars = c("NTL","PTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"), int = "PTL*AG_ECO3")
+
+micxlm4 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"))
+
+micxlm5 <- run_micxlm(mod_vars = c("PTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"))
+
+micxlm6 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"))
+
+micxlm7 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length"))
+
+micxlm8 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "EVAP_INFL", "MAXDEPTH"))
+
+micxlm9 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "Tmean8110Ws", "BFIWs", "EVAP_INFL", "MAXDEPTH"))
+
+micxlm10 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "Tmean8110Ws", "BFIWs", "EVAP_INFL", "lakemorpho_fetch"))
+
+micxlm11 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
+
+micxlm12 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
+
+micxlm13 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL", "ElevWs"))
+
+summary(micxlm13)
+varcomp(micxlm12)
+
+obs <- habs |>
+  drop_na(all_of(dep_var), all_of(mod_vars)) |>
+  st_drop_geometry() |>
+  mutate(obs = log10(MICX + 1)) |>
+  pull(obs)
+
+tmp <- tibble(obs, mod = micxlm12$fitted$response)
+
+ggplot(data = tmp, aes(x = obs, y = mod)) + geom_point(alpha=0.5) + xlim(0,max(tmp,obs)) + ylim(0,max(tmp, obs))
+
+cor.test(tmp$obs, tmp$mod)
 
 ```
 
@@ -241,10 +311,10 @@ Random forest experimenting
 # A good tutorial introducing random forest https://uc-r.github.io/random_forests
 
 # Create a binary for microcystin detections
-habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
+# habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
 
 # Dependent variable 
-dep_var <- "MICX_DET"
+dep_var <- "MICX"
 
 # How much missingness is there in the data?
 missing_data <- habs |>
@@ -264,7 +334,7 @@ na_free <- drop_na(habs, all_of(dep_var), all_of(all_ind_vars))
 
 m2 <- randomForest::tuneRF(
   x          = st_drop_geometry(na_free[all_ind_vars]),
-  y          = na_free$MICX_DET,
+  y          = na_free$MICX,
   ntreeTry   = 500,
   mtryStart  = 4,
   stepFactor = 1.5,
@@ -274,8 +344,8 @@ m2 <- randomForest::tuneRF(
 
 # hyperparameter grid search
 hyper_grid <- expand.grid(
-  mtry       = seq(18, 30, by = 2),
-  node_size  = seq(3, 9, by = 2),
+  mtry       = seq(4, 16, by = 2),
+  node_size  = seq(2, 8, by = 2),
   sampe_size = c(.55, .632, .70, .80),
   OOB_RMSE   = 0
 )
@@ -311,9 +381,9 @@ for(i in seq_along(OOB_RMSE)) {
     formula         = create_formula(dep_var, all_ind_vars, log = F),
     data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(all_ind_vars))), 
     num.trees       = 500,
-    mtry            = 20,
-    min.node.size   = 3,
-    sample.fraction = .632,
+    mtry            = 8,
+    min.node.size   = 4,
+    sample.fraction = .8,
     importance      = 'impurity'
   )
   
@@ -336,16 +406,15 @@ imp %>%
 
 
 # Given the parameter tuning, now pass the data to spmodel
-modRF <- splmRF(create_formula(dep_var, all_ind_vars, log = F),
+modRF <- splmRF(create_formula(dep_var, all_ind_vars, log = T),
                 data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
                 spcov_type = "exponential",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
-                # random = ~ DSGN_CYCLE,
                 local = TRUE,
                 num.trees       = 500,
-                mtry            = 29,
-                min.node.size   = 5,
-                sample.fraction = .632,
+                mtry            = 8,
+                min.node.size   = 4,
+                sample.fraction = .8,
                 importance = "impurity")
 
 modRF.imp <- tibble(var = names(modRF$ranger$variable.importance), var_imp = modRF$ranger$variable.importance)
