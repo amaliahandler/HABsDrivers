@@ -127,6 +127,42 @@ nni_vars <- colnames(habs)[match("N_AG_N2O_INPUTS", colnames(habs)):match("P_Sur
 
 ```
 
+Helper to visualize fitted versus observed values from the model results
+
+```{r}
+vis_fit <- function(dep_var, splm_obj, file_name = NULL, width = 5, height = 4, dpi = 400){
+  
+  # Augment the splm object with the .fitted data
+  aug <- augment(splm_obj) |>
+    rename(obs = 1)
+  
+  # Title the figure according to response variable modeled
+  name <- "Log10(Cyanobacteria + 1)"
+  
+  if(dep_var == "MICX_DET"){name = "Probability Microcystin Presence/Absence"}
+  if(dep_var == "MICX"){name = "Log10(Microcystin Concentration)"}
+  
+  max_val <- max(pull(aug, obs), pull(aug, .fitted))
+  
+  # Construct the figure
+  fig <- ggplot(data = aug, aes(x = obs, y = .fitted)) + 
+    geom_point(color = "blue", alpha=0.3) + 
+    xlim(0, max_val) + ylim(0, max_val) +
+    xlab("Observed") +
+    ylab("Fitted") +
+    ggtitle(name)
+  
+  # Save the figure
+  if(is.null(file_name) == FALSE){ggsave(paste0("./figures/", file_name), height = height, width = width, dpi = dpi, units = "in")}
+  
+  # Print a correlation test
+  print(cor.test(pull(aug, obs), pull(aug, .fitted)))
+  
+  return(fig)
+}
+
+```
+
 
 Experiment with some spatial models
 
@@ -153,7 +189,7 @@ Experiment with some spatial models
 dep_var  <- "B_G_DENS"
 mod_vars <- c("NTL","DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "agr_ws", "AG_ECO3")
 cyano    <- splm(create_formula(dep_var, mod_vars, log = T),
-                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
+                 data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
                  spcov_type = "exponential",
                  random = ~ DSGN_CYCLE + UNIQUE_ID,
                  local = T)
@@ -164,12 +200,12 @@ cyano_c <- splm(create_formula(dep_var, mod_vars, log = T, interact = "AG_ECO3*P
                  random = ~ DSGN_CYCLE + UNIQUE_ID,
                  local = T)
 
-summary(cyano_c)
-varcomp(cyano_c)
+summary(cyano)
+varcomp(cyano)
 
 # cyano1 <- cyano
 
-cyano2    <- splm(create_formula(dep_var, mod_vars, log = T),
+cyano_local_f <- splm(create_formula(dep_var, mod_vars, log = T),
                  data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
                  spcov_type = "exponential",
                  random = ~ DSGN_CYCLE + UNIQUE_ID,
@@ -177,17 +213,7 @@ cyano2    <- splm(create_formula(dep_var, mod_vars, log = T),
 summary(cyano2)
 varcomp(cyano2)
 
-obs <- habs |>
-  drop_na(all_of(dep_var), all_of(mod_vars)) |>
-  st_drop_geometry() |>
-  mutate(obs = log10(B_G_DENS + 1)) |>
-  pull(obs)
-
-tmp <- tibble(obs, mod = cyano2$fitted$response)
-
-ggplot(data = tmp, aes(x = obs, y = mod)) + geom_point(alpha=0.5) + xlim(0,max(tmp,obs)) + ylim(0,max(tmp, obs))
-
-cor.test(tmp$obs, tmp$mod)
+vis_fit(dep_var, cyano_local_f, file_name = "Model Fit_Cyano.jpg")
 
 ```
 
