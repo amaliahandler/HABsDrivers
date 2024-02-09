@@ -142,21 +142,42 @@ vis_fit <- function(dep_var, splm_obj, file_name = NULL, width = 5, height = 4, 
   if(dep_var == "MICX_DET"){name = "Probability Microcystin Presence/Absence"}
   if(dep_var == "MICX"){name = "Log10(Microcystin Concentration)"}
   
-  max_val <- max(pull(aug, obs), pull(aug, .fitted))
+  fig <- NULL
   
-  # Construct the figure
-  fig <- ggplot(data = aug, aes(x = obs, y = .fitted)) + 
-    geom_point(color = "blue", alpha=0.3) + 
-    xlim(0, max_val) + ylim(0, max_val) +
-    xlab("Observed") +
-    ylab("Fitted") +
-    ggtitle(name)
+  # Construct the figure, continuous case
+  if(dep_var == "MICX" | dep_var == "B_G_DENS"){
+    
+    # Max values for the axes
+    max_val <- max(pull(aug, obs), pull(aug, .fitted))
+    
+    fig <- ggplot(data = aug, aes(x = obs, y = .fitted)) + 
+      geom_point(color = "blue", alpha=0.3) + 
+      xlim(0, max_val) + ylim(0, max_val) +
+      xlab("Observed") +
+      ylab("Fitted") +
+      ggtitle(name)
+  }
+  
+  # Binary case
+  if(dep_var == "MICX_DET"){
+    levels(aug$obs) <- c("Absent", "Present")
+    
+    fig <- ggplot(data = aug, aes(x = obs, y = .fitted)) + 
+      geom_boxplot(color = "blue", alpha = 0.3) + 
+      xlab("Observed") +
+      ylab("Fitted") +
+      ggtitle(name)
+  }
   
   # Save the figure
   if(is.null(file_name) == FALSE){ggsave(paste0("./figures/", file_name), height = height, width = width, dpi = dpi, units = "in")}
   
   # Print a correlation test
-  print(cor.test(pull(aug, obs), pull(aug, .fitted)))
+  fit_test <- NULL
+  if(dep_var == "MICX_DET"){fit_test = pROC::auc(aug$obs, aug$.fitted)}
+  if((dep_var == "MICX" | dep_var == "B_G_DENS")){fit_test = cor.test(pull(aug, obs), pull(aug, .fitted))}
+  
+  print(fit_test)
   
   return(fig)
 }
@@ -239,7 +260,9 @@ run_micx <- function(mod_vars, int = NULL){
 # Lessons learned
 # These models take substantially longer to run than the linear models and the estimated covariates are most unstable when run using approximation methods (local = T).
 
+# The temperature and precip data never seem to be important to this model.
 
+# Soil erodibility (Kf) is inversely associated with microcystin detection?
 
 # These were all run with local = T
 micx1 <- run_micx(mod_vars = c("NTL","PTL", "DOC", "PH", "dev_ws", "agr_ws", "KffactWs", "precip_mean_month", "TEMPERATURE", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
@@ -258,12 +281,20 @@ micx6 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "tem
 # Back to local = T
 micx7 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "RunoffWs", "AG_ECO3"))
 
-summary(micx6)
-varcomp(micx7)
+# Best fit so far? Hard to know when running models using approximation methods.
+micx8 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
-aug_micx <- augment(micx6)
+# Take out developed area and monthly temperature 
+micx9 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
+summary(micx9)
+varcomp(micx9)
+
+aug_micx <- augment(micx5)
 
 pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
+
+vis_fit(dep_var, micx5, file_name = "Model Fit_Micx_Det.jpg")
 
 
 ```
@@ -284,7 +315,7 @@ run_micxlm <- function(mod_vars, int = NULL){
 }
 
 # Lessons learned
-# Similarly to cyanobacteria cell counts, TP only becomes important when TN is removed as a covariate, signaling that these are colinear.
+# Similarly to cyanobacteria cell counts, TP only becomes important when TN is removed as a covariate, signaling that these are colinear. But interesting that turbidity is important with this model in addition to TN. Would have expected these variables to be colinear so as not to overlay with each other.
 
 micxlm1 <- run_micxlm(mod_vars = c("NTL","PTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"))
 
@@ -312,20 +343,10 @@ micxlm12 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "preci
 
 micxlm13 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL", "ElevWs"))
 
-summary(micxlm13)
+summary(micxlm12)
 varcomp(micxlm12)
 
-obs <- habs |>
-  drop_na(all_of(dep_var), all_of(mod_vars)) |>
-  st_drop_geometry() |>
-  mutate(obs = log10(MICX + 1)) |>
-  pull(obs)
-
-tmp <- tibble(obs, mod = micxlm12$fitted$response)
-
-ggplot(data = tmp, aes(x = obs, y = mod)) + geom_point(alpha=0.5) + xlim(0,max(tmp,obs)) + ylim(0,max(tmp, obs))
-
-cor.test(tmp$obs, tmp$mod)
+vis_fit(dep_var, micxlm12, file_name = "Model Fit_Micx_Conc.jpg")
 
 ```
 
