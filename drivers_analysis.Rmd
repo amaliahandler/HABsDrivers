@@ -65,7 +65,7 @@ do.call(rbind, lapply(c("MICX", "B_G_DENS", "CHLA_RESULT", "CHLA_CYANO"), functi
     df <- drop_na(df, MICX)
   }
   
-  if(x == "B_G_DENS"){
+  if(x == "B_G_DENS" | x == "MICX"){
     form <- as.formula(paste("log10(", x, "+ 1) ~ 1 + (1|SITE_ID)"))
   }
   
@@ -254,7 +254,7 @@ run_micx <- function(mod_vars, int = NULL){
                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
                 spcov_type = "exponential",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
-                local = T)
+                local = F)
 }
 
 # Lessons learned
@@ -287,14 +287,14 @@ micx8 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "tem
 # Take out developed area and monthly temperature 
 micx9 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
-summary(micx9)
-varcomp(micx9)
+summary(micx6)
+varcomp(micx6)
 
 aug_micx <- augment(micx5)
 
 pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
 
-vis_fit(dep_var, micx5, file_name = "Model Fit_Micx_Det.jpg")
+vis_fit(dep_var, micx6, file_name = "Model Fit_Micx_Det.jpg")
 
 
 ```
