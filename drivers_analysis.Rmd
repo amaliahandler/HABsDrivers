@@ -104,8 +104,12 @@ create_formula <- function(dep_var, ind_vars, log = F, interact = NULL){
   # Log = F
   form <- paste(dep_var, " ~ ", paste(ind_vars, collapse = " + "))
   # Log = T
+  # if(log == T){
+  #   form <- paste("log10(", dep_var, "+ 1) ~ ", paste(ind_vars, collapse = " + "))
+  # }
+    
   if(log == T){
-    form <- paste("log10(", dep_var, "+ 1) ~ ", paste(ind_vars, collapse = " + "))
+    form <- paste("log10(", dep_var, ") ~ ", paste(ind_vars, collapse = " + "))
   }
   # Adding an interaction term
   if(is.null(interact) == F){
@@ -369,6 +373,10 @@ run_micxlm <- function(mod_vars, int = NULL){
 # Lessons learned
 # Similarly to cyanobacteria cell counts, TP only becomes important when TN is removed as a covariate, signaling that these are colinear. But interesting that turbidity is important with this model in addition to TN. Would have expected these variables to be colinear so as not to overlay with each other.
 
+# E/I has a better relationship to microcystin than d-excess.
+
+# The addition of detected and concentration of nitrate improves the model pseudo R2, but only concentration appears to be important. Also the AIC is lower with inclusion of these variables. The addition of ammonia doesn't improve the model. Similar result with TP. TP was also negatively, which is counterintuitive. When nitrate isn't in the model and TP replaces TN, TP has a positive relationship. 
+
 micxlm1 <- run_micxlm(mod_vars = c("NTL","PTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"))
 
 micxlm2 <- run_micxlm(mod_vars = c("NTL","PTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"), int = "NTL*AG_ECO3")
@@ -391,18 +399,50 @@ micxlm10 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_m
 
 micxlm11 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
 
-# Perhaps best fit model?
+# Best fit model with TN onlu
 micxlm12 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
 
-micxlm13 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL", "ElevWs"))
+# Other experiments
+micxlm13 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "D_EXCESS"))
+
+# Best fit model with TN + nitrate
+micxlm14 <- run_micxlm(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
+
+micxlm15 <- run_micxlm(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
+
+micxlm16 <- run_micxlm(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "PTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
+
+micxlm17 <- run_micxlm(mod_vars = c("PTL", "NITRATE_DET", "NITRATE_N", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
+
+micxlm18 <- run_micxlm(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "D_EXCESS"))
 
 # Run with local = F
-micxlm_local_f <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
+# micxlm_local_f <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
 
-summary(micxlm_local_f)
-varcomp(micxlm_local_f)
+summary(micxlm14)
+varcomp(micxlm18)
 
-vis_fit(dep_var, micxlm_local_f, file_name = "Model Fit_Micx_Conc.jpg")
+# vis_fit(dep_var, micxlm_local_f, file_name = "Model Fit_Micx_Conc.jpg")
+
+mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL")
+
+micx_pred <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
+
+micx_loocv <- loocv(micxlm14, cv_predict = TRUE)
+
+micx_pred$preds <- micx_loocv$cv_predict
+
+max_val <- max(log10(micx_pred$MICX +1), micx_pred$preds)
+min_val <- min(log10(micx_pred$MICX +1), micx_pred$preds)
+name <- "Log10(Microcystin)"
+
+fig <- ggplot(data = micx_pred, aes(x = preds, y = log10(MICX))) +
+  geom_point(color = "blue", alpha=0.3) +
+  xlim(min_val, max_val) + ylim(min_val, max_val) +
+  ylab("Observed") +
+  xlab("Fitted") +
+  ggtitle(name)
+ggsave(paste0("./figures/", "Model Fit_Micx Conc.jpg"), height = 4, width = 5, dpi = 400, units = "in")
 
 ```
 
