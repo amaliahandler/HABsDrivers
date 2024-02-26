@@ -75,6 +75,9 @@ Physical, chemical, and algal (phytoplankton) data from the NLA. These data were
 
 
 ```{r}
+library(dplyr)
+library(tidyr)
+
 # Read in data
 # all_nla <- read.csv("NLA2007-2012-2017_LakeData_forHABs_4April2022.csv")
 
@@ -120,9 +123,12 @@ nla_all_coms <- nla_comid %>%
 # Pivot from wide to long format
 # Problem with some ammonium numbers recorded as "< 0.03", which cannot be coerced to a numeric value. Need to replace these values with something so that the column can be coerced to numeric type.
 # Stratified column is a character currently and need to be changed to numeric type to convert to long format
+# For NITRATE, values of 0.005 in 2007 should be recoded as NA. This seems to be what was reported for anything below the RL of 0.02.
 nla_long <- nla_all_coms %>%
   mutate(STRATIFIED = ifelse(is.na(STRATIFIED), 0, 1)) %>%
   mutate(AMMONIA_N = as.numeric(replace(AMMONIA_N, AMMONIA_N == "< 0.03", NA))) %>%
+  mutate(NITRATE_N = case_when(DSGN_CYCLE == 2007 & NITRATE_N == 0.005 ~ NA,
+                               TRUE ~ NITRATE_N)) |>
   pivot_longer(TEMPERATURE:PHYT_BIOVOL, names_to = "ANALYTE", values_to = "RESULT")
 
 # Where PH data was not measured in the lab, retrieve the top-most pH measurement from the profile
@@ -136,7 +142,7 @@ ph_profile <- nla_long %>%
 
 # Remove the rows with missing pH data from the lab and add the rows with pH data from the profile data
 # Remove NA rows for cylindrospermopsin from 2007 and 2012 surveys because this analysis was not run during those years. Want any NA values present in the df to imply that the analysis was run, but result was below the detection limit.
-# Add a units columns
+# Add a units columns.
 nla_long <- nla_long %>%
   filter(!(ANALYTE == "PH" & is.na(RESULT))) %>%
   bind_rows(ph_profile) %>%
@@ -154,7 +160,7 @@ nla_long <- nla_long %>%
 
 # Performing checks for missing data
 
-# Lots of Nitrate data missing. Looks like everything below the reporting limit was listed as 0.005 mg/L in 2007 (RL = 0.02), but in 2012 (RL = 0.02) and 2017 (RL = 0.0025) ND for nitrate is reported as NA. 
+# Lots of Nitrate data missing. Looks like everything below the reporting limit was listed as 0.005 mg/L in 2007 (RL = 0.02). Note these observations are replace with NA above. In 2012 (RL = 0.02) and 2017 (RL = 0.0025) ND for nitrate is reported as NA. 
 nla_long %>%
   filter(ANALYTE == "NITRATE_N" & is.na(RESULT)) %>%
   nrow()
@@ -184,20 +190,24 @@ ratio17   <- read.csv("NLA17_EI_estimates-Final.csv")
 
 # Transform data to long form
 ei0712 <- ratio0712 %>%
-  select(SITE_ID, VISIT_NO, YEAR, E_I) %>%
-  rename(DSGN_CYCLE = YEAR) %>%
+  select(SITE_ID, VISIT_NO, YEAR, E_I, d_excess) %>%
+  rename(DSGN_CYCLE = YEAR,
+         EVAP_INFL = E_I,
+         D_EXCESS = d_excess) %>%
+  pivot_longer(EVAP_INFL:D_EXCESS, names_to = "ANALYTE", values_to = "RESULT") |>
   left_join(nla_id, by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) %>%
-  rename(RESULT = E_I) %>%
-  mutate(UNITS = "RATIO",
-         ANALYTE = "EVAP_INFL")
+  mutate(UNITS = case_when(ANALYTE == "EVAP_INFL" ~ "RATIO",
+                           ANALYTE == "D_EXCESS" ~ "PERMIL"))
 
 ei17 <- ratio17 %>%
-  select(SITE_ID, E_I, VISIT_NO) %>%
+  select(SITE_ID, E_I, d_excess, VISIT_NO) %>%
   mutate(DSGN_CYCLE = 2017) %>%
+    rename(EVAP_INFL = E_I,
+         D_EXCESS = d_excess) %>%
+  pivot_longer(EVAP_INFL:D_EXCESS, names_to = "ANALYTE", values_to = "RESULT") |>
   left_join(nla_id, by = c("SITE_ID", "VISIT_NO", "DSGN_CYCLE")) %>%
-  rename(RESULT = E_I) %>%
-  mutate(UNITS = "RATIO",
-         ANALYTE = "EVAP_INFL")
+  mutate(UNITS = case_when(ANALYTE == "EVAP_INFL" ~ "RATIO",
+                           ANALYTE == "D_EXCESS" ~ "PERMIL"))
   
 # Bind together 2007/2012 with 2017 data
 evap_infl <- rbind(ei0712, ei17)
@@ -294,6 +304,8 @@ Pull in 2016 NLCD data for watersheds missing from LakeCat for 2017 NLA
 
 
 ```{r}
+library(stars)
+
 # 2016 NLCD data
 rast <- read_stars('O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/StreamCat/LandscapeRasters/QAComplete/nlcd_2006_land_cover_l48_20210604.tif')
 
@@ -314,7 +326,7 @@ missing_lakes <- filter(ws17, SITE_ID %in% missing_site_ids)
 missing_lakes <- st_transform(missing_lakes, st_crs(rast))
 
 # Try renaming the column holding the geometry
-missing_lakes <- rename(missing_lakes, geometry = Shape)
+missing_lakes <- rename(missing_lakes, geometry = geom)
 
 # Check graphically that there is data within the basin
 # i <- 81
@@ -371,11 +383,11 @@ missing_nlcd_sums <- missing_nlcd %>%
   left_join(filter(nla_id, DSGN_CYCLE == 2017), by = c("SITE_ID"))
 
 # There's one more row than expected due to two site visits for one of the lakes
-dup_site <- nlcd_sums$SITE_ID[duplicated(nlcd_sums$SITE_ID)]
-filter(nlcd_sums, SITE_ID == dup_site)
+dup_site <- missing_nlcd_sums$SITE_ID[duplicated(missing_nlcd_sums$SITE_ID)]
+filter(missing_nlcd_sums, SITE_ID == dup_site)
 
 # Two sites ("NLA17_MO-HP005", "NLA17_TX-HP005") are hand picked sites and lack COMIDs (NLA COMID = 0)
-filter(nlcd_sums, SITE_ID %in% c("NLA17_MO-HP005", "NLA17_TX-HP005"))
+filter(missing_nlcd_sums, SITE_ID %in% c("NLA17_MO-HP005", "NLA17_TX-HP005"))
 filter(missing_lakes, SITE_ID %in% c("NLA17_MO-HP005", "NLA17_TX-HP005"))
 filter(nla_id, SITE_ID %in% c("NLA17_MO-HP005", "NLA17_TX-HP005"))
 
