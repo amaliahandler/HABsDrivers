@@ -27,10 +27,18 @@ load_all()
 # https://usepa.github.io/spmodel/articles/guide.html
 ```
 
-Calculate the chlorophyll a associated with cyanobacteria
+
+Some additional variables:
 
 ```{r}
+# Calculate the chlorophyll a associated with cyanobacteria
 habs <- mutate(habs, CHLA_CYANO = CHLA_RESULT * BG_BIOVOL/PHYT_BIOVOL, .after = CHLA_RESULT)
+
+# Add a 1/0 variable for detect/non-detect of nitrate
+habs <- mutate(habs, NITRATE_DET = ifelse(is.na(NITRATE_N), 0, 1), .after = NITRATE_N)
+
+# Replace non-detect values for nitrate with 0
+habs <- mutate(habs, NITRATE_N = ifelse(is.na(NITRATE_N), 0, NITRATE_N))
 ```
 
 
@@ -114,10 +122,12 @@ dep_vars     <- c("B_G_DENS", "MICX", "CYLSPER", "CHLA_RESULT", "CHLA_CYANO", "B
 all_ind_vars <- all_vars[!all_vars %in% dep_vars]
 
 # Dropping non-developed area of the watershed due to issues of colinearity with developed area. Also dropping nitrate data since it is missing for a large number of observations.
-all_ind_vars <- all_ind_vars[!all_ind_vars %in% c("nondev_ws", "NITRATE_N")]
+# all_ind_vars <- all_ind_vars[!all_ind_vars %in% c("nondev_ws", "NITRATE_N")]
+# Dropping non-developed area of the watershed due to issues of colinearity with developed area.
+all_ind_vars <- all_ind_vars[!all_ind_vars == "nondev_ws"]
 
 # NLA water variables
-nla_ind_vars <- c("TEMPERATURE", "MAXDEPTH", "STRATIFIED", "AMMONIA_N", "DO_SURF", "DOC", "NTL", "PTL", "TURB", "NITRATE_N", "PH", "EVAP_INFL")
+nla_ind_vars <- c("TEMPERATURE", "MAXDEPTH", "STRATIFIED", "AMMONIA_N", "DO_SURF", "DOC", "NTL", "PTL", "TURB", "NITRATE_N", "NITRATE_DET", "PH", "EVAP_INFL", "D_EXCESS")
   
 # All non-NLA variables
 non_nla_vars <- all_ind_vars[!all_ind_vars %in% nla_ind_vars]
@@ -207,32 +217,63 @@ Experiment with some spatial models
 
 # Note that in some preliminary tests the spatial regression models are explianing ~40-55% of the variation cyano count data while the random forest model explains ~28%.
 
+# Experimenting with including nitrate in the models. Nitrate detection and concentration are negatively associated with cyanobacteria. TN, nitrate detected, and nitrate concentration can all be included in the same model. These three variables can also be included with TP and it comes out as important, though negatively correlated with cyanos which is confusing. Note that the addition of nitrate and ammonium variables increases the AIC relative to a model that only includes TN.
+
+# Switched out E/I for d-excess following a conversation with Renee Brooks. D-excess is a measure of how much how evaporated the water is. When water is still, there is a higher evaporation rate. So d-excess can be thought of as a proxy for how long water has been sitting around evaporating. When d-excess is low, the water is more evaporated. It seems to have a stronger relationship with cyanos.
+
 dep_var  <- "B_G_DENS"
-mod_vars <- c("NTL","DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "agr_ws", "AG_ECO3")
+mod_vars <- c("NTL","NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "agr_ws", "AG_ECO3")
 cyano    <- splm(create_formula(dep_var, mod_vars, log = T),
                  data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
                  spcov_type = "exponential",
                  random = ~ DSGN_CYCLE + UNIQUE_ID,
                  local = T)
 
-cyano_c <- splm(create_formula(dep_var, mod_vars, log = T, interact = "AG_ECO3*PTL"),
-                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                 spcov_type = "exponential",
-                 random = ~ DSGN_CYCLE + UNIQUE_ID,
-                 local = T)
+cyano_pred <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
+
+# cyano_pred$pred <- predict(cyano, newdata = cyano_pred)
+
+cyano_loocv <- loocv(cyano, cv_predict = TRUE)
+
+cyano_pred$preds <- cyano_loocv$cv_predict
+
+max_val <- max(log10(cyano_pred$B_G_DENS +1), cyano_pred$preds)
+name <- "Log10(Cyanobacteria + 1)"
+
+fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS +1))) +
+  geom_point(color = "blue", alpha=0.3) +
+  xlim(0, max_val) + ylim(0, max_val) +
+  ylab("Observed") +
+  xlab("Fitted") +
+  ggtitle(name)
+ggsave(paste0("./figures/", "Model Fit_Cyano.jpg"), height = 4, width = 5, dpi = 400, units = "in")
+
+# cyano_c <- splm(create_formula(dep_var, mod_vars, log = T, interact = "AG_ECO3*PTL"),
+#                  data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
+#                  spcov_type = "exponential",
+#                  random = ~ DSGN_CYCLE + UNIQUE_ID,
+#                  local = T)
 
 summary(cyano)
 varcomp(cyano)
 
 # cyano1 <- cyano
 
+# Best model so far (?)
+dep_var  <- "B_G_DENS"
+mod_vars <- c("NTL","DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "agr_ws", "AG_ECO3")
 cyano_local_f <- splm(create_formula(dep_var, mod_vars, log = T),
                  data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
                  spcov_type = "exponential",
                  random = ~ DSGN_CYCLE + UNIQUE_ID,
                  local = F)
-summary(cyano2)
-varcomp(cyano2)
+
+# Save the model since it takes so long to run
+# saveRDS(cyano_local_f, "./data/cyano_cell_density_model.rds")
+# cyano_local_f <- readRDS("./data/cyano_cell_density_model.rds")
+
+summary(cyano_local_f)
+varcomp(cyano_local_f)
 
 vis_fit(dep_var, cyano_local_f, file_name = "Model Fit_Cyano.jpg")
 
@@ -296,6 +337,17 @@ pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
 
 vis_fit(dep_var, micx6, file_name = "Model Fit_Micx_Det.jpg")
 
+# Best fit so far? Run with local = F.
+micx_local_f <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+# Note that temperature has a negative relationship here
+
+# Save the model since it takes so long to run
+saveRDS(cyano_local_f, "./data/micx_dectect_model.rds")
+# cyano_local_f <- readRDS("./data/micx_dectect_model.rds")
+
+vis_fit(dep_var, micx_local_f, file_name = "Model Fit_Micx_Det.jpg")
+summary(micx_local_f)
+varcomp(micx_local_f)
 
 ```
 
@@ -311,7 +363,7 @@ run_micxlm <- function(mod_vars, int = NULL){
                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
                 spcov_type = "exponential",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
-                local = T)
+                local = F)
 }
 
 # Lessons learned
@@ -339,14 +391,18 @@ micxlm10 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_m
 
 micxlm11 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
 
+# Perhaps best fit model?
 micxlm12 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
 
 micxlm13 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL", "ElevWs"))
 
-summary(micxlm12)
-varcomp(micxlm12)
+# Run with local = F
+micxlm_local_f <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
 
-vis_fit(dep_var, micxlm12, file_name = "Model Fit_Micx_Conc.jpg")
+summary(micxlm_local_f)
+varcomp(micxlm_local_f)
+
+vis_fit(dep_var, micxlm_local_f, file_name = "Model Fit_Micx_Conc.jpg")
 
 ```
 
