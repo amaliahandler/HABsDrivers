@@ -104,13 +104,13 @@ create_formula <- function(dep_var, ind_vars, log = F, interact = NULL){
   # Log = F
   form <- paste(dep_var, " ~ ", paste(ind_vars, collapse = " + "))
   # Log = T
-  # if(log == T){
-  #   form <- paste("log10(", dep_var, "+ 1) ~ ", paste(ind_vars, collapse = " + "))
-  # }
-    
   if(log == T){
-    form <- paste("log10(", dep_var, ") ~ ", paste(ind_vars, collapse = " + "))
+    form <- paste("log10(", dep_var, "+ 1) ~ ", paste(ind_vars, collapse = " + "))
   }
+    
+  # if(log == T){
+  #   form <- paste("log10(", dep_var, ") ~ ", paste(ind_vars, collapse = " + "))
+  # }
   # Adding an interaction term
   if(is.null(interact) == F){
     form <- paste(form, "+", interact)
@@ -177,7 +177,7 @@ vis_fit <- function(dep_var, splm_obj, file_name = NULL, width = 5, height = 4, 
     levels(aug$obs) <- c("Absent", "Present")
     
     fig <- ggplot(data = aug, aes(x = obs, y = .fitted)) + 
-      geom_boxplot(color = "blue", alpha = 0.3) + 
+      geom_boxplot(color = "#2A6BA6", alpha=0.3) + 
       xlab("Observed") +
       ylab("Fitted") +
       ggtitle(name)
@@ -227,30 +227,39 @@ Experiment with some spatial models
 
 dep_var  <- "B_G_DENS"
 mod_vars <- c("NTL","NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "agr_ws", "AG_ECO3")
-cyano    <- splm(create_formula(dep_var, mod_vars, log = T),
-                 data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
-                 spcov_type = "exponential",
-                 random = ~ DSGN_CYCLE + UNIQUE_ID,
-                 local = T)
+cyano_linear    <- splm(create_formula(dep_var, mod_vars, log = T),
+                        data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
+                        spcov_type = "exponential",
+                        random = ~ DSGN_CYCLE + UNIQUE_ID,
+                        local = T)
+
+cyano_nbinom    <- spglm(round(B_G_DENS, 0) ~ NTL + NITRATE_N + NITRATE_DET + AMMONIA_N + DOC + 
+                            PH + Precip8110Ws + Tmean8110Ws + D_EXCESS + MAXDEPTH + agr_ws + 
+                            AG_ECO3,
+                          data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
+                          family = "nbinomial",
+                          spcov_type = "exponential",
+                          random = ~ DSGN_CYCLE + UNIQUE_ID,
+                          local = T)
 
 cyano_pred <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
 
 # cyano_pred$pred <- predict(cyano, newdata = cyano_pred)
 
-cyano_loocv <- loocv(cyano, cv_predict = TRUE)
+cyano_loocv <- loocv(cyano_linear, cv_predict = TRUE)
 
 cyano_pred$preds <- cyano_loocv$cv_predict
 
-max_val <- max(log10(cyano_pred$B_G_DENS +1), cyano_pred$preds)
-name <- "Log10(Cyanobacteria + 1)"
+max_val <- max(log10(cyano_pred$B_G_DENS +100), cyano_pred$preds)
+name <- "Log10(Cyanobacteria + 100)"
 
-fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS +1))) +
-  geom_point(color = "blue", alpha=0.3) +
-  xlim(0, max_val) + ylim(0, max_val) +
+fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS +100))) +
+  geom_point(color = "#2A6BA6", alpha=0.3, size = 2) +
+  xlim(2, max_val) + ylim(2, max_val) +
   ylab("Observed") +
-  xlab("Fitted") +
-  ggtitle(name)
-ggsave(paste0("./figures/", "Model Fit_Cyano.jpg"), height = 4, width = 5, dpi = 400, units = "in")
+  xlab("Fitted") # +
+  # ggtitle(name)
+ggsave(paste0("./figures/", "Model Fit_Cyano.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
 # cyano_c <- splm(create_formula(dep_var, mod_vars, log = T, interact = "AG_ECO3*PTL"),
 #                  data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
@@ -265,7 +274,7 @@ varcomp(cyano)
 
 # Best model so far (?)
 dep_var  <- "B_G_DENS"
-mod_vars <- c("NTL","DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "agr_ws", "AG_ECO3")
+mod_vars <- c("NTL","NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "agr_ws", "AG_ECO3")
 cyano_local_f <- splm(create_formula(dep_var, mod_vars, log = T),
                  data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
                  spcov_type = "exponential",
@@ -297,9 +306,9 @@ run_micx <- function(mod_vars, int = NULL){
   spglm(create_formula(dep_var, mod_vars, log = F, interact = int),
                 family = "binomial",
                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                spcov_type = "exponential",
+                spcov_type = "none",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
-                local = F)
+                local = T)
 }
 
 # Lessons learned
@@ -329,17 +338,23 @@ micx7 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "tem
 # Best fit so far? Hard to know when running models using approximation methods.
 micx8 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
+# Try with dissolved N species
+micx8 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "AMMONIA_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
+# Try with no spatial covariation
+micx10 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
 # Take out developed area and monthly temperature 
 micx9 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
-summary(micx6)
-varcomp(micx6)
+summary(micx10)
+varcomp(micx10)
 
-aug_micx <- augment(micx5)
+aug_micx <- augment(micx10)
 
 pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
 
-vis_fit(dep_var, micx6, file_name = "Model Fit_Micx_Det.jpg")
+vis_fit(dep_var, micx8, file_name = "Model Fit_Micx_Det.jpg")
 
 # Best fit so far? Run with local = F.
 micx_local_f <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
