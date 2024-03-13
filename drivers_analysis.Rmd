@@ -99,18 +99,16 @@ do.call(rbind, lapply(c("MICX", "B_G_DENS", "CHLA_RESULT", "CHLA_CYANO"), functi
 Model setup
 
 ```{r model setup}
-# Function that creates the formula. When the response variable is cyanobacteria cell counts, add 1 and log-transform.
-create_formula <- function(dep_var, ind_vars, log = F, interact = NULL){
+# Function that creates the formula. When the response variable is cyanobacteria cell counts, add a constant (default is 0) and log-transform.
+create_formula <- function(dep_var, ind_vars, log = F, const = 0, interact = NULL){
   # Log = F
   form <- paste(dep_var, " ~ ", paste(ind_vars, collapse = " + "))
+  
   # Log = T
   if(log == T){
-    form <- paste("log10(", dep_var, "+ 1) ~ ", paste(ind_vars, collapse = " + "))
+    form <- paste("log10(", dep_var, "+", const, ") ~ ", paste(ind_vars, collapse = " + "))
   }
-    
-  # if(log == T){
-  #   form <- paste("log10(", dep_var, ") ~ ", paste(ind_vars, collapse = " + "))
-  # }
+
   # Adding an interaction term
   if(is.null(interact) == F){
     form <- paste(form, "+", interact)
@@ -225,9 +223,15 @@ Experiment with some spatial models
 
 # Switched out E/I for d-excess following a conversation with Renee Brooks. D-excess is a measure of how much how evaporated the water is. When water is still, there is a higher evaporation rate. So d-excess can be thought of as a proxy for how long water has been sitting around evaporating. When d-excess is low, the water is more evaporated. It seems to have a stronger relationship with cyanos.
 
+# Tried running the model as both Poisson and negative bionomial. Fits did not meaningfully change and interpretation is much more challenging. Decided to stick with a linear model for the time-being.
+
+# Now that I am adding an optimized constant (1000) to the model, the effect of the ecoregion has disappeared. 
+
+# Playing around with interactions between the ecoregions and TN, TP, and DOC and finding that generally the interaction has a negative coefficient value. I think that means that within a given ecoregion, increases in TN or TP or DOC are associated with a decrease in cyanos. Not sure how to square that with the overall positive realtionship with TN and TP. When there's an interaction between DOC and ecoregion, the direction of the overall relationship switches from negative to positive and then the interaction coefficients are negative.
+
 dep_var  <- "B_G_DENS"
-mod_vars <- c("NTL","NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "agr_ws", "AG_ECO3")
-cyano_linear    <- splm(create_formula(dep_var, mod_vars, log = T),
+mod_vars <- c("NTL","PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "agr_ws")
+cyano_linear    <- splm(create_formula(dep_var, mod_vars, log = T, const = 1000),
                         data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
                         spcov_type = "exponential",
                         random = ~ DSGN_CYCLE + UNIQUE_ID,
@@ -250,7 +254,7 @@ cyano_loocv <- loocv(cyano_linear, cv_predict = TRUE)
 
 cyano_pred$preds <- cyano_loocv$cv_predict
 
-max_val <- max(log10(cyano_pred$B_G_DENS +100), cyano_pred$preds)
+max_val <- max(log10(cyano_pred$B_G_DENS +1000), cyano_pred$preds)
 name <- "Log10(Cyanobacteria + 100)"
 
 fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS +100))) +
@@ -315,9 +319,10 @@ dat <- data.frame(x = rnorm(10), y = rnorm(10, mean = 10))
 dat <- st_drop_geometry(drop_na(select(habs, B_G_DENS, NTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, Precip8110Ws, Tmean8110Ws, D_EXCESS, MAXDEPTH, agr_ws, AG_ECO3)))
 # finds the c for log(y + c) (note that y should be on the original scale for
 # the purposes of this function, as I take the log inside)
-out <- optim(0, fn = find_c, formula = B_G_DENS ~ NTL, data = dat, method = "Brent", lower = -10, upper = 10)
+out <- optim(0, fn = find_c, formula = B_G_DENS ~ NTL + NITRATE_N + NITRATE_DET + AMMONIA_N + DOC + Precip8110Ws + Tmean8110Ws + D_EXCESS + MAXDEPTH + agr_ws + AG_ECO3 + AG_ECO3 * NTL, data = dat, method = "Brent", lower = -10, upper = 10)
 c_value <- exp(out$par)
 print(c_value)
+
 
 ```
 
