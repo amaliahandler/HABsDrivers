@@ -290,6 +290,35 @@ varcomp(cyano_local_f)
 
 vis_fit(dep_var, cyano_local_f, file_name = "Model Fit_Cyano.jpg")
 
+# Finding a constant to add to cyano biovolume
+# function to find c
+find_c <- function(par, formula, data) {
+  const <- exp(par)
+  mf <- model.frame(formula, data)
+  data$.y <- log(model.response(mf) + const)
+  new_formula <- update(formula, .y ~ .)
+  lmod <- lm(new_formula, data)
+  resids <- residuals(lmod)
+  sigma <- summary(lmod)$sigma
+  n <- NROW(data)
+  ratio <- resids/sigma
+  g1 <- sum(ratio^3) / n
+  g2p <- sum(ratio^4) / n - 3
+  g2 <- g2p + 6 / (lmod$df.residual + 2)
+  g0 <- abs(g1) + abs(g2)
+  g0
+}
+
+# example data
+set.seed(1)
+dat <- data.frame(x = rnorm(10), y = rnorm(10, mean = 10))
+dat <- st_drop_geometry(drop_na(select(habs, B_G_DENS, NTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, Precip8110Ws, Tmean8110Ws, D_EXCESS, MAXDEPTH, agr_ws, AG_ECO3)))
+# finds the c for log(y + c) (note that y should be on the original scale for
+# the purposes of this function, as I take the log inside)
+out <- optim(0, fn = find_c, formula = B_G_DENS ~ NTL, data = dat, method = "Brent", lower = -10, upper = 10)
+c_value <- exp(out$par)
+print(c_value)
+
 ```
 
 
