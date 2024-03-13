@@ -225,12 +225,16 @@ Experiment with some spatial models
 
 # Tried running the model as both Poisson and negative bionomial. Fits did not meaningfully change and interpretation is much more challenging. Decided to stick with a linear model for the time-being.
 
-# Now that I am adding an optimized constant (1000) to the model, the effect of the ecoregion has disappeared. 
+# Now that I am adding an optimized constant (1000) to the model, the effect of the ecoregion has disappeared. Now, when both TN and TP are in the model, they can both be important; although TP is less important than TN.
 
 # Playing around with interactions between the ecoregions and TN, TP, and DOC and finding that generally the interaction has a negative coefficient value. I think that means that within a given ecoregion, increases in TN or TP or DOC are associated with a decrease in cyanos. Not sure how to square that with the overall positive realtionship with TN and TP. When there's an interaction between DOC and ecoregion, the direction of the overall relationship switches from negative to positive and then the interaction coefficients are negative.
 
+# Robert suggesting using agricultural inputs rather than land cover
+habs <- mutate(habs, excess_ag_n_inputs = N_CBNF + N_Fert_Farm + N_livestock_Waste - N_Crop_N_Rem)
+# When total agricultural N inputs or excess agricultural N inputs are substituted in instead of agricultural cover, there variable is not significantly related and was negatively related to cyanos, which doesn't make sense. 
+
 dep_var  <- "B_G_DENS"
-mod_vars <- c("NTL","PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "agr_ws")
+mod_vars <- c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "excess_ag_n_inputs")
 cyano_linear    <- splm(create_formula(dep_var, mod_vars, log = T, const = 1000),
                         data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
                         spcov_type = "exponential",
