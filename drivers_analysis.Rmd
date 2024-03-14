@@ -99,25 +99,6 @@ do.call(rbind, lapply(c("MICX", "B_G_DENS", "CHLA_RESULT", "CHLA_CYANO"), functi
 Model setup
 
 ```{r model setup}
-# Function that creates the formula. When the response variable is cyanobacteria cell counts, add a constant (default is 0) and log-transform.
-create_formula <- function(dep_var, ind_vars, log = F, const = 0, interact = NULL){
-  # Log = F
-  form <- paste(dep_var, " ~ ", paste(ind_vars, collapse = " + "))
-  
-  # Log = T
-  if(log == T){
-    form <- paste("log10(", dep_var, "+", const, ") ~ ", paste(ind_vars, collapse = " + "))
-  }
-
-  # Adding an interaction term
-  if(is.null(interact) == F){
-    form <- paste(form, "+", interact)
-  }
-  # Create formula object
-  form_obj <- as.formula(form)
-  return(form_obj)
-}
-
 # Create variable groups
 all_vars     <- colnames(habs)[match("TEMPERATURE", colnames(habs)):match("P_Surplus", colnames(habs))]
 dep_vars     <- c("B_G_DENS", "MICX", "CYLSPER", "CHLA_RESULT", "CHLA_CYANO", "BG_BIOVOL", "PHYT_BIOVOL")
@@ -229,56 +210,38 @@ Experiment with some spatial models
 
 # Playing around with interactions between the ecoregions and TN, TP, and DOC and finding that generally the interaction has a negative coefficient value. I think that means that within a given ecoregion, increases in TN or TP or DOC are associated with a decrease in cyanos. Not sure how to square that with the overall positive realtionship with TN and TP. When there's an interaction between DOC and ecoregion, the direction of the overall relationship switches from negative to positive and then the interaction coefficients are negative.
 
-# Robert suggesting using agricultural inputs rather than land cover
+# Robert suggested using agricultural inputs rather than land cover
 habs <- mutate(habs, excess_ag_n_inputs = N_CBNF + N_Fert_Farm + N_livestock_Waste - N_Crop_N_Rem)
 # When total agricultural N inputs or excess agricultural N inputs are substituted in instead of agricultural cover, there variable is not significantly related and was negatively related to cyanos, which doesn't make sense. 
 
 dep_var  <- "B_G_DENS"
-mod_vars <- c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "excess_ag_n_inputs")
-cyano_linear    <- splm(create_formula(dep_var, mod_vars, log = T, const = 1000),
-                        data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
-                        spcov_type = "exponential",
-                        random = ~ DSGN_CYCLE + UNIQUE_ID,
-                        local = T)
-
-cyano_nbinom    <- spglm(round(B_G_DENS, 0) ~ NTL + NITRATE_N + NITRATE_DET + AMMONIA_N + DOC + 
-                            PH + Precip8110Ws + Tmean8110Ws + D_EXCESS + MAXDEPTH + agr_ws + 
-                            AG_ECO3,
-                          data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
-                          family = "nbinomial",
-                          spcov_type = "exponential",
-                          random = ~ DSGN_CYCLE + UNIQUE_ID,
-                          local = T)
-
-cyano_pred <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
-
-# cyano_pred$pred <- predict(cyano, newdata = cyano_pred)
-
-cyano_loocv <- loocv(cyano_linear, cv_predict = TRUE)
-
-cyano_pred$preds <- cyano_loocv$cv_predict
-
-max_val <- max(log10(cyano_pred$B_G_DENS +1000), cyano_pred$preds)
-name <- "Log10(Cyanobacteria + 100)"
-
-fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS +100))) +
-  geom_point(color = "#2A6BA6", alpha=0.3, size = 2) +
-  xlim(2, max_val) + ylim(2, max_val) +
-  ylab("Observed") +
-  xlab("Fitted") # +
-  # ggtitle(name)
-ggsave(paste0("./figures/", "Model Fit_Cyano.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
-
-# cyano_c <- splm(create_formula(dep_var, mod_vars, log = T, interact = "AG_ECO3*PTL"),
-#                  data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-#                  spcov_type = "exponential",
-#                  random = ~ DSGN_CYCLE + UNIQUE_ID,
-#                  local = T)
+const <- 1000
+mod_vars <- c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "agr_ws")
+cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const),
+              data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
+              spcov_type = "exponential",
+              random = ~ DSGN_CYCLE + UNIQUE_ID,
+              local = T)
 
 summary(cyano)
 varcomp(cyano)
 
-# cyano1 <- cyano
+cyano_pred <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
+
+cyano_loocv <- loocv(cyano, cv_predict = TRUE)
+
+cyano_pred$preds <- cyano_loocv$cv_predict
+
+max_val <- max(log10(cyano_pred$B_G_DENS + const), cyano_pred$preds)
+name <- paste0("Log10(Cyanobacteria + ", const,")")
+
+fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS + const))) +
+  geom_point(color = "#2A6BA6", alpha=0.3, size = 2) +
+  xlim(2.8, 7) + ylim(2.8, 7) +
+  ylab("Observed") +
+  xlab("Fitted") +
+  ggtitle(name)
+ggsave(paste0("./figures/", "Model Fit_Cyano.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
 # Best model so far (?)
 dep_var  <- "B_G_DENS"
@@ -341,10 +304,10 @@ habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
 dep_var  <- "MICX_DET"
 
 run_micx <- function(mod_vars, int = NULL){
-  spglm(create_formula(dep_var, mod_vars, log = F, interact = int),
+  spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
                 family = "binomial",
                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                spcov_type = "none",
+                spcov_type = "exponential",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
                 local = T)
 }
@@ -377,13 +340,24 @@ micx7 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "tem
 micx8 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
 # Try with dissolved N species
-micx8 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "AMMONIA_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+micx9 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "AMMONIA_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
 # Try with no spatial covariation
 micx10 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
 # Take out developed area and monthly temperature 
-micx9 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+micx11 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
+# What happens when we replace ag cover with ag N inputs of excess ag inputs?
+micx12 <- run_micx(mod_vars = c("NTL", "PH", "excess_ag_n_inputs", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
+micx12 <- spglm(MICX_DET ~ excess_ag_n_inputs,
+                family = "binomial",
+                data = drop_na(habs, all_of(dep_var), all_of(c(mod_vars, "tot_ag_n_inputs"))),
+                spcov_type = "exponential",
+                random = ~ DSGN_CYCLE + UNIQUE_ID,
+                local = T)
+
 
 summary(micx10)
 varcomp(micx10)
