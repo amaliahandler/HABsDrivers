@@ -39,6 +39,11 @@ habs <- mutate(habs, NITRATE_DET = ifelse(is.na(NITRATE_N), 0, 1), .after = NITR
 
 # Replace non-detect values for nitrate with 0
 habs <- mutate(habs, NITRATE_N = ifelse(is.na(NITRATE_N), 0, NITRATE_N))
+
+# Robert suggested using agricultural inputs rather than land cover
+habs <- habs|>
+  mutate(tot_ag_n_inputs = N_CBNF + N_Fert_Farm + N_livestock_Waste, 
+         excess_ag_n_inputs = N_CBNF + N_Fert_Farm + N_livestock_Waste - N_Crop_N_Rem)
 ```
 
 
@@ -210,8 +215,6 @@ Experiment with some spatial models
 
 # Playing around with interactions between the ecoregions and TN, TP, and DOC and finding that generally the interaction has a negative coefficient value. I think that means that within a given ecoregion, increases in TN or TP or DOC are associated with a decrease in cyanos. Not sure how to square that with the overall positive realtionship with TN and TP. When there's an interaction between DOC and ecoregion, the direction of the overall relationship switches from negative to positive and then the interaction coefficients are negative.
 
-# Robert suggested using agricultural inputs rather than land cover
-habs <- mutate(habs, excess_ag_n_inputs = N_CBNF + N_Fert_Farm + N_livestock_Waste - N_Crop_N_Rem)
 # When total agricultural N inputs or excess agricultural N inputs are substituted in instead of agricultural cover, there variable is not significantly related and was negatively related to cyanos, which doesn't make sense. 
 
 dep_var  <- "B_G_DENS"
@@ -353,7 +356,46 @@ micx12 <- run_micx(mod_vars = c("NTL", "PH", "excess_ag_n_inputs", "KffactWs", "
 
 micx12 <- spglm(MICX_DET ~ excess_ag_n_inputs,
                 family = "binomial",
-                data = drop_na(habs, all_of(dep_var), all_of(c(mod_vars, "tot_ag_n_inputs"))),
+                data = drop_na(habs, all_of(dep_var), excess_ag_n_inputs),
+                spcov_type = "exponential",
+                # random = ~ DSGN_CYCLE + UNIQUE_ID,
+                local = F)
+
+habs |>
+  drop_na(MICX_DET, excess_ag_n_inputs) |>
+  slice(1:160) |>
+  select(MICX_DET, excess_ag_n_inputs) |>
+  saveRDS("reprex_data.RDS")
+
+library(spmodel)
+
+# Load data. This was the smallest chunk of data that would produce the error. 
+reprex_data <- readRDS("reprex_data.RDS")
+
+# Spatial model generates error when local = TRUE
+test_spatial <- spglm(MICX_DET ~ excess_ag_n_inputs,
+      family = "binomial",
+      data = reprex_data,
+      spcov_type = "exponential",
+      local = T)
+
+# No error when spatial model local = FALSE
+test_spatial <- spglm(MICX_DET ~ excess_ag_n_inputs,
+      family = "binomial",
+      data = reprex_data,
+      spcov_type = "exponential",
+      local = F)
+
+# None-spatial model does not produce an error when local = TRUE
+spglm(MICX_DET ~ excess_ag_n_inputs,
+      family = "binomial",
+      data = reprex_data,
+      spcov_type = "none",
+      local = T)
+
+micx12 <- spglm(MICX_DET ~ excess_ag_n_inputs,
+                family = "binomial",
+                data = slice(drop_na(habs, all_of(dep_var), excess_ag_n_inputs), 161:3000),
                 spcov_type = "exponential",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
                 local = T)
