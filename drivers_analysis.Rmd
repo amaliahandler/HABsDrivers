@@ -564,8 +564,8 @@ m2 <- randomForest::tuneRF(
 
 # hyperparameter grid search
 hyper_grid <- expand.grid(
-  mtry       = seq(2, 20, by = 2),
-  node_size  = seq(46, 56, by = 2),
+  mtry       = seq(10, 30, by = 2),
+  node_size  = seq(5, 50, by = 5),
   sampe_size = c(.55, .632, .70, .80),
   OOB_RMSE   = 0
 )
@@ -574,7 +574,7 @@ for(i in 1:nrow(hyper_grid)) {
   
   # train model
   model <- ranger::ranger(
-    formula         = create_formula(dep_var, ind_vars),
+    formula         = create_formula(dep_var, ind_vars, log = T, const = 1000),
     data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(ind_vars))), 
     num.trees       = 1000,
     mtry            = hyper_grid$mtry[i],
@@ -598,10 +598,10 @@ OOB_RMSE <- vector(mode = "numeric", length = 200)
 for(i in seq_along(OOB_RMSE)) {
 
   optimal_ranger <- ranger::ranger(
-    formula         = create_formula(dep_var, ind_vars, log = F),
+    formula         = create_formula(dep_var, ind_vars, log = T, const = 1000),
     data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(ind_vars))), 
     num.trees       = 1000,
-    mtry            = 2,
+    mtry            = 28,
     min.node.size   = 50,
     sample.fraction = .8,
     importance      = 'impurity'
@@ -622,18 +622,18 @@ imp %>%
   xlab("Variable") + ylab("Variable Importance") +
   ggtitle("Variables available for CONUS (non-NLA)")
 
-# ggsave("./figures/Variable importance_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
+# ggsave("./figures/Variable importance_NLA'07,'12,'17_non-NLA vars.png", dpi = 300, width = 5, height = 5)
 
 
 # Given the parameter tuning, now pass the data to spmodel
-modRF <- splmRF(create_formula(dep_var, all_ind_vars, log = T),
-                data = drop_na(habs, all_of(dep_var), all_of(all_ind_vars)),
+modRF <- splmRF(create_formula(dep_var, ind_vars, log = T, const = 1000),
+                data = drop_na(habs, all_of(dep_var), all_of(ind_vars)),
                 spcov_type = "exponential",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
                 local = TRUE,
-                num.trees       = 500,
-                mtry            = 8,
-                min.node.size   = 4,
+                num.trees       = 1000,
+                mtry            = 28,
+                min.node.size   = 50,
                 sample.fraction = .8,
                 importance = "impurity")
 
@@ -650,17 +650,17 @@ modRF.imp %>%
 # ggsave("./figures/Variable importance_spMod_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
 
 obs <- habs |>
-  drop_na(all_of(dep_var), all_of(all_ind_vars)) |>
+  drop_na(all_of(dep_var), all_of(ind_vars)) |>
   st_drop_geometry() |>
-  mutate(obs = log10(B_G_DENS +1)) |>
+  mutate(obs = log10(B_G_DENS + 1000)) |>
   pull(obs)
 
 plot(optimal_ranger$predictions, obs)
-cor.test(optimal_ranger$predictions, log10(tmp+1))
+cor.test(optimal_ranger$predictions, obs)
 
 mod <- modRF$ranger$predictions
 
-plot(obs, mod, ylim = c(0, max(mod, obs)), xlim = c(0, max(mod, obs)))
+plot(obs, mod, ylim = c(3, max(mod, obs)), xlim = c(3, max(mod, obs)))
 cor.test(mod, obs)
 
   
