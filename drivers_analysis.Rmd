@@ -105,7 +105,7 @@ Model setup
 
 ```{r model setup}
 # Create variable groups
-all_vars     <- colnames(habs)[match("TEMPERATURE", colnames(habs)):match("P_Surplus", colnames(habs))]
+all_vars     <- colnames(habs)[match("TEMPERATURE", colnames(habs)):match("P_nf_fertilizer", colnames(habs))]
 # Add in ecoregion
 all_vars     <- c(all_vars, "AG_ECO3", "AG_ECO9_NM")
 dep_vars     <- c("B_G_DENS", "MICX", "CYLSPER", "CHLA_RESULT", "CHLA_CYANO", "BG_BIOVOL", "PHYT_BIOVOL")
@@ -123,7 +123,7 @@ nla_ind_vars <- c("TEMPERATURE", "MAXDEPTH", "STRATIFIED", "AMMONIA_N", "DO_SURF
 non_nla_vars <- all_ind_vars[!all_ind_vars %in% nla_ind_vars]
 
 # All nutrient inventory variables
-nni_vars <- colnames(habs)[match("N_AG_N2O_INPUTS", colnames(habs)):match("P_Surplus", colnames(habs))]
+nni_vars <- colnames(habs)[match("N_AG_N2O_INPUTS", colnames(habs)):match("P_nf_fertilizer", colnames(habs))]
 
 ```
 
@@ -190,7 +190,42 @@ Experiment with some spatial models
 
 ```{r cyano models}
 
+# Find a constant to add to the cyano for the log transformation
+
+# function to find c
+find_c <- function(par, formula, data) {
+  const <- exp(par)
+  mf <- model.frame(formula, data)
+  data$.y <- log(model.response(mf) + const)
+  new_formula <- update(formula, .y ~ .)
+  lmod <- lm(new_formula, data)
+  resids <- residuals(lmod)
+  sigma <- summary(lmod)$sigma
+  n <- NROW(data)
+  ratio <- resids/sigma
+  g1 <- sum(ratio^3) / n
+  g2p <- sum(ratio^4) / n - 3
+  g2 <- g2p + 6 / (lmod$df.residual + 2)
+  g0 <- abs(g1) + abs(g2)
+  g0
+}
+
+set.seed(1)
+
+# example data
+dat <- data.frame(x = rnorm(10), y = rnorm(10, mean = 10))
+
+# HABs data
+dat <- st_drop_geometry(drop_na(select(habs, B_G_DENS, NTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, Precip8110Ws, Tmean8110Ws, D_EXCESS, MAXDEPTH, agr_ws, AG_ECO3)))
+
+# finds the c for log(y + c) (note that y should be on the original scale for
+# the purposes of this function, as I take the log inside)
+out <- optim(0, fn = find_c, formula = B_G_DENS ~ NTL + NITRATE_N + NITRATE_DET + AMMONIA_N + DOC + Precip8110Ws + Tmean8110Ws + D_EXCESS + MAXDEPTH + agr_ws + AG_ECO3 + AG_ECO3 * NTL, data = dat, method = "Brent", lower = -10, upper = 10)
+c_value <- exp(out$par)
+print(c_value)
+
 # 2024-01-24 Models on cyanobacteria cell counts using all available explanatory variables
+
 # Lessons learned: 
 
 # There is a lot of missing biovolume data. Enough that I switched back to cyano count data. Will need to check with Karen about why so much data is missing for this parameter.
@@ -221,6 +256,7 @@ Experiment with some spatial models
 
 # When total agricultural N inputs or excess agricultural N inputs are substituted in instead of agricultural cover, there variable is not significantly related and was negatively related to cyanos, which doesn't make sense. 
 
+# Construct the model
 dep_var  <- "B_G_DENS"
 const <- 1000
 mod_vars <- c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "agr_ws")
@@ -230,17 +266,17 @@ cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const),
               random = ~ DSGN_CYCLE + UNIQUE_ID,
               local = T)
 
+# Look at model details
 summary(cyano)
 varcomp(cyano)
 
-cyano_pred <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
-
-cyano_loocv <- loocv(cyano, cv_predict = TRUE)
-
+# Evaluate fit
+cyano_pred       <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
+cyano_loocv      <- loocv(cyano, cv_predict = TRUE)
 cyano_pred$preds <- cyano_loocv$cv_predict
 
 max_val <- max(log10(cyano_pred$B_G_DENS + const), cyano_pred$preds)
-name <- paste0("Log10(Cyanobacteria + ", const,")")
+name    <- paste0("Log10(Cyanobacteria + ", const,")")
 
 fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS + const))) +
   geom_point(color = "#2A6BA6", alpha=0.3, size = 2) +
@@ -266,36 +302,35 @@ cyano_local_f <- splm(create_formula(dep_var, mod_vars, log = T),
 summary(cyano_local_f)
 varcomp(cyano_local_f)
 
-vis_fit(dep_var, cyano_local_f, file_name = "Model Fit_Cyano.jpg")
+# Cyanobacteria models without NLA covariates
 
-# Finding a constant to add to cyano biovolume
-# function to find c
-find_c <- function(par, formula, data) {
-  const <- exp(par)
-  mf <- model.frame(formula, data)
-  data$.y <- log(model.response(mf) + const)
-  new_formula <- update(formula, .y ~ .)
-  lmod <- lm(new_formula, data)
-  resids <- residuals(lmod)
-  sigma <- summary(lmod)$sigma
-  n <- NROW(data)
-  ratio <- resids/sigma
-  g1 <- sum(ratio^3) / n
-  g2p <- sum(ratio^4) / n - 3
-  g2 <- g2p + 6 / (lmod$df.residual + 2)
-  g0 <- abs(g1) + abs(g2)
-  g0
-}
+# Individual N and P inputs were note really related to cyanos. Only N_CBNF was significantly related to cyanos, but the relationship was negative. Sometimes P_livestock_waste was related and was positive. Total_N_Inputs was negatively related to cyanos. 
 
-# example data
-set.seed(1)
-dat <- data.frame(x = rnorm(10), y = rnorm(10, mean = 10))
-dat <- st_drop_geometry(drop_na(select(habs, B_G_DENS, NTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, Precip8110Ws, Tmean8110Ws, D_EXCESS, MAXDEPTH, agr_ws, AG_ECO3)))
-# finds the c for log(y + c) (note that y should be on the original scale for
-# the purposes of this function, as I take the log inside)
-out <- optim(0, fn = find_c, formula = B_G_DENS ~ NTL + NITRATE_N + NITRATE_DET + AMMONIA_N + DOC + Precip8110Ws + Tmean8110Ws + D_EXCESS + MAXDEPTH + agr_ws + AG_ECO3 + AG_ECO3 * NTL, data = dat, method = "Brent", lower = -10, upper = 10)
-c_value <- exp(out$par)
-print(c_value)
+# Try calculating a few summary metrics
+cnni <- habs |>
+  mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
+         n_dev_inputs = N_Human_Waste + N_Fert_Urban,
+         p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
+         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer)
+
+# Summarizing N and P inputs into farm and development categories did not result in any of the variables being signicantly related to the cyanobacteria counts.
+
+# Construct the model
+dep_var  <- "B_G_DENS"
+const    <- 1000
+mod_vars <- c("N_Fert_Farm", "N_CBNF", "N_Livestock_N_Content", "N_Human_Waste", "N_Fert_Urban", "P_Surplus", "P_f_fertilizer", "P_livestock_Waste", "P_human_waste_kg", "P_nf_fertilizer")
+mod_vars <- c("N_Total_Inputs", "P_Surplus", "AG_ECO3")
+mod_vars <- c("n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "p_dev_inputs")
+cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const),
+              data = filter(drop_na(cnni, all_of(dep_var), all_of(mod_vars))),
+              spcov_type = "exponential",
+              random = ~ DSGN_CYCLE + UNIQUE_ID,
+              local = T)
+
+# Look at model details
+summary(cyano)
+varcomp(cyano)
+
 
 
 ```
