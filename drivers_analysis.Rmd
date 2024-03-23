@@ -313,14 +313,25 @@ cnni <- habs |>
          p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
          p_dev_inputs = P_human_waste_kg + P_nf_fertilizer)
 
-# Summarizing N and P inputs into farm and development categories did not result in any of the variables being signicantly related to the cyanobacteria counts.
+# Summarizing N and P inputs into farm and development categories did not result in any of the variables being significantly related to the cyanobacteria counts.
+
+# Piling in non-inventory watershed variables improves the amount of variation explained, but not by much. Agriculture and developed land cover in the watershed is more associated with cyanobacteria that any of the nutrient inventory variabels. 
+
+# There are a few extremely high observations of N farm inputs. Perhaps try log-transforming this covariate?
 
 # Construct the model
 dep_var  <- "B_G_DENS"
 const    <- 1000
 mod_vars <- c("N_Fert_Farm", "N_CBNF", "N_Livestock_N_Content", "N_Human_Waste", "N_Fert_Urban", "P_Surplus", "P_f_fertilizer", "P_livestock_Waste", "P_human_waste_kg", "P_nf_fertilizer")
+
 mod_vars <- c("N_Total_Inputs", "P_Surplus", "AG_ECO3")
+
 mod_vars <- c("n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "p_dev_inputs")
+
+mod_vars <- c("agr_ws", "dev_ws", "fst_ws", "dev_ws", "wet_ws", "Precip_Minus_EVTWs", "BFIWs", "precip_mean_month", "temp_mean_month", "RunoffWs", "lakemorpho_depth", "lakemorpho_fetch", "AgKffactWs", "n_farm_inputs", "p_farm_inputs", "p_dev_inputs", "AG_ECO3")
+
+mod_vars <- c("agr_ws", "dev_ws", "dev_ws", "wet_ws", "BFIWs", "Tmean8110Ws", "Precip8110Ws", "lakemorpho_fetch", "log10(n_farm_inputs)", "AG_ECO3")
+
 cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const),
               data = filter(drop_na(cnni, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
@@ -330,8 +341,6 @@ cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const),
 # Look at model details
 summary(cyano)
 varcomp(cyano)
-
-
 
 ```
 
