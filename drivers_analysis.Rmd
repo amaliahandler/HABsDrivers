@@ -328,7 +328,8 @@ cnni <- habs |>
          ndev_inputs_pres = ifelse(n_dev_inputs == 0, 0, 1),
          log_ndev_inputs = ifelse(n_dev_inputs == 0, 0, log10(n_dev_inputs)),
          pdev_inputs_pres = ifelse(p_dev_inputs == 0, 0, 1),
-         log_pdev_inputs = ifelse(p_dev_inputs == 0, 0, log10(p_dev_inputs)))
+         log_pdev_inputs = ifelse(p_dev_inputs == 0, 0, log10(p_dev_inputs)),
+         lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
 
 # Summarizing N and P inputs into farm and development categories did not result in any of the variables being significantly related to the cyanobacteria counts.
 
@@ -355,6 +356,11 @@ mod_vars <- c("nfarm_inputs_pres", "log_nfarm_inputs", "pfarm_inputs_pres", "log
 
 mod_vars <- c("nfarm_inputs_pres", "n_farm_inputs", "pfarm_inputs_pres", "p_farm_inputs", "ndev_inputs_pres", "n_dev_inputs", "pdev_inputs_pres", "p_dev_inputs")
 
+mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "BFIWs", "Tmean8110Ws", "Precip8110Ws", "lakemorpho_fetch", "nfarm_inputs_pres", "log_nfarm_inputs","ndev_inputs_pres", "log_ndev_inputs")
+
+# Best fit so far?
+mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "BFIWs", "Tmean8110Ws", "Precip8110Ws", "lake_dep")
+
 cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const),
               data = filter(drop_na(cnni, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
@@ -364,6 +370,22 @@ cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const),
 # Look at model details
 summary(cyano)
 varcomp(cyano)
+
+# Evaluate fit
+cyano_pred       <- filter(drop_na(cnni, all_of(dep_var), all_of(mod_vars)))
+cyano_loocv      <- loocv(cyano, cv_predict = TRUE)
+cyano_pred$preds <- cyano_loocv$cv_predict
+
+max_val <- max(log10(cyano_pred$B_G_DENS + const), cyano_pred$preds)
+name    <- paste0("Log10(Cyanobacteria + ", const,")")
+
+fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS + const))) +
+  geom_point(color = "#2A6BA6", alpha=0.3, size = 2) +
+  xlim(2.8, 7) + ylim(2.8, 7) +
+  ylab("Observed") +
+  xlab("Fitted") +
+  ggtitle(name)
+ggsave(paste0("./figures/", "Model Fit_Cyano_No NLA Vars.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
 # Make a function to examine bi-plots of variables
 biplot <- function(data = cnni, xvar, log = F){
@@ -377,15 +399,15 @@ biplot <- function(data = cnni, xvar, log = F){
   return(p)
 }
 
-biplot(xvar = "n_farm_inputs")
+biplot(xvar = "n_farm_inputs", log = F)
 biplot(xvar = "n_farm_inputs", log = T)
-biplot(xvar = "p_farm_inputs")
+biplot(xvar = "p_farm_inputs", log = F)
 biplot(xvar = "p_farm_inputs", log = T)
 biplot(xvar = "n_dev_inputs", log = F)
 biplot(xvar = "n_dev_inputs", log = T)
 biplot(xvar = "p_dev_inputs", log = F)
 biplot(xvar = "p_dev_inputs", log = T)
-
+ggsave(paste0("./figures/Biplot_Cyano vs farm P inputs.jpg"), biplot(xvar = "p_farm_inputs", log = F),height = 3, width = 3, bg = "transparent", dpi = 400, units = "in")
 
 ```
 
