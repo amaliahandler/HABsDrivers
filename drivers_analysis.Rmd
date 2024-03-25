@@ -40,10 +40,25 @@ habs <- mutate(habs, NITRATE_DET = ifelse(is.na(NITRATE_N), 0, 1), .after = NITR
 # Replace non-detect values for nitrate with 0
 habs <- mutate(habs, NITRATE_N = ifelse(is.na(NITRATE_N), 0, NITRATE_N))
 
-# Robert suggested using agricultural inputs rather than land cover
-habs <- habs|>
-  mutate(tot_ag_n_inputs = N_CBNF + N_Fert_Farm + N_livestock_Waste, 
-         excess_ag_n_inputs = N_CBNF + N_Fert_Farm + N_livestock_Waste - N_Crop_N_Rem)
+habs <- habs |>
+  # Robert suggested using agricultural inputs rather than land cover
+  mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
+         n_dev_inputs = N_Human_Waste + N_Fert_Urban,
+         p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
+         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer,
+         nfarm_inputs_pres = ifelse(n_farm_inputs == 0, 0, 1),
+         log_nfarm_inputs = ifelse(n_farm_inputs == 0, 0, log10(n_farm_inputs)),
+         pfarm_inputs_pres = ifelse(p_farm_inputs == 0, 0, 1),
+         log_pfarm_inputs = ifelse(p_farm_inputs == 0, 0, log10(p_farm_inputs)),
+         ndev_inputs_pres = ifelse(n_dev_inputs == 0, 0, 1),
+         log_ndev_inputs = ifelse(n_dev_inputs == 0, 0, log10(n_dev_inputs)),
+         pdev_inputs_pres = ifelse(p_dev_inputs == 0, 0, 1),
+         log_pdev_inputs = ifelse(p_dev_inputs == 0, 0, log10(p_dev_inputs))) |>
+  # Creating a categorical variable for lake depth
+  mutate(lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
+
+# Create a categorical variable for microcystin detection
+habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
 
 # There is a MAXDEPTH measurement that is close to 1000 m and three lakemorpho observations > 500 m. Need to remove these.
 habs <- habs|>
@@ -262,15 +277,13 @@ print(c_value)
 # When total agricultural N inputs or excess agricultural N inputs are substituted in instead of agricultural cover, there variable is not significantly related and was negatively related to cyanos, which doesn't make sense. 
 
 # Try an interactions between shallow and deep lakes per Jim Carleton's suggestion. Finding that both MAXDEPTH and depth as a categorical variable is important.
-chabs <- habs |>
-  mutate(lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
 
 # Construct the model
 dep_var  <- "B_G_DENS"
 const <- 1000
 mod_vars <- c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","agr_ws", "AG_ECO3")
 cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact = "PTL * AG_ECO3"),
-              data = filter(drop_na(cnni, all_of(dep_var), all_of(mod_vars))),
+              data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
               local = T)
@@ -417,7 +430,9 @@ Models for microcystin detection (presence/absence)
 
 ```{r}
 # Create the binary microcystin variable
-habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
+habs <- habs |>
+  mutate(MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)),
+         lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
 
 dep_var  <- "MICX_DET"
 
@@ -467,7 +482,7 @@ micx10 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "PH", "dev_ws",
 micx11 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
 # What happens when we replace ag cover with ag N inputs of excess ag inputs?
-micx12 <- run_micx(mod_vars = c("NTL", "PH", "excess_ag_n_inputs", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+micx12 <- run_micx(mod_vars = c("NTL", "PH", "tot_ag_n_inputs", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
 micx12 <- spglm(MICX_DET ~ excess_ag_n_inputs,
                 family = "binomial",
