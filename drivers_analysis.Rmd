@@ -328,22 +328,6 @@ varcomp(cyano_local_f)
 
 # Individual N and P inputs were note really related to cyanos. Only N_CBNF was significantly related to cyanos, but the relationship was negative. Sometimes P_livestock_waste was related and was positive. Total_N_Inputs was negatively related to cyanos. 
 
-# Try calculating a few summary metrics
-cnni <- habs |>
-  mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
-         n_dev_inputs = N_Human_Waste + N_Fert_Urban,
-         p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
-         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer,
-         nfarm_inputs_pres = ifelse(n_farm_inputs == 0, 0, 1),
-         log_nfarm_inputs = ifelse(n_farm_inputs == 0, 0, log10(n_farm_inputs)),
-         pfarm_inputs_pres = ifelse(p_farm_inputs == 0, 0, 1),
-         log_pfarm_inputs = ifelse(p_farm_inputs == 0, 0, log10(p_farm_inputs)),
-         ndev_inputs_pres = ifelse(n_dev_inputs == 0, 0, 1),
-         log_ndev_inputs = ifelse(n_dev_inputs == 0, 0, log10(n_dev_inputs)),
-         pdev_inputs_pres = ifelse(p_dev_inputs == 0, 0, 1),
-         log_pdev_inputs = ifelse(p_dev_inputs == 0, 0, log10(p_dev_inputs)),
-         lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
-
 # Summarizing N and P inputs into farm and development categories did not result in any of the variables being significantly related to the cyanobacteria counts.
 
 # Piling in non-inventory watershed variables improves the amount of variation explained, but not by much. Agriculture and developed land cover in the watershed is more associated with cyanobacteria that any of the nutrient inventory variables. 
@@ -375,7 +359,7 @@ mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "BFIWs", "Tmean8110Ws", "Precip8110W
 mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "BFIWs", "Tmean8110Ws", "Precip8110Ws", "lake_dep")
 
 cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const),
-              data = filter(drop_na(cnni, all_of(dep_var), all_of(mod_vars))),
+              data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
               local = T)
@@ -385,7 +369,7 @@ summary(cyano)
 varcomp(cyano)
 
 # Evaluate fit
-cyano_pred       <- filter(drop_na(cnni, all_of(dep_var), all_of(mod_vars)))
+cyano_pred       <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
 cyano_loocv      <- loocv(cyano, cv_predict = TRUE)
 cyano_pred$preds <- cyano_loocv$cv_predict
 
@@ -401,7 +385,7 @@ fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS + const))) +
 ggsave(paste0("./figures/", "Model Fit_Cyano_No NLA Vars.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
 # Make a function to examine bi-plots of variables
-biplot <- function(data = cnni, xvar, log = F){
+biplot <- function(data = habs, xvar, log = F){
   x <- pull(data[,match(xvar, colnames(data))], 1)
   p <- ggplot(data) +
     geom_point(aes(y = log10(B_G_DENS + 1000), x = x), color = "blue", alpha = 0.3) +
