@@ -44,6 +44,11 @@ habs <- mutate(habs, NITRATE_N = ifelse(is.na(NITRATE_N), 0, NITRATE_N))
 habs <- habs|>
   mutate(tot_ag_n_inputs = N_CBNF + N_Fert_Farm + N_livestock_Waste, 
          excess_ag_n_inputs = N_CBNF + N_Fert_Farm + N_livestock_Waste - N_Crop_N_Rem)
+
+# There is a MAXDEPTH measurement that is close to 1000 m and three lakemorpho observations > 500 m. Need to remove these.
+habs <- habs|>
+  mutate(MAXDEPTH = ifelse(MAXDEPTH > 200, NA, MAXDEPTH),
+         lakemorpho_depth = ifelse(lakemorpho_depth > 500, NA, lakemorpho_depth))
 ```
 
 
@@ -256,12 +261,16 @@ print(c_value)
 
 # When total agricultural N inputs or excess agricultural N inputs are substituted in instead of agricultural cover, there variable is not significantly related and was negatively related to cyanos, which doesn't make sense. 
 
+# Try an interactions between shallow and deep lakes per Jim Carleton's suggestion. Finding that both MAXDEPTH and depth as a categorical variable is important.
+chabs <- habs |>
+  mutate(lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
+
 # Construct the model
 dep_var  <- "B_G_DENS"
 const <- 1000
-mod_vars <- c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "agr_ws")
-cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const),
-              data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
+mod_vars <- c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","agr_ws", "AG_ECO3")
+cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact = "PTL * AG_ECO3"),
+              data = filter(drop_na(cnni, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
               local = T)
