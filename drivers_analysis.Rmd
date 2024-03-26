@@ -417,12 +417,12 @@ Models for microcystin detection (presence/absence)
 dep_var  <- "MICX_DET"
 
 run_micx <- function(mod_vars, int = NULL){
-  spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
+  spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = NULL),
                 family = "binomial",
                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
                 spcov_type = "none",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
-                local = T)
+                local = F)
 }
 
 # Lessons learned
@@ -504,12 +504,15 @@ micx27 <- run_micx(mod_vars = c("log_nfarm_inputs", "log_pdev_inputs", "agr_ws",
 # Removing agriculture and wetland land cover
 micx28 <- run_micx(mod_vars = c("log_nfarm_inputs", "log_pdev_inputs", "fst_ws", "BFIWs", "AG_ECO3", "lakemorpho_depth", "temp_mean_month"))
 
-summary(micx28)
-varcomp(micx26)
+# Running with local = F
+micx29 <- run_micx(mod_vars = c("log_nfarm_inputs", "log_pdev_inputs", "fst_ws", "BFIWs", "AG_ECO3", "lakemorpho_depth", "temp_mean_month"))
 
-aug_micx <- augment(micx28)
+summary(micx29)
+varcomp(micx29)
 
-micx28_loovc <- loocv(micx28, cv_predict = T)
+aug_micx <- augment(micx29)
+
+micx29_loovc <- loocv(micx29, cv_predict = T)
 
 mapview::mapview(aug_micx, zcol = ".std.resid", at = c(-2, -1, 0, 1, 2, 2.5), layer.name = "Standardized Residual", cex = 3)
 
