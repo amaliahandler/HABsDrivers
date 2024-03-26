@@ -413,18 +413,14 @@ Models for microcystin detection (presence/absence)
 
 
 ```{r}
-# Create the binary microcystin variable
-habs <- habs |>
-  mutate(MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)),
-         lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
-
+# Use binary microcystin variable
 dep_var  <- "MICX_DET"
 
 run_micx <- function(mod_vars, int = NULL){
   spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
                 family = "binomial",
                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                spcov_type = "exponential",
+                spcov_type = "none",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
                 local = T)
 }
@@ -466,19 +462,63 @@ micx10 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "PH", "dev_ws",
 micx11 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
 # What happens when we replace ag cover with ag N inputs of excess ag inputs?
-micx12 <- run_micx(mod_vars = c("NTL", "PH", "tot_ag_n_inputs", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+micx12 <- run_micx(mod_vars = c("NTL", "PH", "p_dev_inputs", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
-micx12 <- spglm(MICX_DET ~ excess_ag_n_inputs,
-                family = "binomial",
-                data = drop_na(habs, all_of(dep_var), excess_ag_n_inputs),
-                spcov_type = "exponential",
-                # random = ~ DSGN_CYCLE + UNIQUE_ID,
-                local = F)
+### Running Models with nutrient inventory instead of land cover
+
+# Getting a lot of the following error. Seemingly only with N inputs.
+# Error in .solve.checkCond(a, tol) : 
+#   'a' is computationally singular, rcond(a)=1.52205e-16
+
+# The models do run when replace with the log-transformed N inputs. Guessing that the extreme values make the model difficult to fit.
+
+# What happens when we replace ag cover with ag N inputs of excess ag inputs?
+micx13 <- run_micx(mod_vars = c("NTL", "PH", "nfarm_inputs_pres", "log_nfarm_inputs", "ndev_inputs_pres", "log_ndev_inputs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
+# Make sense: Positive relationship - log_nfarm_inputs, ndev_inputs_presence, log_pdev_inputs
+# Does not make sense: Negative relationship: log_pfarm_inputs, log_ndev_inputs
+# Not related: pfarm_inputs_presence, nfarm_inputs_presence, pdev_inputs_presence
+micx20 <- run_micx(mod_vars = c("pfarm_inputs_pres", "log_pfarm_inputs", "nfarm_inputs_pres", "log_nfarm_inputs", "ndev_inputs_pres", "log_ndev_inputs", "pdev_inputs_pres", "log_pdev_inputs"))
+
+# Put it all together, but none of the nni variables came out as important.
+micx21 <- run_micx(mod_vars = c("NTL", "PH", "log_nfarm_inputs", "log_pdev_inputs", "log_ndev_inputs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
+# Trying to rerun the best fit model with all variables, but now exlcuding land cover and subing in NNI vars. Still, no NNI vars emerge as important.
+micx22 <- run_micx(mod_vars = c("NTL", "NITRATE_N", "PH", "EVAP_INFL", "nfarm_inputs_pres", "log_nfarm_inputs", "ndev_inputs_pres",  "pdev_inputs_pres", "log_pdev_inputs", "log_ndev_inputs", "BFIWs", "AG_ECO3", "MAXDEPTH",  "lakemorpho_fetch"))
+
+# Try reducing the number of NNI vars. Log_P_Developed_Inputs is important, Log_N_Farm_Inputs has p = 0.15. Fetch no longer related.
+micx23 <- run_micx(mod_vars = c("NTL", "NITRATE_N", "PH", "EVAP_INFL", "log_nfarm_inputs", "log_pdev_inputs", "BFIWs", "AG_ECO3", "MAXDEPTH",  "lakemorpho_fetch"))
+
+# Removing NLA lake water data from covariates
+micx24 <- run_micx(mod_vars = c("log_nfarm_inputs", "log_pdev_inputs", "BFIWs", "AG_ECO3", "MAXDEPTH",  "lakemorpho_fetch"))
+
+# Removing fetch, replace MAXDEPTH with lakemorpho depth. 
+micx25 <- run_micx(mod_vars = c("log_nfarm_inputs", "log_pdev_inputs", "BFIWs", "AG_ECO3", "lakemorpho_depth", "temp_mean_month", "precip_mean_month"))
+
+# Trying some land cover variables. Forest area important. Agriculture and wetland cover approaching important. Developed cover not important.
+micx26 <- run_micx(mod_vars = c("log_nfarm_inputs", "log_pdev_inputs", "agr_ws", "dev_ws", "fst_ws", "wet_ws", "BFIWs", "AG_ECO3", "lakemorpho_depth", "temp_mean_month"))
+
+# Removing developed area
+micx27 <- run_micx(mod_vars = c("log_nfarm_inputs", "log_pdev_inputs", "agr_ws", "fst_ws", "wet_ws", "BFIWs", "AG_ECO3", "lakemorpho_depth", "temp_mean_month"))
+
+# Removing agriculture and wetland land cover
+micx28 <- run_micx(mod_vars = c("log_nfarm_inputs", "log_pdev_inputs", "fst_ws", "BFIWs", "AG_ECO3", "lakemorpho_depth", "temp_mean_month"))
+
+summary(micx28)
+varcomp(micx26)
+
+aug_micx <- augment(micx28)
+
+micx28_loovc <- loocv(micx28, cv_predict = T)
+
+mapview::mapview(aug_micx, zcol = ".std.resid", at = c(-2, -1, 0, 1, 2, 2.5), layer.name = "Standardized Residual", cex = 3)
+
+
 
 habs |>
-  drop_na(MICX_DET, excess_ag_n_inputs) |>
+  drop_na(MICX_DET, n_farm_inputs) |>
   slice(1:160) |>
-  select(MICX_DET, excess_ag_n_inputs) |>
+  select(MICX_DET, n_farm_inputs) |>
   saveRDS("reprex_data.RDS")
 
 library(spmodel)
@@ -518,7 +558,7 @@ micx12 <- spglm(MICX_DET ~ excess_ag_n_inputs,
 summary(micx10)
 varcomp(micx10)
 
-aug_micx <- augment(micx10)
+aug_micx <- augment(micx28)
 
 pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
 
