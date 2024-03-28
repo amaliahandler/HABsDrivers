@@ -255,8 +255,8 @@ nla0712_nlcd <- wsmet %>%
                             TRUE ~ rowSums(select(wsmet, PctUrbOp2011Ws:PctUrbHi2011Ws))),
          wet_ws = case_when(DSGN_CYCLE == 2007 ~ PctWdWet2006Ws + PctHbWet2006Ws,
                             TRUE ~ PctWdWet2011Ws + PctHbWet2011Ws),
-         nondev_ws = case_when(DSGN_CYCLE == 2007 ~ rowSums(select(wsmet, c(PctOw2006Ws, PctIce2006Ws, PctBl2006Ws:PctGrs2006Ws))),
-                               TRUE ~ rowSums(select(wsmet, c(PctOw2011Ws, PctIce2011Ws, PctBl2011Ws:PctGrs2011Ws)))),
+         fst_ws = case_when(DSGN_CYCLE == 2007 ~ rowSums(select(wsmet, c(PctDecid2006Ws:PctMxFst2006Ws))),
+                               TRUE ~ rowSums(select(wsmet, c(PctDecid2011Ws:PctMxFst2011Ws)))),
          agr_ws = case_when(DSGN_CYCLE == 2007 ~ PctHay2006Ws + PctCrop2006Ws,
                             TRUE ~ PctHay2011Ws + PctCrop2011Ws)) |>
   filter(wsmet$DSGN_CYCLE != 2017) |>
@@ -282,7 +282,7 @@ nla17_nlcd_lakecat <- nla17_lakecat_ids <- nla_id |>
 nlcd16_sums <- nlcd16 %>%
   mutate(agr_ws = PctHay2016Ws + PctCrop2016Ws,
          dev_ws = rowSums(select(nlcd16, PctUrbOp2016Ws:PctUrbHi2016Ws)),
-         nondev_ws = rowSums(select(nlcd16, c(PctOw2016Ws, PctIce2016Ws, PctBl2016Ws:PctGrs2016Ws))),
+         fst_ws = rowSums(select(nlcd16, c(PctDecid2016Ws:PctMxFst2016Ws))),
          wet_ws = PctWdWet2016Ws + PctHbWet2016Ws) %>%
   filter(COMID %in% nla17_nlcd_lakecat$COMID) %>%
   select(COMID, ends_with("_ws"))   
@@ -377,7 +377,7 @@ missing_nlcd <- do.call(rbind, lapply(c(1:nrow(missing_lakes)), function(i){
 missing_nlcd_sums <- missing_nlcd %>%
   mutate(agr_ws = PctHay2016Ws + PctCrop2016Ws,
          dev_ws = rowSums(select(missing_nlcd, PctUrbOp2016Ws:PctUrbHi2016Ws)),
-         nondev_ws = rowSums(select(missing_nlcd, c(PctOw2016Ws, PctIce2016Ws, PctBl2016Ws:PctGrs2016Ws))),
+         fst_ws = rowSums(select(missing_nlcd, c(PctDecid2016Ws:PctMxFst2016Ws))),
          wet_ws = PctWdWet2016Ws + PctHbWet2016Ws) |>
   select(SITE_ID, ends_with("_ws")) |>
   left_join(filter(nla_id, DSGN_CYCLE == 2017), by = c("SITE_ID"))
@@ -454,7 +454,7 @@ ws_char <- wsmet |>
 Add in nutrient inventory data compiled by Robert Sabo, Meredith Brehob, and others
 
 ```{r}
-# Note that nutrient inventory data is in units of kg N/yr or kg P/yr
+# Note that nutrient inventory data is in units of kg N/yr or kg P/yr. Need to divide by the watershed area in order to get the per-unit area inventory.
 
 # Read in the 2007 data
 nni2007 <- read.csv("NLA07_NutrientInventory.csv")
@@ -465,7 +465,7 @@ nni2012 <- read.csv("NLA12_NutrientInventory.csv")
 # Select the relevant columns from each and join with NLA ID info to get unique IDs
 extractor <- function(x, year){
   x |> 
-    select(SITE_ID, VISIT_NO, N_Total_Deposition_2002:Recovered_P_2012) |> # contains(c("Total_Inputs", "Surplus"))) |>
+    select(SITE_ID, VISIT_NO, WSAREA, N_Total_Deposition_2002:Recovered_P_2012) |>
     left_join(filter(nla_id, DSGN_CYCLE == year), by = c("SITE_ID", "VISIT_NO"))
 }
 
@@ -479,9 +479,21 @@ nni12 <- nni2012 |>
 
 nni0712 <- bind_rows(nni07, nni12)
 
+# Note that 2 observations are missing a watershed area. Also, there are small difference in the area for the same watershed depending on if the measurement is coming from 2007 or 2012. 
+duplicated_ids <- nni0712 |>
+  as_tibble() |>
+  filter(duplicated(UNIQUE_ID)) |>
+  pull(UNIQUE_ID)
+
+nni0712 |>
+  as_tibble() |>
+  filter(UNIQUE_ID %in% duplicated_ids)|>
+  select(UNIQUE_ID, SITE_ID, VISIT_NO, DSGN_CYCLE, WSAREA) |>
+  arrange(UNIQUE_ID)
 
 # Note that the same lake can have (usually small) differences in the nutrient inputs the same NNI year in the 2007 and 2012 NLA files. This is because the NNI was down-scaled to each lake watershed using the corresponding NLCD data for the NLA survey (2007 NLA = 2006 NLCD, 2012 NLA = 2011 NLCD). Because of slight changes in the relevant land use classes in the two NLCDs, there are differences in the derived inventories based on this.
 nni_mean <- nni0712 |>
+  mutate(WSAREA_HA = round(WSAREA * 100, 2)) |>
   # A bunch of variables were not named consistently among years or input types
   rename(N_Human_N_Demand_2007 = Human_N_Demand_2007,
          N_Human_N_Demand_2002 = Human_N_Demand_2002,
