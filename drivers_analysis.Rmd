@@ -45,15 +45,15 @@ habs <- habs |>
   mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
          n_dev_inputs = N_Human_Waste + N_Fert_Urban,
          p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
-         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer,
-         nfarm_inputs_pres = ifelse(n_farm_inputs == 0, 0, 1),
-         log_nfarm_inputs = ifelse(n_farm_inputs == 0, 0, log10(n_farm_inputs)),
-         pfarm_inputs_pres = ifelse(p_farm_inputs == 0, 0, 1),
-         log_pfarm_inputs = ifelse(p_farm_inputs == 0, 0, log10(p_farm_inputs)),
-         ndev_inputs_pres = ifelse(n_dev_inputs == 0, 0, 1),
-         log_ndev_inputs = ifelse(n_dev_inputs == 0, 0, log10(n_dev_inputs)),
-         pdev_inputs_pres = ifelse(p_dev_inputs == 0, 0, 1),
-         log_pdev_inputs = ifelse(p_dev_inputs == 0, 0, log10(p_dev_inputs))) |>
+         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer) |> # ,
+         # nfarm_inputs_pres = ifelse(n_farm_inputs == 0, 0, 1),
+         # log_nfarm_inputs = ifelse(n_farm_inputs == 0, 0, log10(n_farm_inputs)),
+         # pfarm_inputs_pres = ifelse(p_farm_inputs == 0, 0, 1),
+         # log_pfarm_inputs = ifelse(p_farm_inputs == 0, 0, log10(p_farm_inputs)),
+         # ndev_inputs_pres = ifelse(n_dev_inputs == 0, 0, 1),
+         # log_ndev_inputs = ifelse(n_dev_inputs == 0, 0, log10(n_dev_inputs)),
+         # pdev_inputs_pres = ifelse(p_dev_inputs == 0, 0, 1),
+         # log_pdev_inputs = ifelse(p_dev_inputs == 0, 0, log10(p_dev_inputs))) |>
   # Creating a categorical variable for lake depth
   mutate(lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
 
@@ -61,9 +61,14 @@ habs <- habs |>
 habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
 
 # There is a MAXDEPTH measurement that is close to 1000 m and three lakemorpho observations > 500 m. Need to remove these.
+# There are also some extreme values for the nutrient inputs. Could this be an issue with the watershed area?
 habs <- habs|>
   mutate(MAXDEPTH = ifelse(MAXDEPTH > 200, NA, MAXDEPTH),
-         lakemorpho_depth = ifelse(lakemorpho_depth > 500, NA, lakemorpho_depth))
+         lakemorpho_depth = ifelse(lakemorpho_depth > 500, NA, lakemorpho_depth),
+         n_farm_inputs = ifelse(n_farm_inputs > 600, NA, n_farm_inputs),
+         p_farm_inputs = ifelse(p_farm_inputs > 100, NA, p_farm_inputs),
+         n_dev_inputs = ifelse(n_dev_inputs > 100, NA, n_dev_inputs),
+         p_dev_inputs = ifelse(p_dev_inputs > 100, NA, p_dev_inputs))
 ```
 
 
@@ -326,13 +331,23 @@ varcomp(cyano_local_f)
 
 # Cyanobacteria models without NLA covariates
 
-# Individual N and P inputs were note really related to cyanos. Only N_CBNF was significantly related to cyanos, but the relationship was negative. Sometimes P_livestock_waste was related and was positive. Total_N_Inputs was negatively related to cyanos. 
+# *** Turns out I was using mass of N and P inputs rather than area-normalized inputs. This has been updated in the input data. Now N and P inputs are on a per hectare basis and the numbers are more reasonable and not in the billions/millions. ***
+
+# Individual N and P inputs were not really related to cyanos. Only N_CBNF was significantly related to cyanos, but the relationship was negative. Sometimes P_livestock_waste was related and was positive. Total_N_Inputs was negatively related to cyanos. 
 
 # Summarizing N and P inputs into farm and development categories did not result in any of the variables being significantly related to the cyanobacteria counts.
 
 # Piling in non-inventory watershed variables improves the amount of variation explained, but not by much. Agriculture and developed land cover in the watershed is more associated with cyanobacteria that any of the nutrient inventory variables. 
 
 # There are a few extremely high observations of N farm inputs. Perhaps try log-transforming this covariate? Then there are >800 observations with no N farm inputs. So created a variable for the presence/absence of farm inputs. Even still, these variables almost never come out as important.
+
+# On recommendation from Ryan, I tried removing the random effect for the lake ID. It appears that the variation assigned to the lake ID gets reallocated to the spatially dependent error term. 
+
+# There are still a bunch of extreme values for the N and P inputs. Even when these extreme values are removed, it doesn't result in covariates having stronger relationships with the response.
+
+# Baseflow index is more strongly related than runoff.
+
+# Adding N_Rock and N_Total_Dep were related when included together, but N_Rock was negatively related. N_Total_Dep was positively related. 
 
 # Construct the model
 dep_var  <- "B_G_DENS"
@@ -355,13 +370,28 @@ mod_vars <- c("nfarm_inputs_pres", "n_farm_inputs", "pfarm_inputs_pres", "p_farm
 
 mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "BFIWs", "Tmean8110Ws", "Precip8110Ws", "lakemorpho_fetch", "nfarm_inputs_pres", "log_nfarm_inputs","ndev_inputs_pres", "log_ndev_inputs")
 
-# Best fit so far?
-mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "BFIWs", "Tmean8110Ws", "Precip8110Ws", "lake_dep")
+mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "fst_ws", "BFIWs", "RunoffWs", "Tmean8110Ws", "Precip8110Ws", "N_Fert_Farm", "N_Total_Deposition", "N_CBNF", "N_Fert_Urban","N_livestock_Waste", "P_f_fertilizer", "P_nf_fertilizer", "P_livestock_Waste", "lakemorpho_depth", "KffactWs", "AG_ECO3")
 
-cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const),
+mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "fst_ws", "BFIWs", "RunoffWs", "Tmean8110Ws", "Precip8110Ws", "N_Total_Deposition", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "p_dev_inputs", "lakemorpho_depth", "KffactWs", "AG_ECO3")
+
+mod_vars <- c("wet_ws", "fst_ws", "BFIWs", "RunoffWs", "Tmean8110Ws", "Precip8110Ws", "N_Total_Deposition", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "p_dev_inputs", "lakemorpho_depth", "KffactWs", "AG_ECO3")
+
+mod_vars <- c("fst_ws", "BFIWs", "Tmean8110Ws", "Precip8110Ws", "N_Total_Deposition", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "p_dev_inputs", "lake_dep", "AG_ECO3")
+
+mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "N_Total_Deposition", "n_farm_inputs", "p_dev_inputs", "lake_dep", "AG_ECO9_NM")
+
+mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "N_Total_Deposition", "n_farm_inputs", "p_farm_inputs", "p_dev_inputs", "lake_dep", "AG_ECO3")
+
+mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "N_Total_Deposition", "lake_dep", "AG_ECO3")
+
+# Best fit so far?
+# mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "BFIWs", "Tmean8110Ws", "Precip8110Ws", "lake_dep")
+
+cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, 
+                             interact = NULL),
               data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
-              random = ~ DSGN_CYCLE + UNIQUE_ID,
+              random = ~ DSGN_CYCLE, # + UNIQUE_ID
               local = T)
 
 # Look at model details
@@ -692,7 +722,7 @@ ind_vars <- non_nla_vars
 missing_data <- habs |>
   st_drop_geometry() |>
   summarize_all(~sum(is.na(.))) |>
-  pivot_longer(SITE_ID:UUS_L4NAME, names_to = "variable", values_to = "num_missing")
+  pivot_longer(SITE_ID:MICX_DET, names_to = "variable", values_to = "num_missing")
 
 # Examine if the error stabilizes with the number of trees
 m1 <- randomForest::randomForest(
