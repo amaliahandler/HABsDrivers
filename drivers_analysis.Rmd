@@ -382,13 +382,29 @@ mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "N_Total_Deposition", "n_f
 
 mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "N_Total_Deposition", "n_farm_inputs", "p_farm_inputs", "p_dev_inputs", "lake_dep", "AG_ECO3")
 
-mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "N_Total_Deposition", "lake_dep", "AG_ECO3")
+# Seems like a reasonable mix of variables so far
+mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "AG_ECO3")
 
-# Best fit so far?
-# mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "BFIWs", "Tmean8110Ws", "Precip8110Ws", "lake_dep")
+# Trying the same variables with interactions by ecoregion and lake depth. No interaction between N farm inputs and lake depth, but there was an interaction with ecoregion. P farm inputs are related to cyanos and interact with ecoregion. Not enough power to include interactions for nutrients and ecoregion for both N and P farm inputs.
+
+# Lake depth as a categorical variable always fits better than the continuous variable. The 30 yr climate normals always fit better than the month means.
+
+# Having trouble with P_accumulated_ag_inputs and P farm inputs. Since they are highly correlated with each other and other input variables. Accumulated P inputs are important only when P farm inputs are also included, but the variable seems to sop up variation from the P farm inputs so it's no longer significant. When accumulated inputs are included alone, it's not important. Concluding to leave it out for now.
+
+# Rock N has a negative relationship. Not sure what the mechanism is here. It tends to mop up variation from other variables when present. Total N Deposition doesn't appear to have a relationship.
+mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3")
+
+# There is *maybe* an additional interaction between n_farm_inputs and lake depth (categorical: deep/shallow). A comparison of AIC and variation captured by covariates is slightly improved with the interaction. In all these cases, the relationship between N farm inputs and cyanos is slightly negative for the western mountains/xeric ecoregion, although no highly important. 
+
+# Switching the order of the categorical variables
+habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
+habs <- mutate(habs, lake_dep = factor(lake_dep, levels = c("shallow", "deep")))
+
+# Best fit so far? Include an interaction between N farm inputs and ecoregion and *maybe* an interaction between N farm inputs and lake depth (categorical).
+mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3")
 
 cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, 
-                             interact = NULL),
+                             interact = "n_farm_inputs * AG_ECO3"),
               data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
               random = ~ DSGN_CYCLE, # + UNIQUE_ID
@@ -535,7 +551,7 @@ micx27 <- run_micx(mod_vars = c("log_nfarm_inputs", "log_pdev_inputs", "agr_ws",
 micx28 <- run_micx(mod_vars = c("log_nfarm_inputs", "log_pdev_inputs", "fst_ws", "BFIWs", "AG_ECO3", "lakemorpho_depth", "temp_mean_month"))
 
 # Running with local = F
-micx29 <- run_micx(mod_vars = c("log_nfarm_inputs", "log_pdev_inputs", "fst_ws", "BFIWs", "AG_ECO3", "lakemorpho_depth", "temp_mean_month"))
+micx29 <- run_micx(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "BFIWs", "AG_ECO3", "lakemorpho_depth", "temp_mean_month"))
 
 summary(micx29)
 varcomp(micx29)
