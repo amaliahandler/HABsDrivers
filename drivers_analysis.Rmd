@@ -468,7 +468,7 @@ run_micx <- function(mod_vars, int = NULL){
   spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
                 family = "binomial",
                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                spcov_type = "exponential",
+                spcov_type = "none",
                 random = ~ DSGN_CYCLE,
                 local = T)
 }
@@ -535,7 +535,7 @@ micx20 <- run_micx(mod_vars = c("p_farm_inputs", "AG_ECO3"), int = "p_farm_input
 micx20 <- run_micx(mod_vars = c("p_farm_inputs", "AG_ECO3", "lake_dep"), int = "p_farm_inputs * lake_dep")
 
 # Switching the order of the categorical variables
-# habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
+habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
 habs <- mutate(habs, lake_dep = factor(lake_dep, levels = c("shallow", "deep")))
 
 # Switched the ordering of the lake depths. Indicated that shallow lakes have a positive relationship with N inputs. Deep lakes may also have a positive relationship, but not substantially different from shallow lakes.
@@ -587,31 +587,48 @@ micx34 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "n_dev_inputs"
 
 # Remove N farm inputs
 micx34 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
+
 micx35 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * lake_dep + n_dev_inputs * AG_ECO3")
 
+micx35 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * lake_dep + n_dev_inputs * AG_ECO3")
 
+# Getting close, but need to play around with the final set of interactions
+micx36 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
 
-summary(micx35)
-varcomp(micx35)
+micx37 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
+
+# N surplus is related
+micx37 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
+
+# Does N surplus interact? Interaction between N_surplus and lake depth has a negative relationship with shallow lakes and a positive relationship with deep lakes. Does that make sense? This model has slightly lower AIC than a model that does not have an interaction between N_suplus and lake depth.
+micx38 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3 + N_Surplus * lake_dep")
+
+# Running with random effect of lake unique ID
+micx40 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3 + N_Surplus * lake_dep")
+
+# The interaction exists for the categorical lake depth, but not the continuous variable
+micx39 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3 + N_Surplus * MAXDEPTH")
+
+# Best fit so far?
+micx38 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3 + N_Surplus * lake_dep")
+
+summary(micx40)
+varcomp(micx40)
 beepr::beep()
 
-aug_micx <- augment(micx29)
+aug_micx <- augment(micx38)
 
-micx29_loovc <- loocv(micx29, cv_predict = T)
+pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
+
+micx38_loovc <- loocv(micx38, cv_predict = T)
 
 mapview::mapview(aug_micx, zcol = ".std.resid", at = c(-2, -1, 0, 1, 2, 2.5), layer.name = "Standardized Residual", cex = 3)
-
-habs |>
-  drop_na(MICX_DET, n_farm_inputs) |>
-  slice(1:160) |>
-  select(MICX_DET, n_farm_inputs) |>
-  saveRDS("reprex_data.RDS")
 
 aug_micx <- augment(micx28)
 
 pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
 
-vis_fit(dep_var, micx8, file_name = "Model Fit_Micx_Det.jpg")
+vis_fit(dep_var, micx38, file_name = "Model Fit_Micx_Det.jpg")
 
 # Best fit so far? Run with local = F.
 micx_local_f <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
@@ -865,6 +882,34 @@ cor.test(mod, obs)
 
   
 ```
+
+Experiment for the lake random effect
+
+```{r}
+# Find 50 random observations to hold out
+# Make sure that site that have revisit data isn't included. Want the 50 observations to be unobserved locations in the training set.
+
+single_obs <- habs |>
+  st_drop_geometry() |>
+  group_by(UNIQUE_ID) |>
+  summarise(obs_count = n()) |>
+  filter(obs_count == 1) |>
+  pull(UNIQUE_ID)
+
+# The above df is organized by UNIQUE ID which is categorized by state. Taking an observation at regular intervals should give good spatial coverage of the US
+length(single_obs)/50
+
+hold_out <- sapply(1:50, function(x){single_obs[32*x]})
+
+# Divide data into training and test sets
+test  <- filter(habs, UNIQUE_ID %in% hold_out)
+train <- filter(habs, !(UNIQUE_ID %in% hold_out))
+
+# Run the models with and without a random effect for lake
+
+
+```
+
 
 
 Try random forest with large collection of data from Robert Sabo
