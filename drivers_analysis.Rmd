@@ -888,9 +888,14 @@ Experiment for the lake random effect
 ```{r}
 # Find 50 random observations to hold out
 # Make sure that site that have revisit data isn't included. Want the 50 observations to be unobserved locations in the training set.
+# Since there is a lot of missing data, should pre-filter the dataset to observations that will be included for both
+
+# Variables used in the most recent models for cyanos and microcystin detection
+vars <- unique(c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3", "p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"))
 
 single_obs <- habs |>
   st_drop_geometry() |>
+  drop_na(all_of(c("B_G_DENS", "MICX_DET")), all_of(vars)) |>
   group_by(UNIQUE_ID) |>
   summarise(obs_count = n()) |>
   filter(obs_count == 1) |>
@@ -899,13 +904,140 @@ single_obs <- habs |>
 # The above df is organized by UNIQUE ID which is categorized by state. Taking an observation at regular intervals should give good spatial coverage of the US
 length(single_obs)/50
 
-hold_out <- sapply(1:50, function(x){single_obs[32*x]})
+hold_out <- sapply(1:50, function(x){single_obs[21*x]})
 
 # Divide data into training and test sets
 test  <- filter(habs, UNIQUE_ID %in% hold_out)
 train <- filter(habs, !(UNIQUE_ID %in% hold_out))
 
 # Run the models with and without a random effect for lake
+
+# Cyanobacteria
+mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3")
+
+cyano_lakere <- splm(create_formula("B_G_DENS", mod_vars, log = T, const = 1000, 
+                             interact = "n_farm_inputs * AG_ECO3"),
+              data = filter(drop_na(train, all_of("B_G_DENS"), all_of(mod_vars))),
+              spcov_type = "exponential",
+              random = ~ DSGN_CYCLE + UNIQUE_ID,
+              local = T)
+
+cyano_re_nonsp <- splm(create_formula("B_G_DENS", mod_vars, log = T, const = 1000, 
+                             interact = "n_farm_inputs * AG_ECO3"),
+              data = filter(drop_na(train, all_of("B_G_DENS"), all_of(mod_vars))),
+              spcov_type = "none",
+              random = ~ DSGN_CYCLE + UNIQUE_ID,
+              local = T)
+
+cyano_nolakere <- splm(create_formula("B_G_DENS", mod_vars, log = T, const = 1000, 
+                             interact = "n_farm_inputs * AG_ECO3"),
+              data = filter(drop_na(train, all_of("B_G_DENS"), all_of(mod_vars))),
+              spcov_type = "exponential",
+              random = ~ DSGN_CYCLE,
+              local = T)
+
+cyano_nore <- splm(create_formula("B_G_DENS", mod_vars, log = T, const = 1000, 
+                             interact = "n_farm_inputs * AG_ECO3"),
+              data = filter(drop_na(train, all_of("B_G_DENS"), all_of(mod_vars))),
+              spcov_type = "exponential",
+              # random = ~ DSGN_CYCLE,
+              local = T)
+
+cyano_nonsp <- splm(create_formula("B_G_DENS", mod_vars, log = T, const = 1000, 
+                             interact = "n_farm_inputs * AG_ECO3"),
+              data = filter(drop_na(train, all_of("B_G_DENS"), all_of(mod_vars))),
+              spcov_type = "none",
+              # random = ~ DSGN_CYCLE,
+              local = T)
+
+# Compare model fit
+glances(cyano_lakere, cyano_nolakere)
+lakere_loocv   <- loocv(cyano_lakere)
+nolakere_loocv <- loocv(cyano_nolakere)
+
+# Predict for the training set
+test$cyano_relake_preds   <- predict(cyano_lakere, newdata = test)
+test$cyano_re_nonsp_preds <- predict(cyano_re_nonsp, newdata = test)
+test$cyano_norelake_preds <- predict(cyano_nolakere, newdata = test)
+test$cyano_nore_preds     <- predict(cyano_nore, newdata = test)
+test$cyano_nonsp_preds    <- predict(cyano_nonsp, newdata = test)
+
+# Correlations
+cor(test$cyano_relake_preds, log10(test$B_G_DENS + 1000))
+cor(test$cyano_re_nonsp_preds, log10(test$B_G_DENS + 1000))
+cor(test$cyano_norelake_preds, log10(test$B_G_DENS + 1000))
+cor(test$cyano_nore_preds, log10(test$B_G_DENS + 1000))
+cor(test$cyano_nonsp_preds, log10(test$B_G_DENS + 1000))
+
+
+# Plot it out
+ggplot(data = test) +
+  geom_point(aes(x = cyano_relake_preds, y = log10(B_G_DENS + 1000)), color = "blue") +
+  geom_point(aes(x = cyano_norelake_preds, y = log10(B_G_DENS + 1000)), color = "red")
+
+
+# Detection of microcystin
+mod_vars <- c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3")
+int <- "p_farm_inputs * AG_ECO3 + N_Surplus * lake_dep"
+
+micx_lakere <- spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
+                     family = "binomial",
+                     data = drop_na(train, all_of(dep_var), all_of(mod_vars)),
+                     spcov_type = "exponential",
+                     random = ~ DSGN_CYCLE + UNIQUE_ID,
+                     local = T)
+
+micx_nonsp <- spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
+                     family = "binomial",
+                     data = drop_na(train, all_of(dep_var), all_of(mod_vars)),
+                     spcov_type = "none",
+                     random = ~ DSGN_CYCLE + UNIQUE_ID,
+                     local = T)
+
+micx_nolakere <- spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
+                     family = "binomial",
+                     data = drop_na(train, all_of(dep_var), all_of(mod_vars)),
+                     spcov_type = "exponential",
+                     random = ~ DSGN_CYCLE,
+                     local = T)
+
+micx_nore <- spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
+                     family = "binomial",
+                     data = drop_na(train, all_of(dep_var), all_of(mod_vars)),
+                     spcov_type = "exponential",
+                     # random = ~ DSGN_CYCLE,
+                     local = T)
+
+micx_nore_nonsp <- spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
+                     family = "binomial",
+                     data = drop_na(train, all_of(dep_var), all_of(mod_vars)),
+                     spcov_type = "none",
+                     # random = ~ DSGN_CYCLE,
+                     local = T)
+
+aug_lakere     <- augment(micx_lakere, newdata = test)
+aug_nonsp      <- augment(micx_nonsp, newdata = test)
+aug_nolakere   <- augment(micx_nolakere, newdata = test)
+aug_nore       <- augment(micx_nore, newdata = test)
+aug_nore_nonsp <- augment(micx_nore_nonsp, newdata = test)
+
+pROC::auc(aug_lakere$MICX_DET, aug_lakere$.fitted)
+pROC::auc(aug_nonsp$MICX_DET, aug_nonsp$.fitted)
+pROC::auc(aug_nolakere$MICX_DET, aug_nolakere$.fitted)
+pROC::auc(aug_nore$MICX_DET, aug_nore$.fitted)
+pROC::auc(aug_nore_nonsp$MICX_DET, aug_nore_nonsp$.fitted)
+
+
+pROC::auc(with(aug_nonsp, MICX_DET, .fitted))
+pROC::auc(with(aug_nolakere, MICX_DET, .fitted))
+pROC::auc(with(aug_nore, MICX_DET, .fitted))
+pROC::auc(with(aug_nore_nonsp, MICX_DET, .fitted))
+
+
+test$lakere <- predict(micx_lakere, newdata = test)
+test$nonsp <- predict(micx_nonsp, newdata = test)
+test$nolakere <- predict(micx_nolakere, newdata = test)
+test$nolakere <- predict(micx_nolakere, newdata = test)
 
 
 ```
