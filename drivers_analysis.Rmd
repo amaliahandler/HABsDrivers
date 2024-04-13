@@ -290,7 +290,7 @@ const <- 1000
 mod_vars <- c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","agr_ws", "AG_ECO3")
 cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact = "PTL * AG_ECO3"),
               data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
-              spcov_type = "exponential",
+              spcov_type = "none",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
               local = T)
 
@@ -321,7 +321,7 @@ cyano_local_f <- splm(create_formula(dep_var, mod_vars, log = T),
                  data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
                  spcov_type = "exponential",
                  random = ~ DSGN_CYCLE + UNIQUE_ID,
-                 local = F)
+                 local = T)
 
 # Save the model since it takes so long to run
 # saveRDS(cyano_local_f, "./data/cyano_cell_density_model.rds")
@@ -468,8 +468,8 @@ run_micx <- function(mod_vars, int = NULL){
   spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
                 family = "binomial",
                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                spcov_type = "none",
-                random = ~ DSGN_CYCLE,
+                spcov_type = "exponential",
+                random = ~ DSGN_CYCLE + UNIQUE_ID,
                 local = T)
 }
 
@@ -507,10 +507,13 @@ micx9 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "AMMONIA_N", "PH
 micx10 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
 # Take out developed area and monthly temperature 
-micx11 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+micx11 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "dev_ws", "KffactWs", "BFIWs", "temp_mean_month", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
 # What happens when we replace ag cover with ag N inputs of excess ag inputs?
 micx12 <- run_micx(mod_vars = c("NTL", "PH", "p_dev_inputs", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
+# Best fit model so far with NLA water data
+micx11 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "dev_ws", "KffactWs", "BFIWs", "temp_mean_month", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
 ### Running Models with nutrient inventory instead of land cover
 
@@ -612,8 +615,8 @@ micx39 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_
 # Best fit so far?
 micx38 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3 + N_Surplus * lake_dep")
 
-summary(micx40)
-varcomp(micx40)
+summary(micx38)
+varcomp(micx38)
 beepr::beep()
 
 aug_micx <- augment(micx38)
