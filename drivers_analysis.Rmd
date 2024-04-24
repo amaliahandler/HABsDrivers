@@ -290,7 +290,7 @@ const <- 1000
 mod_vars <- c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","agr_ws", "AG_ECO3")
 cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact = "PTL * AG_ECO3"),
               data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
-              spcov_type = "none",
+              spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
               local = T)
 
@@ -405,7 +405,7 @@ habs <- mutate(habs, lake_dep = factor(lake_dep, levels = c("shallow", "deep")))
 mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3")
 
 cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, 
-                             interact = "n_farm_inputs * AG_ECO3"),
+                             interact = "N_Total_Deposition * AG_ECO3"),
               data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
@@ -430,6 +430,31 @@ fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS + const))) +
   xlab("Fitted") +
   ggtitle(name)
 ggsave(paste0("./figures/", "Model Fit_Cyano_No NLA Vars.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
+
+# Static map
+conus <- st_transform(AOI::aoi_get(state = "conus"), 5070)
+aug_bins <- cyano |>
+  augment() |>
+  mutate(bin = case_when(.std.resid < -2 ~ "c1",
+                         .std.resid > -2 & .std.resid <= -1 ~ "c2",
+                         .std.resid > -1 & .std.resid <= 0 ~ "c3",
+                         .std.resid > 0 & .std.resid <= 1 ~ "c4",
+                         .std.resid > 1 & .std.resid <= 2 ~ "c5",
+                         .std.resid > 2 & .std.resid <= 3 ~ "c6",
+                         .std.resid > 3 ~ "c7")) |>
+  arrange(abs(.std.resid))
+  
+ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
+  geom_sf(data = aug_bins, aes(fill = bin), pch = 21) +
+  scale_fill_manual(values = c('#7f3b08','#e08214','#fee0b6','#d8daeb','#b2abd2','#8073ac','#2d004b'),
+                    name = " ", 
+                    breaks = c(paste0("c", 1:7)),
+                    labels = (c("< -2", "-2 - -1","-1 - 0","0 - 1","1 - 2","2 - 3", "> 3"))) +
+  theme_void() +
+  ggtitle("Cyanobacteria: Standardized Residuals") +
+  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
+ggsave("./figures/Cyano_StdResidMap.png", width = 6, height = 3.5, units = "in", dpi = 600)
 
 # Make a function to examine bi-plots of variables
 biplot <- function(data = habs, xvar, log = F){
@@ -615,8 +640,10 @@ micx39 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_
 # Best fit so far?
 micx38 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3 + N_Surplus * lake_dep")
 
+null <- spglm(MICX_DET ~ 1, data = drop_na(habs, all_of(dep_var), all_of(c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"))), spcov_type = "none", family = "binomial", local = T)
+
 summary(micx38)
-varcomp(micx38)
+varcomp(micx11)
 beepr::beep()
 
 aug_micx <- augment(micx38)
@@ -625,7 +652,43 @@ pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
 
 micx38_loovc <- loocv(micx38, cv_predict = T)
 
+# Interactive map
 mapview::mapview(aug_micx, zcol = ".std.resid", at = c(-2, -1, 0, 1, 2, 2.5), layer.name = "Standardized Residual", cex = 3)
+
+# Static map
+conus <- st_transform(AOI::aoi_get(state = "conus"), 5070)
+aug_bins <- aug_micx |>
+  mutate(bin = case_when(.std.resid < -2 ~ "c1",
+                         .std.resid > -2 & .std.resid <= -1 ~ "c2",
+                         .std.resid > -1 & .std.resid <= 0 ~ "c3",
+                         .std.resid > 0 & .std.resid <= 1 ~ "c4",
+                         .std.resid > 1 & .std.resid <= 2 ~ "c5",
+                         .std.resid > 2 & .std.resid <= 2.5 ~ "c6")) |>
+  arrange(abs(.std.resid))
+  
+ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
+  geom_sf(data = aug_bins, aes(fill = bin), pch = 21) +
+  scale_fill_manual(values = c('#7f3b08','#e08214','#fee0b6','#d8daeb','#b2abd2','#542788','#2d004b'),
+                    name = " ", 
+                    breaks = c(paste0("c", 1:6)),
+                    labels = (c("< -2", "-2 - -1","-1 - 0","0 - 1","1 - 2","2 - 2.5", "> 2.5"))) +
+  theme_void() +
+  ggtitle("Microcystin: Standardized Residuals") +
+  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
+ggsave("./figures/Micx_StdResidMap.png", width = 6, height = 3.5, units = "in", dpi = 600)
+
+# Map for Marc
+ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
+  geom_sf(data = aug_micx, aes(fill = .fitted), pch = 21) +
+  scale_fill_gradientn(colors = brewer.pal(9, 'YlOrRd'),
+                       name = "Probability", 
+                       breaks = c(0.25,0.5,0.75,1)) +
+  theme_void() +
+  ggtitle("Fitted Probability of Microcystin Detection")+
+  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
+ggsave("./figures/FittedProbMap_Micx.png", width = 6, height = 3.5, units = "in", dpi = 600)
 
 aug_micx <- augment(micx28)
 
