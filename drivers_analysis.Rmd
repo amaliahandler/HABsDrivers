@@ -84,9 +84,55 @@ Examine the predictor data for colinear variables
 ```{r}
 cormat_pred <- cor(st_drop_geometry(select(habs, TEMPERATURE:P_Surplus)), use = "pairwise.complete.obs")
 
-# cormat_pred <- cor(st_drop_geometry(select(habs, NTL, PTL, DOC, TURB, PH, TEMPERATURE, dev_ws, wet_ws, nondev_ws, agr_ws, lakemorpho_depth, Precip8110Ws, RunoffWs, Tmean8110Ws, ElevWs, SlopeWs, N_Surplus)), use = "pairwise.complete.obs")
+# Trim to just the variables explored in the models
+cor_dat <- habs |>
+  st_drop_geometry() |>
+  select(TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, fst_ws, wet_ws, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Surplus, N_Total_Deposition, P_Legacy_P, P_Surplus, n_farm_inputs:p_dev_inputs) |>
+  relocate(NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, n_dev_inputs, p_dev_inputs, N_Surplus, P_Surplus, N_Total_Deposition, P_Legacy_P, Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
 
+var_names <- c("Total N", 
+               "Total P",   
+               "Nitrate", 
+               "Ammonia", 
+               "DOC", 
+               "pH", 
+               "Water Temp",
+               "Turbidity",
+               "Evaporation", 
+               "Forest Cover", 
+               "Wetland Cover",
+               "Soil Erodability",
+               "Farm N",
+               "Farm P",
+               "Developed N", 
+               "Developed P",
+               "Surplus N",
+               "Surplus P", 
+               "Deposition N", 
+               "Legacy P", 
+               "Precip-ET", 
+               "Precip", 
+               "Air Temp",
+               "Runoff", 
+               "Baseflow Index",
+               "Lake Depth",
+               "Lake Fetch")
+
+cormat_pred <- cor(cor_dat, use = "pairwise.complete.obs")
+
+colnames(cormat_pred) <- var_names
+rownames(cormat_pred) <- var_names
+
+# Square plot
 corrplot.mixed(cormat_pred, upper = "ellipse", diag = "n", tl.pos = "lt", tl.col = "black", tl.srt = 45)
+
+# Lower triangle plot
+cor_drivers <- corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.srt = 45)
+
+# Save the plot
+png(filename = "./figures/Correlation Matrix of Major Drivers.png", height = 6, width = 6, units = "in", bg = "transparent", res = 600)
+corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.srt = 45)
+dev.off()
 
 ```
 
