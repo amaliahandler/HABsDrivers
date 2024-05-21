@@ -118,7 +118,7 @@ var_names <- c("Total N",
                "Lake Depth",
                "Lake Fetch")
 
-cormat_pred <- cor(cor_dat, use = "pairwise.complete.obs")
+cormat_pred <- cor(cor_dat, use = "pairwise.complete.obs", method = "spearman")
 
 colnames(cormat_pred) <- var_names
 rownames(cormat_pred) <- var_names
