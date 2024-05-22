@@ -337,7 +337,7 @@ const <- 1000
 run_cyano <- function(mod_vars, interact){
   splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
               data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
-              spcov_type = "exponential",
+              spcov_type = "none",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
               local = T)
 }
@@ -380,15 +380,15 @@ c16 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "D
 c17 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs", "N_Total_Deposition"), interact = NULL)
 c18 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs", "KffactWs"), interact = NULL)
 
-# What about other lake or setting information? Lkae fetch and baseflow index may be important
+# What about other lake or setting information? Lake fetch and baseflow index may be important
 c19 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","wet_ws", "p_farm_inputs", "lakemorpho_fetch"), interact = NULL)
 c20 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "wet_ws", "p_farm_inputs", "BFIWs"), interact = NULL)
 c22 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "wet_ws", "p_farm_inputs", "lakemorpho_fetch", "BFIWs"), interact = NULL)
 c21 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","wet_ws","p_farm_inputs", "RunoffWs"), interact = NULL)
+c23 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "wet_ws", "p_farm_inputs", "BFIWs", "AG_ECO3"), interact = NULL)
 
-
-varcomp(c8)
-
+# Best fit so far?
+c20 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "wet_ws", "p_farm_inputs", "BFIWs"), interact = NULL)
 
 cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact = "PTL * AG_ECO3"),
               data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
@@ -530,8 +530,19 @@ fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS + const))) +
   xlim(2.8, 7) + ylim(2.8, 7) +
   ylab("Observed") +
   xlab("Fitted") +
-  ggtitle(name)
-ggsave(paste0("./figures/", "Model Fit_Cyano_No NLA Vars.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
+  geom_abline(intercept = 0, slope = 1)
+  # ggtitle(name)
+ggsave(paste0("./figures/", "Model Fit_Cyano_No NLA Vars.jpg"), fig, height = 4, width = 4, bg = "transparent", dpi = 400, units = "in")
+
+# Hex observation density plot
+fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS + const))) +
+  geom_hex(bins = 70) +
+  scale_fill_continuous(type = "viridis") +
+  xlim(2.8, 7) + ylim(2.8, 7) +
+  ylab("Observed") +
+  xlab("Fitted") +
+  theme_bw()
+ggsave(paste0("./figures/", "Model Fit_Cyano_No NLA Vars.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 600, units = "in")
 
 # Static map
 conus <- st_transform(AOI::aoi_get(state = "conus"), 5070)
