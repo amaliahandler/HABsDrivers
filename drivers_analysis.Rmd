@@ -536,7 +536,7 @@ ggsave(paste0("./figures/", "Model Fit_Cyano_No NLA Vars.jpg"), fig, height = 4,
 
 # Hex observation density plot
 fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS + const))) +
-  geom_hex(bins = 70) +
+  geom_hex(bins = 60) +
   scale_fill_continuous(type = "viridis") +
   xlim(2.8, 7) + ylim(2.8, 7) +
   ylab("Observed") +
@@ -667,7 +667,7 @@ run_micx <- function(mod_vars, int = NULL){
   spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
                 family = "binomial",
                 data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                spcov_type = "exponential",
+                spcov_type = "none",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
                 local = T)
 }
@@ -777,7 +777,7 @@ micx27 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "Precip8110Ws"
 # Try other land cover types. Developed area important, forested area probably important, but not significantly so.
 micx28 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "dev_ws", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
 
-# N developed inputs are related. P developed input also may be important. Likely variables are highly colinear.
+# N developed inputs are related. P developed input also may be important. Likely variables are highly collinear.
 micx29 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
 micx30 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "n_dev_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
 micx31 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
@@ -814,73 +814,67 @@ micx39 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_
 # Best fit so far?
 micx38 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3 + N_Surplus * lake_dep")
 
-null <- spglm(MICX_DET ~ 1, data = drop_na(habs, all_of(dep_var), all_of(c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"))), spcov_type = "none", family = "binomial", local = T)
+# Remove an interaction
+micx39 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
+micx40 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "N_Surplus * lake_dep")
+
+# Remove all interactions
+micx41 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+
+# Remove the ecoregions
+micx42 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs"), int = NULL)
+
+# Try continuous depth, this fits better
+micx43 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+
+# Try climate normals for temp and precip rather than precip-EVT
+micx44 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Tmean8110Ws", "Precip8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+
+# What about other N input types?
+micx45 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+micx46 <- run_micx(mod_vars = c("p_farm_inputs", "N_Total_Deposition", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+micx47 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+micx48 <- run_micx(mod_vars = c("p_farm_inputs", "p_dev_inputs", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+
+# Add an interaction back in
+micx49 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
+
+glances(micx38, micx39, micx40, micx41, micx42)
 
 summary(micx38)
-varcomp(micx11)
 beepr::beep()
 
-aug_micx <- augment(micx38)
-
+aug_micx <- augment(micx47)
 pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
 
-micx38_loovc <- loocv(micx38, cv_predict = T)
+micx_loocv <- loocv(micx47, cv_predict = T)
 
-# Interactive map
-mapview::mapview(aug_micx, zcol = ".std.resid", at = c(-2, -1, 0, 1, 2, 2.5), layer.name = "Standardized Residual", cex = 3)
+# Boxplot of estimated probability
+vis_fit(dep_var, micx47, file_name = "Model Fit_Micx_Det.jpg")
 
-# Static map
-conus <- st_transform(AOI::aoi_get(state = "conus"), 5070)
-aug_bins <- aug_micx |>
-  mutate(bin = case_when(.std.resid < -2 ~ "c1",
-                         .std.resid > -2 & .std.resid <= -1 ~ "c2",
-                         .std.resid > -1 & .std.resid <= 0 ~ "c3",
-                         .std.resid > 0 & .std.resid <= 1 ~ "c4",
-                         .std.resid > 1 & .std.resid <= 2 ~ "c5",
-                         .std.resid > 2 & .std.resid <= 2.5 ~ "c6")) |>
-  arrange(abs(.std.resid))
-  
-ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
-  geom_sf(data = aug_bins, aes(fill = bin), pch = 21) +
-  scale_fill_manual(values = c('#7f3b08','#e08214','#fee0b6','#d8daeb','#b2abd2','#542788','#2d004b'),
-                    name = " ", 
-                    breaks = c(paste0("c", 1:6)),
-                    labels = (c("< -2", "-2 - -1","-1 - 0","0 - 1","1 - 2","2 - 2.5", "> 2.5"))) +
-  theme_void() +
-  ggtitle("Microcystin: Standardized Residuals") +
-  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
-ggsave("./figures/Micx_StdResidMap.png", width = 6, height = 3.5, units = "in", dpi = 600)
-
-# Map for Marc
+# Maps for ASLO presentation
 ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
   geom_sf(data = aug_micx, aes(fill = .fitted), pch = 21) +
-  scale_fill_gradientn(colors = brewer.pal(9, 'YlOrRd'),
-                       name = "Probability", 
+  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
+                       name = "Estimated \nProbability", 
                        breaks = c(0.25,0.5,0.75,1)) +
   theme_void() +
   ggtitle("Fitted Probability of Microcystin Detection")+
   theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
 ggsave("./figures/FittedProbMap_Micx.png", width = 6, height = 3.5, units = "in", dpi = 600)
 
-aug_micx <- augment(micx28)
-
-pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
-
-vis_fit(dep_var, micx38, file_name = "Model Fit_Micx_Det.jpg")
-
-# Best fit so far? Run with local = F.
-micx_local_f <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
-# Note that temperature has a negative relationship here
-
-# Save the model since it takes so long to run
-saveRDS(cyano_local_f, "./data/micx_dectect_model.rds")
-# cyano_local_f <- readRDS("./data/micx_dectect_model.rds")
-
-vis_fit(dep_var, micx_local_f, file_name = "Model Fit_Micx_Det.jpg")
-summary(micx_local_f)
-varcomp(micx_local_f)
+ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
+  geom_sf(data = arrange(aug_micx, MICX_DET), aes(fill = MICX_DET), pch = 21) +
+  scale_fill_manual(values = c('#ffeda0','#bd0026'), #'#fee0b6','#d8daeb','#b2abd2','#8073ac'
+                       name = "Microcystin \nDetected", 
+                       breaks = levels(aug_micx$MICX_DET),
+                    labels = c("Below Detection", "Detected")) +
+  theme_void() +
+  ggtitle("Observed Microcystin Detection")+
+  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
+ggsave("./figures/ObservedMap_Micx.png", width = 6, height = 3.5, units = "in", dpi = 600)
 
 ```
 
