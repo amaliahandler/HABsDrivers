@@ -332,7 +332,64 @@ print(c_value)
 # Construct the model
 dep_var  <- "B_G_DENS"
 const <- 1000
-mod_vars <- c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","agr_ws", "AG_ECO3")
+
+# Function to run the cyano models by only supplying the model vars and the interaction term
+run_cyano <- function(mod_vars, interact){
+  splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
+              data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
+              spcov_type = "exponential",
+              random = ~ DSGN_CYCLE + UNIQUE_ID,
+              local = T)
+}
+
+# Original full model
+c1 <- run_cyano(mod_vars = c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","p_farm_inputs", "AG_ECO3"), interact = "PTL * AG_ECO3")
+
+# No interaction 
+c2 <- run_cyano(mod_vars = c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","p_farm_inputs", "AG_ECO3"), interact = NULL)
+
+# Remove ecoregions
+c3 <- run_cyano(mod_vars = c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+
+# Try different nutrient inputs associated with agriculture (p farm inputs seem to fit best)
+c4 <- run_cyano(mod_vars = c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","n_farm_inputs"), interact = NULL)
+c5 <- run_cyano(mod_vars = c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","n_farm_inputs", "p_farm_inputs"), interact = NULL)
+c6 <- run_cyano(mod_vars = c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","agr_ws"), interact = NULL)
+c7 <- run_cyano(mod_vars = c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","P_Accumulated_ag_inputs"), interact = NULL)
+
+# Does TP or TN perform better? TN performs better
+c8 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+c10 <- run_cyano(mod_vars = c("PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+
+# Remove dissolved N species. Clearly performs worse
+c9 <- run_cyano(mod_vars = c("NTL", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+
+# Do the annual or monthly climate means perform better? Yes for AIC, but no for pseudo R2, performs the same for R2 though
+c11 <- run_cyano(mod_vars = c("NTL", "PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "precip_mean_month", "temp_mean_month", "D_EXCESS", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+
+# What about some other water variables
+c12 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+c13 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+
+# D_excess versus evap/inflow
+c14 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+
+# Other nutrient input variables. Perhaps consider including wetland area.
+c15 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs", "wet_ws"), interact = NULL)
+c16 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs", "fst_ws"), interact = NULL)
+c17 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs", "N_Total_Deposition"), interact = NULL)
+c18 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs", "KffactWs"), interact = NULL)
+
+# What about other lake or setting information? Lkae fetch and baseflow index may be important
+c19 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","wet_ws", "p_farm_inputs", "lakemorpho_fetch"), interact = NULL)
+c20 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "wet_ws", "p_farm_inputs", "BFIWs"), interact = NULL)
+c22 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "wet_ws", "p_farm_inputs", "lakemorpho_fetch", "BFIWs"), interact = NULL)
+c21 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","wet_ws","p_farm_inputs", "RunoffWs"), interact = NULL)
+
+
+varcomp(c8)
+
+
 cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact = "PTL * AG_ECO3"),
               data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
@@ -450,7 +507,7 @@ habs <- mutate(habs, lake_dep = factor(lake_dep, levels = c("shallow", "deep")))
 mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3")
 
 cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, 
-                             interact = "p_farm_inputs * AG_ECO3"),
+                             interact = NULL),
               data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
@@ -462,7 +519,7 @@ varcomp(cyano)
 
 # Evaluate fit
 cyano_pred       <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
-cyano_loocv      <- loocv(cyano, cv_predict = TRUE)
+cyano_loocv      <- loocv(cyano9, cv_predict = TRUE)
 cyano_pred$preds <- cyano_loocv$cv_predict
 
 max_val <- max(log10(cyano_pred$B_G_DENS + const), cyano_pred$preds)
@@ -478,7 +535,7 @@ ggsave(paste0("./figures/", "Model Fit_Cyano_No NLA Vars.jpg"), fig, height = 4,
 
 # Static map
 conus <- st_transform(AOI::aoi_get(state = "conus"), 5070)
-aug_bins <- cyano |>
+aug_bins <- cyano9 |>
   augment() |>
   mutate(bin = case_when(.std.resid < -2 ~ "c1",
                          .std.resid > -2 & .std.resid <= -1 ~ "c2",
@@ -500,6 +557,39 @@ ggplot() +
   ggtitle("Cyanobacteria: Standardized Residuals") +
   theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
 ggsave("./figures/Cyano_StdResidMap.png", width = 6, height = 3.5, units = "in", dpi = 600)
+
+# Map of fitted probability
+# Side-by-side of observed and fitted values
+mapper <- aug_bins |>
+  rename(Observed = `log10(B_G_DENS + 1000)`,
+         Estimated = .fitted) |>
+  pivot_longer(cols = c(Observed, Estimated), names_to = "type", values_to = "value")
+
+ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
+  geom_sf(data = arrange(mapper, value), aes(fill = value), pch = 21) +
+  facet_wrap(~type) +
+  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
+                       name = "Cyanobacteria \n (cells/mL)", 
+                       breaks = c(log10(0+1000),log10(10000+1000),log10(10^5+1000), log10(10^6+1000), log10(10^7+1000)),
+                       labels = c("0", "10,000", "100,000", "1,000,000", "10,000,000")) +
+  theme_void() +
+  ggtitle("Cyanobacteria Abundance")+
+  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
+ggsave("./figures/Map_Cyano_EstimatedObserved.png", width = 8, height = 4, units = "in", dpi = 600)
+
+# Map of observed cyanobacteria
+ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
+  geom_sf(data = arrange(aug_bins, `log10(B_G_DENS + 1000)`), aes(fill = `log10(B_G_DENS + 1000)`), pch = 21) +
+  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
+                       name = "Cyanobacteria \n (cells/mL)", 
+                       breaks = c(log10(0+1000),log10(10000+1000),log10(10^5+1000), log10(10^6+1000), log10(10^7+1000)),
+                       labels = c("0", "10,000", "100,000", "1,000,000", "10,000,000")) +
+  theme_void() +
+  ggtitle("Observed Cyanobacteria Abundance")+
+  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
+ggsave("./figures/ObservedMap_Cyano.png", width = 6, height = 3.5, units = "in", dpi = 600)
 
 # Make a function to examine bi-plots of variables
 biplot <- function(data = habs, xvar, log = F){
@@ -524,34 +614,31 @@ biplot(xvar = "p_dev_inputs", log = T)
 biplot(xvar = "N_Surplus", log = T)
 ggsave(paste0("./figures/Biplot_Cyano vs farm P inputs.jpg"), biplot(xvar = "p_farm_inputs", log = F),height = 3, width = 3, bg = "transparent", dpi = 400, units = "in")
 
-# Model comparison for final model without lake water data
-run_cyano <- function(mod_vars, interact){
-  splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
-              data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
-              spcov_type = "exponential",
-              random = ~ DSGN_CYCLE + UNIQUE_ID,
-              local = T)
-}
-
-# No ecoregion or interaction terms
+# No ecoregion or interaction terms, lake depth is categorical
 cyano1 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch"), interact = NULL)
 
+# No ecoregion or interaction terms, lake depth is continuous. Continuous lake depth is better fit.
+cyano9 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+# No ecoregion or interaction terms, lake depth is continuous, climate is monthly
+cyano10 <- run_cyano(mod_vars = c("BFIWs", "temp_mean_month", "precip_mean_month", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
 # Add ecoregion, but still no interaction
-cyano2 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+cyano2 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
 
 # Add ecoregion interactions with the nutrient inputs
-cyano3 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3"), interact = "n_farm_inputs * AG_ECO3")
+cyano3 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "n_farm_inputs * AG_ECO3")
 
-cyano4 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3"), interact = "p_farm_inputs * AG_ECO3")
+cyano4 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "p_farm_inputs * AG_ECO3")
 
-cyano5 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3"), interact = "n_dev_inputs * AG_ECO3")
+cyano5 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "n_dev_inputs * AG_ECO3")
 
 # Interact with lake depth instead of ecoregion
-cyano6 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch"), interact = "n_farm_inputs * lake_dep")
+cyano6 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "MAXDEPTH", "lakemorpho_fetch"), interact = "n_farm_inputs * MAXDEPTH")
 
-cyano7 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch"), interact = "p_farm_inputs * lake_dep")
+cyano7 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "MAXDEPTH", "lakemorpho_fetch"), interact = "p_farm_inputs * MAXDEPTH")
 
-cyano8 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch"), interact = "n_dev_inputs * lake_dep")
+cyano8 <- run_cyano(mod_vars = c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "MAXDEPTH", "lakemorpho_fetch"), interact = "n_dev_inputs * MAXDEPTH")
 
 glances(cyano1, cyano2, cyano3, cyano4, cyano5, cyano6, cyano7, cyano8)
 
