@@ -87,8 +87,8 @@ cormat_pred <- cor(st_drop_geometry(select(habs, TEMPERATURE:P_Surplus)), use = 
 # Trim to just the variables explored in the models
 cor_dat <- habs |>
   st_drop_geometry() |>
-  select(TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, fst_ws, wet_ws, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Surplus, N_Total_Deposition, P_Legacy_P, P_Surplus, n_farm_inputs:p_dev_inputs) |>
-  relocate(NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, n_dev_inputs, p_dev_inputs, N_Surplus, P_Surplus, N_Total_Deposition, P_Legacy_P, Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
+  select(TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, fst_ws, wet_ws, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, n_farm_inputs:p_dev_inputs) |>
+  relocate(NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, n_dev_inputs, p_dev_inputs, N_Total_Deposition, Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
 
 var_names <- c("Total N", 
                "Total P",   
@@ -106,10 +106,7 @@ var_names <- c("Total N",
                "Farm P",
                "Developed N", 
                "Developed P",
-               "Surplus N",
-               "Surplus P", 
                "Deposition N", 
-               "Legacy P", 
                "Precip-ET", 
                "Precip", 
                "Air Temp",
