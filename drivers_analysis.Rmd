@@ -599,6 +599,14 @@ ggplot() +
   theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
 ggsave("./figures/ObservedMap_Cyano.png", width = 6, height = 3.5, units = "in", dpi = 600)
 
+# NLA lake locations for ASLO presentation
+ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
+  geom_sf(data = habs, aes(shape = DSGN_CYCLE), color = "blue", bg = "black", alpha = 0.5) +
+  scale_shape(name = "Survey Year") +
+  theme_void() 
+ggsave("./figures/NLA071217Lakes.png", width = 6, height = 3.5, units = "in", dpi = 600)
+
 # Make a function to examine bi-plots of variables
 biplot <- function(data = habs, xvar, log = F){
   x <- pull(data[,match(xvar, colnames(data))], 1)
