@@ -469,14 +469,19 @@ nni_mean <- nni0712 |>
   # Missing N_Lightning_2002, N_AG_N2_2007, and P_Hi_P_2007. For now, removing these.
   filter(!type %in% c("Lightning", "AG_N2", "Hi_P")) |>
   # Removing a number of other variables on recommendation from Robert. These are generally variables used to derive other, but are sometimes variables that have a high degree on uncertainty.
-  filter(!type %in% c("N_AG_N2O_INPUTS", "N_AG_N2O_SOIL", "N_Agricultural_NHy", "N_Combustion_transportation", "N_Combustion_utility", "N_Complete_Mass_Balance_AG", "N_Imp_Balance", "N_Imp_Ratio", "N_NUE_AG", "N_Other_emissions", "P_Low_P", "P_human_food_demand_kg", "P_human_nonfood_demand_kg", "P_kg_ww")) |>
+  filter(!type %in% c("AG_N2O_INPUTS", "AG_N2O_SOIL", "Agricultural_NHy", "Combustion_transportation", "Combustion_utility", "Complete_Mass_Balance_AG", "Imp_Balance", "Imp_Ratio", "NUE_AG", "Other_emissions", "Low_P", "human_food_demand_kg", "human_nonfood_demand_kg", "kg_ww")) |>
   # Established already that revisits have identical data
   filter(VISIT_NO == 1) |>
+  # Calculate the mean of the three inventories
   group_by(UNIQUE_ID, nutrient, type) |>
   summarise(mean020712 = mean(amount, na.rm = T)) |>
+  ungroup() |>
+  # Normalize by the watershed area
+  left_join(areas, by = "UNIQUE_ID") |>
+  mutate(mean_kg_ha = mean020712 / WSAREA_HA) |>
   pivot_wider(id_cols = UNIQUE_ID,
               names_from = c(nutrient, type),
-              values_from = mean020712)
+              values_from = mean_kg_ha)
 
 ```
 
@@ -488,7 +493,8 @@ Data request to Marc: I’m looking for the ecoregions data to pair with the 200
 
 ```{r}
 # Read in data
-nla_ecor <- readr::read_csv("NLA_UniqueIDs_HABsDrivers_Ecoregions.csv")
+nla_ecor <- readr::read_csv("NLA_UniqueIDs_HABsDrivers_Ecoregions.csv") |>
+  select(UNIQUE_ID:AG_ECO9_NM)
 
 ```
 
