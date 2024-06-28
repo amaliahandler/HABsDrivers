@@ -469,7 +469,7 @@ nni_mean <- nni0712 |>
   # Missing N_Lightning_2002, N_AG_N2_2007, and P_Hi_P_2007. For now, removing these.
   filter(!type %in% c("Lightning", "AG_N2", "Hi_P")) |>
   # Removing a number of other variables on recommendation from Robert. These are generally variables used to derive other, but are sometimes variables that have a high degree on uncertainty.
-  filter(!type %in% c("AG_N2O_INPUTS", "AG_N2O_SOIL", "Agricultural_NHy", "Combustion_transportation", "Combustion_utility", "Complete_Mass_Balance_AG", "Imp_Balance", "Imp_Ratio", "NUE_AG", "Other_emissions", "Low_P", "human_food_demand_kg", "human_nonfood_demand_kg", "kg_ww")) |>
+  filter(!type %in% c("AG_N2O_INPUTS", "AG_N2O_SOIL", "Agricultural_NHy", "Livestock_Food_Demand", "Livestock_N_Content", "Combustion_transportation", "Combustion_utility", "Complete_Mass_Balance_AG", "Imp_Balance", "Imp_Ratio", "NUE_AG", "Other_emissions", "Low_P", "human_food_demand_kg", "human_nonfood_demand_kg", "kg_ww", "livestock_demand", "livestock_production")) |>
   # Established already that revisits have identical data
   filter(VISIT_NO == 1) |>
   # Calculate the mean of the three inventories
