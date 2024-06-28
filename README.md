@@ -10,7 +10,12 @@ Investigate the patterns, drivers, and risk of cyanobacterial harmful algal bloo
 * Jana Compton
 * Ryan Hill
 * Michael Dumelle
+* Lara Jansen
 * Marc Weber
+* Melanie Reynolds
+* Michael Pennino
+* Robert Sabo
+* Meredith Brehob
 
 ### Information Tracking
 
