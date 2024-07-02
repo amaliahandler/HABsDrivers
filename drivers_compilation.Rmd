@@ -12,6 +12,7 @@ editor_options:
 Compiling data from the 2007, 2012, and 2017 NLA and data associated with the watersheds for each of these lakes from LakeCat and National Nutrient Inventory, in addition to NLA derived data.
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
+# Load packages
 library(devtools)
 library(dplyr)
 library(ggplot2)
