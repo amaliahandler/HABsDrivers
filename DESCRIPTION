@@ -1,0 +1,16 @@
+Package: HABsDrivers
+Title: Patterns and Predicting CyanoHABs in US Lakes
+Version: 0.0.0.9000
+Authors@R: 
+    person("Amalia", "Handler", , "handler.amalia@epa.gov", role = c("aut", "cre"),
+           comment = c(ORCID = "YOUR-ORCID-ID"))
+Description: Analysis of the factors associated with harmful algal bloom (HAB) risk. This project draws from EPA dataset to assess the risk of HABs in lakes across the contiguous US.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends: 
+    R (>= 2.10)
+LazyData: true
+Imports: 
+    stats

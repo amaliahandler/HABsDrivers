@@ -96,3 +96,4 @@
 #' }
 #'
 #' @source {HABsDrivers} Package for estimating lake HABs risk.
+"habs"

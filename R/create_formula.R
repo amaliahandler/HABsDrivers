@@ -10,18 +10,23 @@
 #' @export
 #'
 #' @examples
-#' create_formula(dep_var = "B_G_DENS", ind_vars = c("NTL", "MAXDEPTH", "agr_ws"), log = T, const = 1000)
-create_formula <- function(dep_var, ind_vars, log = F, const = 0, interact = NULL){
+#' create_formula(
+#'   dep_var = "B_G_DENS",
+#'   ind_vars = c("NTL", "MAXDEPTH", "agr_ws"),
+#'   log = TRUE,
+#'   const = 1000
+#'  )
+create_formula <- function(dep_var, ind_vars, log = FALSE, const = 0, interact = NULL){
   # Log = F
   form <- paste(dep_var, " ~ ", paste(ind_vars, collapse = " + "))
 
   # Log = T
-  if(log == T){
+  if(log == TRUE){
     form <- paste("log10(", dep_var, "+", const, ") ~ ", paste(ind_vars, collapse = " + "))
   }
 
   # Adding an interaction term
-  if(is.null(interact) == F){
+  if(is.null(interact) == FALSE){
     form <- paste(form, "+", interact)
   }
   # Create formula object
