@@ -34,7 +34,7 @@ Some additional variables:
 # Calculate the chlorophyll a associated with cyanobacteria
 habs <- mutate(habs, CHLA_CYANO = CHLA_RESULT * BG_BIOVOL/PHYT_BIOVOL, .after = CHLA_RESULT)
 
-# Add a 1/0 variable for detect/non-detect of nitrate
+# Add a binary 1/0 variable for detect/non-detect of nitrate
 habs <- mutate(habs, NITRATE_DET = ifelse(is.na(NITRATE_N), 0, 1), .after = NITRATE_N)
 
 # Replace non-detect values for nitrate with 0
@@ -47,13 +47,6 @@ habs <- habs |>
          p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
          p_dev_inputs = P_human_waste_kg + P_nf_fertilizer) |> # ,
          # nfarm_inputs_pres = ifelse(n_farm_inputs == 0, 0, 1),
-         # log_nfarm_inputs = ifelse(n_farm_inputs == 0, 0, log10(n_farm_inputs)),
-         # pfarm_inputs_pres = ifelse(p_farm_inputs == 0, 0, 1),
-         # log_pfarm_inputs = ifelse(p_farm_inputs == 0, 0, log10(p_farm_inputs)),
-         # ndev_inputs_pres = ifelse(n_dev_inputs == 0, 0, 1),
-         # log_ndev_inputs = ifelse(n_dev_inputs == 0, 0, log10(n_dev_inputs)),
-         # pdev_inputs_pres = ifelse(p_dev_inputs == 0, 0, 1),
-         # log_pdev_inputs = ifelse(p_dev_inputs == 0, 0, log10(p_dev_inputs))) |>
   # Creating a categorical variable for lake depth
   mutate(lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
 
@@ -191,7 +184,7 @@ nla_ind_vars <- c("TEMPERATURE", "MAXDEPTH", "STRATIFIED", "AMMONIA_N", "DO_SURF
 non_nla_vars <- all_ind_vars[!all_ind_vars %in% nla_ind_vars]
 
 # All nutrient inventory variables
-nni_vars <- colnames(habs)[match("N_AG_N2O_INPUTS", colnames(habs)):match("P_nf_fertilizer", colnames(habs))]
+nni_vars <- colnames(habs)[match("N_CBNF", colnames(habs)):match("P_nf_fertilizer", colnames(habs))]
 
 ```
 
@@ -387,7 +380,7 @@ c23 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "D
 # Best fit so far?
 c20 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "wet_ws", "p_farm_inputs", "BFIWs"), interact = NULL)
 
-cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact = "PTL * AG_ECO3"),
+cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact = NULL),
               data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
@@ -459,16 +452,6 @@ mod_vars <- c("N_Total_Inputs", "P_Surplus", "AG_ECO3")
 mod_vars <- c("n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "p_dev_inputs")
 
 mod_vars <- c("agr_ws", "dev_ws", "fst_ws", "dev_ws", "wet_ws", "Precip_Minus_EVTWs", "BFIWs", "precip_mean_month", "temp_mean_month", "RunoffWs", "lakemorpho_depth", "lakemorpho_fetch", "AgKffactWs", "n_farm_inputs", "p_farm_inputs", "p_dev_inputs", "AG_ECO3")
-
-mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "BFIWs", "Tmean8110Ws", "Precip8110Ws", "lakemorpho_fetch", "nfarm_inputs_pres", "log_nfarm_inputs", "AG_ECO3")
-
-mod_vars <- c("nfarm_inputs_pres", "n_farm_inputs") # Still negative relationship between n farm inputs and cyanos
-mod_vars <- c("nfarm_inputs_pres", "log_nfarm_inputs")
-mod_vars <- c("nfarm_inputs_pres", "log_nfarm_inputs", "pfarm_inputs_pres", "log_pfarm_inputs", "ndev_inputs_pres", "log_ndev_inputs") # Nothing coming out important
-
-mod_vars <- c("nfarm_inputs_pres", "n_farm_inputs", "pfarm_inputs_pres", "p_farm_inputs", "ndev_inputs_pres", "n_dev_inputs", "pdev_inputs_pres", "p_dev_inputs")
-
-mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "BFIWs", "Tmean8110Ws", "Precip8110Ws", "lakemorpho_fetch", "nfarm_inputs_pres", "log_nfarm_inputs","ndev_inputs_pres", "log_ndev_inputs")
 
 mod_vars <- c("agr_ws", "dev_ws", "wet_ws", "fst_ws", "BFIWs", "RunoffWs", "Tmean8110Ws", "Precip8110Ws", "N_Fert_Farm", "N_Total_Deposition", "N_CBNF", "N_Fert_Urban","N_livestock_Waste", "P_f_fertilizer", "P_nf_fertilizer", "P_livestock_Waste", "lakemorpho_depth", "KffactWs", "AG_ECO3")
 
