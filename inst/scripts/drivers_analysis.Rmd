@@ -709,6 +709,9 @@ micx12 <- run_micx(mod_vars = c("NTL", "PH", "p_dev_inputs", "KffactWs", "BFIWs"
 # Best fit model so far with NLA water data
 micx11 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "dev_ws", "KffactWs", "BFIWs", "temp_mean_month", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
+# Save this model
+# saveRDS(micx11, "./inst/model_objects/model_micx_withlakedata.rds")
+
 ### Running Models with nutrient inventory instead of land cover
 
 # The models do run when replace with the log-transformed N inputs. Guessing that the extreme values make the model difficult to fit.
@@ -836,13 +839,17 @@ micx49 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "Precip_Minus_EVTWs",
 
 glances(micx38, micx39, micx40, micx41, micx42)
 
-summary(micx38)
+# mixc47 maybe most reasonable fit
+summary(micx47)
 beepr::beep()
 
 aug_micx <- augment(micx47)
 pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
 
-micx_loocv <- loocv(micx47, cv_predict = T)
+micx_loocv <- loocv(micx11, cv_predict = T)
+
+# Save the best performing micx model so far
+# saveRDS(micx47, "./inst/model_objects/model_micx_nolakedata.rds")
 
 # Boxplot of estimated probability
 vis_fit(dep_var, micx47, file_name = "Model Fit_Micx_Det.jpg")
