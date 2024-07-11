@@ -408,19 +408,23 @@ ggsave(paste0("./figures/", "Model Fit_Cyano.jpg"), fig, height = 4, width = 5, 
 
 # Best model so far (?)
 dep_var  <- "B_G_DENS"
-mod_vars <- c("NTL","NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "agr_ws", "AG_ECO3")
-cyano_local_f <- splm(create_formula(dep_var, mod_vars, log = T),
+mod_vars <- c("NTL","NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "D_EXCESS", "MAXDEPTH", "n_farm_inputs")
+cyano <- splm(create_formula(dep_var, mod_vars, log = T, const, interact = NULL),
                  data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
                  spcov_type = "exponential",
                  random = ~ DSGN_CYCLE + UNIQUE_ID,
                  local = T)
 
-# Save the model since it takes so long to run
-# saveRDS(cyano_local_f, "./data/cyano_cell_density_model.rds")
-# cyano_local_f <- readRDS("./data/cyano_cell_density_model.rds")
+summary(cyano)
+varcomp(cyano)
 
-summary(cyano_local_f)
-varcomp(cyano_local_f)
+# Evaluate fit
+cyano_pred       <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
+cyano_loocv      <- loocv(cyano, cv_predict = TRUE)
+cyano_loocv$stats
+
+# Save the model
+# saveRDS(cyano, "./inst/model_objects/model_cyano_withlakedata.rds")
 
 # Cyanobacteria models without NLA covariates
 
@@ -483,8 +487,8 @@ mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_in
 habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
 habs <- mutate(habs, lake_dep = factor(lake_dep, levels = c("shallow", "deep")))
 
-# Best fit so far? Include an interaction between N farm inputs and ecoregion and *maybe* an interaction between N farm inputs and lake depth (categorical).
-mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3")
+# Best fit so far? 
+mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch")
 
 cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, 
                              interact = NULL),
@@ -499,8 +503,11 @@ varcomp(cyano)
 
 # Evaluate fit
 cyano_pred       <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
-cyano_loocv      <- loocv(cyano9, cv_predict = TRUE)
+cyano_loocv      <- loocv(cyano, cv_predict = TRUE)
 cyano_pred$preds <- cyano_loocv$cv_predict
+
+# Save the model object
+# saveRDS(cyano, "./inst/model_objects/model_cyano_nolakedata.rds")
 
 max_val <- max(log10(cyano_pred$B_G_DENS + const), cyano_pred$preds)
 name    <- paste0("Log10(Cyanobacteria + ", const,")")
