@@ -65,16 +65,61 @@ PredData12_10Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protecti
 
 colnames(PredData07_10Ws) #check column names to see which ones we want to take with
 
-# averaging the three data sets
+# averaging the 2007 three data sets
 PredData2007 <- bind_rows(PredData07_05Ws, PredData07_07Ws, PredData07_10Ws) %>%
   group_by(wbCOMID) %>%
   summarise(X= mean(X, na.rm= TRUE),
             NPP_YrMean = mean(NPP_YrMean, na.rm= TRUE),
-            NPP = mean(NPP, na.rm=TRUE))
+            NPP = mean(NPP, na.rm=TRUE),
+            LST_YrMean = mean(LST_YrMean, na.rm=TRUE),
+            Tot_Ndep_2007 = mean(Tot_Ndep_2007, na.rm=TRUE),
+            Total.Input = mean(Total.Input, na.rm=TRUE),
+            N_Fert_Farm_2007 = mean(N_Fert_Farm_2007, na.rm=TRUE),
+            RunoffWs = mean(RunoffWs, na.rm=TRUE),
+            Atmo_Pdep_2007 = mean(Atmo_Pdep_2007, na.rm=TRUE),
+            P_Accumulated_ag_inputs_2007 = mean(P_Accumulated_ag_inputs_2007, na.rm=TRUE),
+            nani = mean(nani, na.rm=TRUE),
+            Precip_YrMean = mean(Precip_YrMean, na.rm=TRUE),
+            Tot_Sdep_2007 = mean(Tot_Sdep_2007, na.rm=TRUE),
+            N_CBNF_2007 = mean(N_CBNF_2007, na.rm=TRUE),
+            WsAreaSqKm = mean(WsAreaSqKm, na.rm=TRUE),
+            BFIWs = mean(BFIWs, na.rm=TRUE),
+            NHDLakeDepth = mean(NHDLakeDepth, na.rm=TRUE)
+            )
 
-# can't decide if i want to just take all the variables with me in the merge or
-# if i want to work backwards from the equations and decide what variables
-# i need first, and then select those to move forward with??
+# excluded variables during the merge
+# ClayWs, SandWs, SNOW_YrMean, catCOMID
+
+head(PredData2007)
+
+# averaging the 2012 three data sets
+PredData2012 <- bind_rows(PredData12_05Ws, PredData12_07Ws, PredData12_10Ws) %>% # maybe make a loop that does this instead melanie
+  group_by(wbCOMID) %>%
+  summarise(X= mean(X, na.rm= TRUE),
+            NPP_YrMean = mean(NPP_YrMean, na.rm= TRUE),
+            NPP = mean(NPP, na.rm=TRUE),
+            LST_YrMean = mean(LST_YrMean, na.rm=TRUE),
+            Tot_Ndep_2012 = mean(Tot_Ndep_2007, na.rm=TRUE),
+            Total.Input = mean(Total.Input, na.rm=TRUE),
+            N_Fert_Farm_2012 = mean(N_Fert_Farm_2007, na.rm=TRUE),
+            RunoffWs = mean(RunoffWs, na.rm=TRUE),
+            Atmo_Pdep_2012 = mean(Atmo_Pdep_2007, na.rm=TRUE),
+            P_Accumulated_ag_inputs_2007 = mean(P_Accumulated_ag_inputs_2007, na.rm=TRUE),
+            nani = mean(nani, na.rm=TRUE),
+            Precip_YrMean = mean(Precip_YrMean, na.rm=TRUE),
+            Tot_Sdep_2012 = mean(Tot_Sdep_2007, na.rm=TRUE),
+            N_CBNF_2012 = mean(N_CBNF_2007, na.rm=TRUE),
+            WsAreaSqKm = mean(WsAreaSqKm, na.rm=TRUE),
+            BFIWs = mean(BFIWs, na.rm=TRUE),
+            NHDLakeDepth = mean(NHDLakeDepth, na.rm=TRUE)
+  )
+
+head(PredData2012)
+
+
+
+
+
 
 
 
