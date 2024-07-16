@@ -75,116 +75,106 @@ PredData2007$Obs <- 1:nrow(PredData2007) # new column with indiv. values for eac
 
 which(PredData2007$wbCOMID == "487") # checking to make sure the data combined as intended
 
-PredData2007 %>%
-  pivot_wider(id_cols = Obs)
-
-PredData2007 %>%
-  group_by(across(where(is.factor))) %>%
+PredData2007 <- PredData2007 %>%
+  group_by(across(wbCOMID)) %>%
   summarise(across(where(is.numeric), mean))
 
-# by_COMID <- PredData2007 %>% group_by(wbCOMID)
-#
-# by_COMID %>% summarise(
-#   disp = mean(disp),
-#   hp = mean(hp)
-# )
-
-# here's what I want
-# if wbCOMID values are equal,
-# those rows will select
-# their values with be averaged
-# forming one new row
-
-# averaging the 2007 three data sets
-PredData2007 <- bind_rows(PredData07_05Ws, PredData07_07Ws, PredData07_10Ws) %>%
-  group_by(wbCOMID) %>%
-  summarise(X= mean(X, na.rm= TRUE),
-            NPP_YrMean = mean(NPP_YrMean, na.rm= TRUE),
-            NPP = mean(NPP, na.rm=TRUE),
-            LST_YrMean = mean(LST_YrMean, na.rm=TRUE),
-            Tot_Ndep_2007 = mean(Tot_Ndep_2007, na.rm=TRUE),
-            Total.Input = mean(Total.Input, na.rm=TRUE),
-            N_Fert_Farm_2007 = mean(N_Fert_Farm_2007, na.rm=TRUE),
-            RunoffWs = mean(RunoffWs, na.rm=TRUE),
-            Atmo_Pdep_2007 = mean(Atmo_Pdep_2007, na.rm=TRUE),
-            P_Accumulated_ag_inputs_2007 = mean(P_Accumulated_ag_inputs_2007, na.rm=TRUE),
-            nani = mean(nani, na.rm=TRUE),
-            Precip_YrMean = mean(Precip_YrMean, na.rm=TRUE),
-            Tot_Sdep_2007 = mean(Tot_Sdep_2007, na.rm=TRUE),
-            N_CBNF_2007 = mean(N_CBNF_2007, na.rm=TRUE),
-            WsAreaSqKm = mean(WsAreaSqKm, na.rm=TRUE),
-            BFIWs = mean(BFIWs, na.rm=TRUE),
-            NHDLakeDepth = mean(NHDLakeDepth, na.rm=TRUE)
-            )
-
-# excluded variables during the merge
-# ClayWs, SandWs, SNOW_YrMean, catCOMID
-
-head(PredData2007)
+which(PredData2007$wbCOMID == "487") # checking to make sure the data combined as intended again
 
 
+# 2012
 
-# averaging the 2012 three data sets
-PredData2012 <- bind_rows(PredData12_05Ws, PredData12_07Ws, PredData12_10Ws) %>% # maybe make a loop that does this instead melanie
-  group_by(wbCOMID) %>% # 2012 variables still named with 2007, renamed while creating new variables with the means
-  summarise(X= mean(X, na.rm= TRUE),
-            NPP_YrMean = mean(NPP_YrMean, na.rm= TRUE),
-            NPP = mean(NPP, na.rm=TRUE),
-            LST_YrMean = mean(LST_YrMean, na.rm=TRUE),
-            Tot_Ndep_2012 = mean(Tot_Ndep_2007, na.rm=TRUE),
-            Total.Input = mean(Total.Input, na.rm=TRUE),
-            N_Fert_Farm_2012 = mean(N_Fert_Farm_2007, na.rm=TRUE),
-            RunoffWs = mean(RunoffWs, na.rm=TRUE),
-            Atmo_Pdep_2012 = mean(Atmo_Pdep_2007, na.rm=TRUE),
-            P_Accumulated_ag_inputs_2012 = mean(P_Accumulated_ag_inputs_2007, na.rm=TRUE),
-            nani = mean(nani, na.rm=TRUE),
-            Precip_YrMean = mean(Precip_YrMean, na.rm=TRUE),
-            Tot_Sdep_2012 = mean(Tot_Sdep_2007, na.rm=TRUE),
-            N_CBNF_2012 = mean(N_CBNF_2007, na.rm=TRUE),
-            WsAreaSqKm = mean(WsAreaSqKm, na.rm=TRUE),
-            BFIWs = mean(BFIWs, na.rm=TRUE),
-            NHDLakeDepth = mean(NHDLakeDepth, na.rm=TRUE)
-  )
+PredData2012 <- PredData12_05Ws %>%
+  bind_rows(PredData12_07Ws) %>%
+  bind_rows(PredData12_10Ws)
 
-head(PredData2012)
+which(PredData2012$wbCOMID == "487") # checking to make sure the data combined as intended
 
-# combine all predictor data to make a singular averaged dataset
+PredData2012 <- PredData2012%>%
+  group_by(across(wbCOMID)) %>%
+  summarise(across(where(is.numeric), mean))
 
-## Required packages
-install.packages("data.table")
-install.packages("reshape2")
-library(data.table)
-library(reshape2)
+which(PredData2012$wbCOMID == "487") # checking to make sure the data combined as intended
 
-dcast.data.table(
-  merge(
-    ## melt the first data.frame and set the key as ID and variable
-    setkey(melt(as.data.table(PredData2007), id.vars = "wdCOMID"), ID, variable),
-    ## melt the second data.frame
-    melt(as.data.table(PredData2012), id.vars = "wdCOMID"),
-    ## you'll have 2 value columns...
-    all = TRUE)[, value := ifelse(
-      ## ... combine them into 1 with ifelse
-      is.na(value.x), value.y, value.x)],
-  ## This is your reshaping formula
-  ID ~ variable, value.var = "value")
+# failed attempt, embarrassing -------------------------------------------------------------
 
-# PredData2007 %>%
-#   full_join(PredData2012, by = intersect(colnames(PredData2007), colnames(PredData2012))) %>%
+# # averaging the 2007 three data sets
+# PredData2007 <- bind_rows(PredData07_05Ws, PredData07_07Ws, PredData07_10Ws) %>%
 #   group_by(wbCOMID) %>%
-#   summarize_all(na.omit)
-
-
-# #needs to be edited
-# PredDataMas <- bind_rows(PredData2007, PredData2012)
+#   summarise(X= mean(X, na.rm= TRUE),
+#             NPP_YrMean = mean(NPP_YrMean, na.rm= TRUE),
+#             NPP = mean(NPP, na.rm=TRUE),
+#             LST_YrMean = mean(LST_YrMean, na.rm=TRUE),
+#             Tot_Ndep_2007 = mean(Tot_Ndep_2007, na.rm=TRUE),
+#             Total.Input = mean(Total.Input, na.rm=TRUE),
+#             N_Fert_Farm_2007 = mean(N_Fert_Farm_2007, na.rm=TRUE),
+#             RunoffWs = mean(RunoffWs, na.rm=TRUE),
+#             Atmo_Pdep_2007 = mean(Atmo_Pdep_2007, na.rm=TRUE),
+#             P_Accumulated_ag_inputs_2007 = mean(P_Accumulated_ag_inputs_2007, na.rm=TRUE),
+#             nani = mean(nani, na.rm=TRUE),
+#             Precip_YrMean = mean(Precip_YrMean, na.rm=TRUE),
+#             Tot_Sdep_2007 = mean(Tot_Sdep_2007, na.rm=TRUE),
+#             N_CBNF_2007 = mean(N_CBNF_2007, na.rm=TRUE),
+#             WsAreaSqKm = mean(WsAreaSqKm, na.rm=TRUE),
+#             BFIWs = mean(BFIWs, na.rm=TRUE),
+#             NHDLakeDepth = mean(NHDLakeDepth, na.rm=TRUE)
+#             )
 #
-# (df.append(df1).groupby('Movie',as_index=False, sort=False).
-#   agg({'rating':'mean', 'director':'first'}))
+# # excluded variables during the merge
+# # ClayWs, SandWs, SNOW_YrMean, catCOMID
+#
+# head(PredData2007)
+#
+# # averaging the 2012 three data sets
+# PredData2012 <- bind_rows(PredData12_05Ws, PredData12_07Ws, PredData12_10Ws) %>% # maybe make a loop that does this instead melanie
+#   group_by(wbCOMID) %>% # 2012 variables still named with 2007, renamed while creating new variables with the means
+#   summarise(X= mean(X, na.rm= TRUE),
+#             NPP_YrMean = mean(NPP_YrMean, na.rm= TRUE),
+#             NPP = mean(NPP, na.rm=TRUE),
+#             LST_YrMean = mean(LST_YrMean, na.rm=TRUE),
+#             Tot_Ndep_2012 = mean(Tot_Ndep_2007, na.rm=TRUE),
+#             Total.Input = mean(Total.Input, na.rm=TRUE),
+#             N_Fert_Farm_2012 = mean(N_Fert_Farm_2007, na.rm=TRUE),
+#             RunoffWs = mean(RunoffWs, na.rm=TRUE),
+#             Atmo_Pdep_2012 = mean(Atmo_Pdep_2007, na.rm=TRUE),
+#             P_Accumulated_ag_inputs_2012 = mean(P_Accumulated_ag_inputs_2007, na.rm=TRUE),
+#             nani = mean(nani, na.rm=TRUE),
+#             Precip_YrMean = mean(Precip_YrMean, na.rm=TRUE),
+#             Tot_Sdep_2012 = mean(Tot_Sdep_2007, na.rm=TRUE),
+#             N_CBNF_2012 = mean(N_CBNF_2007, na.rm=TRUE),
+#             WsAreaSqKm = mean(WsAreaSqKm, na.rm=TRUE),
+#             BFIWs = mean(BFIWs, na.rm=TRUE),
+#             NHDLakeDepth = mean(NHDLakeDepth, na.rm=TRUE)
+#   )
+#
+# head(PredData2012) --------------------------------------------------------------------------
 
+# Create the multi-year dataset
 
+PredDataMas <- PredData2007 %>%
+  bind_rows(PredData2012)
 
+which(PredDataMas$wbCOMID == "487") # checking to make sure the data combined as intended
 
+PredDataMas <- PredDataMas%>%
+  group_by(across(wbCOMID)) %>%
+  summarise(across(where(is.numeric), mean))
 
+which(PredDataMas$wbCOMID == "487") # checking to make sure the data combined as intended
+head(PredDataMas)
 
+# check for the N/As
 
+sum(is.na(PredDataMas)) # ouch
 
+# most of the NA values seem to be LAGOS data set
+# limno LAGOS data set link: https://portal.edirepository.org/nis/metadataviewer?packageid=edi.1439.5
+
+# r code link: https://portal.edirepository.org/nis/codeGeneration?packageId=edi.1439.5&statisticalFileType=r
+
+# locus LAGOS data set : https://portal.edirepository.org/nis/mapbrowse?packageid=edi.854.1
+
+# geo LAGOS data set : https://portal.edirepository.org/nis/mapbrowse?scope=edi&identifier=1136&revision=3
+
+# unsure where the LAGOS lake depth came from, working on finding it
+# possibly filter LAGOS data by coordinates

@@ -66,10 +66,6 @@ PredData2007 <- PredData2007 %>%
 
 which(PredData2007$wbCOMID == "487") # checking to make sure the data combined as intended again
 
-```
-
-```{r}
-
 # 2012
 
 PredData2012 <- PredData12_05Ws %>%
@@ -86,10 +82,9 @@ which(PredData2012$wbCOMID == "487") # checking to make sure the data combined a
 
 ```
 
+Creating the multi-year data set
 
 ```{r}
-
-# Create the multi-year dataset
 
 PredDataMas <- PredData2007 %>%
   bind_rows(PredData2012)
