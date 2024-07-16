@@ -122,25 +122,6 @@ head(PredData2012)
 #needs to be edited
 PredDataMas <- bind_rows(PredData2007, PredData2012) %>%
   group_by(wbCOMID) %>%
-  summarise(X= mean(X, na.rm= TRUE),
-            NPP_YrMean = mean(NPP_YrMean, na.rm= TRUE),
-            NPP = mean(NPP, na.rm=TRUE),
-            LST_YrMean = mean(LST_YrMean, na.rm=TRUE),
-            Tot_Ndep = mean(Tot_Ndep_*, na.rm=TRUE),
-            Total.Input = mean(Total.Input, na.rm=TRUE),
-            N_Fert_Farm = mean(N_Fert_Farm_*, na.rm=TRUE),
-            RunoffWs = mean(RunoffWs, na.rm=TRUE),
-            Atmo_Pdep_ = mean(Atmo_Pdep_*, na.rm=TRUE),
-            P_Accumulated_ag_inputs = mean(P_Accumulated_ag_inputs_**, na.rm=TRUE),
-            nani = mean(nani, na.rm=TRUE),
-            Precip_YrMean = mean(Precip_YrMean, na.rm=TRUE),
-            Tot_Sdep = mean(Tot_Sdep_*, na.rm=TRUE),
-            N_CBNF = mean(N_CBNF_*, na.rm=TRUE),
-            WsAreaSqKm = mean(WsAreaSqKm, na.rm=TRUE),
-            BFIWs = mean(BFIWs, na.rm=TRUE),
-            NHDLakeDepth = mean(NHDLakeDepth, na.rm=TRUE)
-  )
-
 
 
 
