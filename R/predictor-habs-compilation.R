@@ -11,8 +11,8 @@ library(ggpubr)
 library(tidyr)
 library(stars)
 
-install.packages("magrittr")
-library(magrittr)
+# install.packages("magrittr")
+# library(magrittr)
 
 
 # create mean of 2002/2007/2012 nutrient inventories, 2002 nutrient inventories from Meredith
@@ -166,6 +166,8 @@ head(PredDataMas)
 # check for the N/As
 
 sum(is.na(PredDataMas)) # ouch
+colSums(is.na(PredDataMas))
+
 
 # most of the NA values seem to be LAGOS data set
 # limno LAGOS data set link: https://portal.edirepository.org/nis/metadataviewer?packageid=edi.1439.5
@@ -176,5 +178,12 @@ sum(is.na(PredDataMas)) # ouch
 
 # geo LAGOS data set : https://portal.edirepository.org/nis/mapbrowse?scope=edi&identifier=1136&revision=3
 
-# unsure where the LAGOS lake depth came from, working on finding it
-# possibly filter LAGOS data by coordinates
+# we have NHD lake depth but what are the units, different values than LAGOS lake depth- seems uncorrelated which feels like a bad thing
+
+library(remotes)
+install_github("USEPA/StreamCatTools", build_vignettes=FALSE)
+vignette("Introduction", "StreamCatTools")
+
+df <- lc_get_data(metric='PctUrbMd2006,DamDens')
+
+
