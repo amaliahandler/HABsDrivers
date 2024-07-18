@@ -18,7 +18,7 @@ library(stars)
 # create mean of 2002/2007/2012 nutrient inventories, 2002 nutrient inventories from Meredith
 # reach out to meredith to see if she has the 2002 data for the same locations, create mean of all variables if possible
 
-# Anticipated Steps:
+# Anticipated Steps: --------------------------------------------------------------------------
 # 1. wb(COMID)
 #      - national hydrology data set
 #      - determine how combining variables should be done
@@ -55,7 +55,7 @@ model_micx_nolakes$formula
 
 # ================= ACTUAL CODE COMP ===================
 
-# loading and compiling Meredith's predictor datasets
+# Loading and compiling Meredith's predictor datasets --------------------------------------------------------------------------
 
 PredData07_05Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_05Ws.csv")
 head(PredData07_05Ws) # looks good
@@ -65,7 +65,7 @@ PredData12_05Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protecti
 PredData12_07Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData12_07Ws.csv")
 PredData12_10Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData12_10Ws.csv")
 
-# combine the data by 2007 and 2012 first
+# Combine the data by 2007 and 2012 --------------------------------------------------------------------------
 
 PredData2007 <- PredData07_05Ws %>%
   bind_rows(PredData07_07Ws) %>%
@@ -96,7 +96,7 @@ PredData2012 <- PredData2012%>%
 
 which(PredData2012$wbCOMID == "487") # checking to make sure the data combined as intended
 
-# failed attempt, embarrassing -------------------------------------------------------------
+# Failed attempt, embarrassing -------------------------------------------------------------
 
 # # averaging the 2007 three data sets
 # PredData2007 <- bind_rows(PredData07_05Ws, PredData07_07Ws, PredData07_10Ws) %>%
@@ -147,9 +147,9 @@ which(PredData2012$wbCOMID == "487") # checking to make sure the data combined a
 #             NHDLakeDepth = mean(NHDLakeDepth, na.rm=TRUE)
 #   )
 #
-# head(PredData2012) --------------------------------------------------------------------------
+# head(PredData2012)
 
-# Create the multi-year dataset
+# Create the multi-year dataset --------------------------------------------------------------------------
 
 PredDataMas <- PredData2007 %>%
   bind_rows(PredData2012)
@@ -185,5 +185,31 @@ install_github("USEPA/StreamCatTools", build_vignettes=FALSE)
 vignette("Introduction", "StreamCatTools")
 
 df <- lc_get_data(metric='PctUrbMd2006,DamDens')
+
+# # Start interactive setup
+# $ gh auth login
+#
+# # Authenticate against github.com by reading the token from a file
+# $ gh auth login --with-token < mytoken.txt
+#
+# # Authenticate with specific host
+# $ gh auth login --hostname enterprise.internal
+
+
+# Add in the LakeCat data sourced from Ryan ---------------------------------------------------------
+
+pesticides <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/Pesticides97.csv")
+
+head(pesticides)
+mean(pesticides$CatPctFull)
+
+PredDataMas <- merge(PredDataMas, pesticides, by = "COMID") # need to change the name of the COMID variables
+
+# wbCOMID and/or catCOMID merge with presticide$COMID variable
+
+colnames(pesticides)
+
+
+
 
 
