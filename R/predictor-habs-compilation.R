@@ -168,6 +168,7 @@ head(PredDataMas)
 sum(is.na(PredDataMas)) # ouch
 colSums(is.na(PredDataMas))
 
+# no longer needed -------------------------------------------------------------------------------------
 
 # most of the NA values seem to be LAGOS data set
 # limno LAGOS data set link: https://portal.edirepository.org/nis/metadataviewer?packageid=edi.1439.5
@@ -180,11 +181,11 @@ colSums(is.na(PredDataMas))
 
 # we have NHD lake depth but what are the units, different values than LAGOS lake depth- seems uncorrelated which feels like a bad thing
 
-library(remotes)
-install_github("USEPA/StreamCatTools", build_vignettes=FALSE)
-vignette("Introduction", "StreamCatTools")
-
-df <- lc_get_data(metric='PctUrbMd2006,DamDens')
+# library(remotes)
+# install_github("USEPA/StreamCatTools", build_vignettes=FALSE)
+# vignette("Introduction", "StreamCatTools")
+#
+# df <- lc_get_data(metric='PctUrbMd2006,DamDens')
 
 # # Start interactive setup
 # $ gh auth login
@@ -203,13 +204,48 @@ pesticides <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Ag
 head(pesticides)
 mean(pesticides$CatPctFull)
 
-PredDataMas <- merge(PredDataMas, pesticides, by = "COMID") # need to change the name of the COMID variables
-
-# wbCOMID and/or catCOMID merge with presticide$COMID variable
+# wbCOMID and/or catCOMID merge with pesticide$COMID variable
 
 colnames(pesticides)
+colnames(PredDataMas)
 
+names(PredDataMas)[names(PredDataMas) == "wbCOMID"] <- "COMID"
 
+PredDataMas <- merge(PredDataMas, pesticides, by = "COMID") # need to change the name of the COMID variables
+
+# pestic97cat average pre merge: 60.609
+# pestic97cat average post merge: 45.88692 hmmmmmmmmm
+
+mean(PredDataMas$Pestic97Cat)
+sum(PredDataMas$Pestic97Cat)
+
+sum(is.na(PredDataMas$Pestic97Cat))
+
+PredDataMas$Pestic97Cat[is.na(PredDataMas$Pestic97Cat)] <- 0
+
+PredDataMas = subset(PredDataMas, select = -c(WsPctFull, CatPctFull))
+
+# load the BFI data ---------------------------------------------------------------------------------
+
+BFI <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/BFI.csv")
+
+head(BFI)
+
+BFI = subset(BFI, select = -c(CatAreaSqKm,WsAreaSqKm,CatPctFull,WsPctFull,inStreamCat))
+
+PredDataMas <- merge(PredDataMas, BFI, by = "COMID")
+
+head(PredDataMas) # check to make sure it went well
+
+PredDataMas$BFIWs.x[is.na(PredDataMas$BFIWs.x)] <- 0
+PredDataMas$BFIWs.y[is.na(PredDataMas$BFIWs.y)] <- 0
+
+sum(PredDataMas$BFIWs.y) # resulted in duplicate BFIW columns, check to see if theyr're identical
+sum(PredDataMas$BFIWs.x)
+
+# PredDataMas = subset(PredDataMas, select = -c(BFIWs.x)) # remove duplicate
+
+names(PredDataMas)[names(PredDataMas) == "BFIWs.y"] <- "BFIWs" # rename column
 
 
 
