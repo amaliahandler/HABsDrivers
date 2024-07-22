@@ -71,7 +71,7 @@ PredData2007 <- PredData07_05Ws %>%
   bind_rows(PredData07_07Ws) %>%
   bind_rows(PredData07_10Ws)
 
-PredData2007$Obs <- 1:nrow(PredData2007) # new column with indiv. values for each row
+# PredData2007$Obs <- 1:nrow(PredData2007) # new column with indiv. values for each row
 
 which(PredData2007$wbCOMID == "487") # checking to make sure the data combined as intended
 
@@ -211,6 +211,8 @@ colnames(PredDataMas)
 
 names(PredDataMas)[names(PredDataMas) == "wbCOMID"] <- "COMID"
 
+pesticides = subset(pesticides, select = -c(WsAreaSqKm,CatPctFull,WsPctFull))
+
 PredDataMas <- merge(PredDataMas, pesticides, by = "COMID") # need to change the name of the COMID variables
 
 # pestic97cat average pre merge: 60.609
@@ -221,31 +223,97 @@ sum(PredDataMas$Pestic97Cat)
 
 sum(is.na(PredDataMas$Pestic97Cat))
 
-PredDataMas$Pestic97Cat[is.na(PredDataMas$Pestic97Cat)] <- 0
-
-PredDataMas = subset(PredDataMas, select = -c(WsPctFull, CatPctFull))
-
 # load the BFI data ---------------------------------------------------------------------------------
 
 BFI <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/BFI.csv")
 
 head(BFI)
 
-BFI = subset(BFI, select = -c(CatAreaSqKm,WsAreaSqKm,CatPctFull,WsPctFull,inStreamCat))
+names(PredDataMas)[names(PredDataMas) == "wbCOMID"] <- "COMID"
 
-PredDataMas <- merge(PredDataMas, BFI, by = "COMID")
+BFI = subset(BFI, select = -c(CatAreaSqKm,WsAreaSqKm,CatPctFull,WsPctFull,inStreamCat))
 
 head(PredDataMas) # check to make sure it went well
 
-PredDataMas$BFIWs.x[is.na(PredDataMas$BFIWs.x)] <- 0
-PredDataMas$BFIWs.y[is.na(PredDataMas$BFIWs.y)] <- 0
+
+# PredDataMas$BFIWs.x[is.zero(PredDataMas$BFIWs.x)] <- na reverse this
+# PredDataMas$BFIWs.y[is.zero(PredDataMas$BFIWs.y)] <- na
 
 sum(PredDataMas$BFIWs.y) # resulted in duplicate BFIW columns, check to see if theyr're identical
 sum(PredDataMas$BFIWs.x)
 
+colnames(PredDataMas)
+
 # PredDataMas = subset(PredDataMas, select = -c(BFIWs.x)) # remove duplicate
 
-names(PredDataMas)[names(PredDataMas) == "BFIWs.y"] <- "BFIWs" # rename column
+names(BFI)[names(BFI) == "BFIWs"] <- "BFIWs.2006" # USGS BFIWs compiled up to 2006
+names(PredDataMas)[names(PredDataMas) == "BFIWs"] <- "BFIWs.2012" # BFIWs 2007-2012 data compiled
 
+PredDataMas <- merge(PredDataMas, BFI, by = "COMID")
 
+# load PRISM data ----------------------------------------------------------------------------
+
+PRISM <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/PRISM_1991_2020.csv")
+
+PRISM = subset(PRISM, select = -c(CatAreaSqKm, WsAreaSqKm, CatPctFull, WsPctFull, inStreamCat))
+
+head(PRISM) # check to make sure all is well
+
+PredDataMas <- merge(PredDataMas, PRISM, by = "COMID")
+
+# load runoff data ---------------------------------------------------------------------------
+
+runoff <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/runoff.csv")
+
+# rm(Runoff)
+
+runoff = subset(runoff, select = -c(CatAreaSqKm, WsAreaSqKm, CatPctFull, WsPctFull, inStreamCat))
+
+head(runoff) # check to make sure all is well
+
+PredDataMas <- merge(PredDataMas, runoff, by = "COMID")
+
+# load rock nitrogen data ---------------------------------------------------------------------------
+
+rockN <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/RockN.csv")
+
+rockN = subset(rockN, select = -c(CatAreaSqKm, WsAreaSqKm, CatPctFull, WsPctFull, inStreamCat))
+
+head(rockN) # check to make sure all is well
+
+PredDataMas <- merge(PredDataMas, rockN, by = "COMID")
+
+# total data set compiled -----------------------------------------------------------------------------
+
+# clean up final data set
+
+PredDataMas = subset(PredDataMas, select = -c(X))
+
+colnames(PredDataMas)
+
+# duplicated columns = inStreamCat.x, CatAreaSqKm.y, WsAreaSqKm.x, WsAreaSqKm.y, inStreamCat.y, RunoffWs.y,
+# RunoffWs.x, CatAreaSqKm.x
+
+PredDataMas$inStreamCat.x == PredDataMas$inStreamCat.y # all true
+PredDataMas$CatAreaSqKm.x == PredDataMas$CatAreaSqKm.y # all true
+PredDataMas$RunoffWs.x == PredDataMas$RunoffWs.y # hmmmmm not all true
+PredDataMas$WsAreaSqKm.x == PredDataMas$WsAreaSqKm.y # all true
+
+# remove and rename duplicate variables
+
+names(PredDataMas)[names(PredDataMas) == "inStreamCat.x"] <- "inStreamCat"
+PredDataMas = subset(PredDataMas, select = -c(inStreamCat.y))
+
+names(PredDataMas)[names(PredDataMas) == "CatAreaSqKm.x"] <- "CatAreaSqKm"
+PredDataMas = subset(PredDataMas, select = -c(CatAreaSqKm.y))
+
+names(PredDataMas)[names(PredDataMas) == "WsAreaSqKm.x"] <- "WsAreaSqKm"
+PredDataMas = subset(PredDataMas, select = -c(WsAreaSqKm.y))
+
+# runoff x is from 2007-2012 data compilation, runoff y is from lakecat data loaded recently
+
+names(PredDataMas)[names(PredDataMas) == "RunoffWs.x"] <- "Runoff.2012"
+names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff.2006"
+
+colnames(PredDataMas)
 
