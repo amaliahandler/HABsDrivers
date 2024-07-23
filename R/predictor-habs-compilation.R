@@ -30,21 +30,21 @@ library(stars)
 # lakecat sticker
 # 4. amend model to employ existing variables
 
-habs <- habs |>
-  # Robert suggested using agricultural inputs rather than land cover
-  mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
-         n_dev_inputs = N_Human_Waste + N_Fert_Urban,
-         p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
-         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer) |> # ,
-  # nfarm_inputs_pres = ifelse(n_farm_inputs == 0, 0, 1),
-  # Creating a categorical variable for lake depth
-  mutate(lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
-
-model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
-model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
-
-model_cyano_nolakedata$formula
-model_micx_nolakes$formula
+# habs <- habs |>
+#   # Robert suggested using agricultural inputs rather than land cover
+#   mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
+#          n_dev_inputs = N_Human_Waste + N_Fert_Urban,
+#          p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
+#          p_dev_inputs = P_human_waste_kg + P_nf_fertilizer) |> # ,
+#   # nfarm_inputs_pres = ifelse(n_farm_inputs == 0, 0, 1),
+#   # Creating a categorical variable for lake depth
+#   mutate(lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
+#
+# model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
+# model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
+#
+# model_cyano_nolakedata$formula
+# model_micx_nolakes$formula
 
 # needed variables <- B_G_DENS + BFIWs + Tmean8110Ws + Precip8110Ws +
 # n_farm_inputs + n_dev_inputs + p_farm_inputs + lake_dep +
@@ -317,4 +317,10 @@ names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff.2006"
 
 colnames(PredDataMas)
 
+# correlation testing ---------------------------------------------------------------------
 
+library(corrplot)
+
+corrplot(cor(PredDataMas[,29:44], use="pairwise.complete.obs", method = c("pearson")))
+corrplot(cor(PredDataMas[,29:44], use="pairwise.complete.obs", method = c("spearman")))
+corrplot(cor(PredDataMas[,29:44], use="pairwise.complete.obs", method = c("kendall")))
