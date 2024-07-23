@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Script background
 
-The purpose of this script is to combine 2007 and 2012 nutrient inventories and apply cyanobacteria and microcystin estimator models to the 125,000 lakes in the data set. 
+The purpose of this script is to combine 2007 and 2012 nutrient inventories and apply cyanobacteria and microcystin estimator models to the \~125,000 lakes in the data set.
 
 ```{r}
 # load packages 
@@ -25,7 +25,6 @@ library(stars)
 library(magrittr)
 
 ```
-
 
 #### National Nutrient Inventory
 
@@ -56,15 +55,13 @@ PredData2007 <- PredData07_05Ws %>%
   bind_rows(PredData07_07Ws) %>%
   bind_rows(PredData07_10Ws)
 
-PredData2007$Obs <- 1:nrow(PredData2007) # new column with indiv. values for each row
-
-which(PredData2007$wbCOMID == "487") # checking to make sure the data combined as intended
+which(PredData2007$wbCOMID == "487") # checking to make sure the data combined as intended, should be 3 values
 
 PredData2007 <- PredData2007 %>%
   group_by(across(wbCOMID)) %>%
   summarise(across(where(is.numeric), mean))
 
-which(PredData2007$wbCOMID == "487") # checking to make sure the data combined as intended again
+which(PredData2007$wbCOMID == "487") # checking to make sure the data combined as intended again, should be 1 value
 
 # 2012
 
@@ -72,13 +69,13 @@ PredData2012 <- PredData12_05Ws %>%
   bind_rows(PredData12_07Ws) %>%
   bind_rows(PredData12_10Ws)
 
-which(PredData2012$wbCOMID == "487") # checking to make sure the data combined as intended
+which(PredData2012$wbCOMID == "487") # should be 3 values
 
 PredData2012 <- PredData2012%>%
   group_by(across(wbCOMID)) %>%
   summarise(across(where(is.numeric), mean))
 
-which(PredData2012$wbCOMID == "487") # checking to make sure the data combined as intended
+which(PredData2012$wbCOMID == "487") # should be 1 value
 
 ```
 
@@ -89,14 +86,104 @@ Creating the multi-year data set
 PredDataMas <- PredData2007 %>%
   bind_rows(PredData2012)
 
-which(PredDataMas$wbCOMID == "487") # checking to make sure the data combined as intended
+which(PredDataMas$wbCOMID == "487") # should be 2 values
 
 PredDataMas <- PredDataMas%>%
   group_by(across(wbCOMID)) %>%
   summarise(across(where(is.numeric), mean))
 
-which(PredDataMas$wbCOMID == "487") # checking to make sure the data combined as intended
+which(PredDataMas$wbCOMID == "487") # should be 1 value 
 head(PredDataMas)
 
 ```
 
+Adding in additional varibles, derived from LakeCat data and sources from Ryan Hill
+
+```{r}
+
+# renaming COMID variable for easier merges
+names(PredDataMas)[names(PredDataMas) == "wbCOMID"] <- "COMID"
+
+# load pesticide data ---------------------------------------------------------------------------
+
+pesticides <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/Pesticides97.csv")
+pesticides = subset(pesticides, select = -c(WsAreaSqKm,CatPctFull,WsPctFull))
+
+PredDataMas <- merge(PredDataMas, pesticides, by = "COMID")
+
+# load the BFI data ---------------------------------------------------------------------------
+
+BFI <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/BFI.csv")
+BFI = subset(BFI, select = -c(CatAreaSqKm,WsAreaSqKm,CatPctFull,WsPctFull,inStreamCat))
+
+head(PredDataMas) # check to make sure it went well
+
+names(BFI)[names(BFI) == "BFIWs"] <- "BFIWs.2006" # USGS BFIWs compiled up to 2006
+names(PredDataMas)[names(PredDataMas) == "BFIWs"] <- "BFIWs.2012" # BFIWs 2007-2012 data compiled
+
+PredDataMas <- merge(PredDataMas, BFI, by = "COMID")
+
+# load PRISM data ---------------------------------------------------------------------------
+
+PRISM <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/PRISM_1991_2020.csv")
+PRISM = subset(PRISM, select = -c(CatAreaSqKm, WsAreaSqKm, CatPctFull, WsPctFull, inStreamCat))
+
+head(PRISM) # check to make sure all is well
+
+PredDataMas <- merge(PredDataMas, PRISM, by = "COMID")
+
+# load runoff data ---------------------------------------------------------------------------
+
+runoff <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/runoff.csv")
+runoff = subset(runoff, select = -c(CatAreaSqKm, WsAreaSqKm, CatPctFull, WsPctFull, inStreamCat))
+
+head(runoff) # check to make sure all is well
+
+PredDataMas <- merge(PredDataMas, runoff, by = "COMID")
+
+# load rock nitrogen data ---------------------------------------------------------------------------
+
+rockN <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/RockN.csv")
+rockN = subset(rockN, select = -c(CatAreaSqKm, WsAreaSqKm, CatPctFull, WsPctFull, inStreamCat))
+
+head(rockN) # check to make sure all is well
+
+PredDataMas <- merge(PredDataMas, rockN, by = "COMID")
+
+```
+
+Clean up repeated variable from the merge and finalize data, this step may not be needed depending on how many variables were removed during the merge process
+
+```{r}
+
+PredDataMas = subset(PredDataMas, select = -c(X))
+
+colnames(PredDataMas)
+
+# duplicated columns = inStreamCat.x, CatAreaSqKm.y, WsAreaSqKm.x, WsAreaSqKm.y, inStreamCat.y, RunoffWs.y,
+# RunoffWs.x, CatAreaSqKm.x
+
+PredDataMas$inStreamCat.x == PredDataMas$inStreamCat.y # all true
+PredDataMas$CatAreaSqKm.x == PredDataMas$CatAreaSqKm.y # all true
+PredDataMas$RunoffWs.x == PredDataMas$RunoffWs.y # hmmmmm not all true
+PredDataMas$WsAreaSqKm.x == PredDataMas$WsAreaSqKm.y # all true
+
+# remove and rename duplicate variables
+
+# names(PredDataMas)[names(PredDataMas) == "inStreamCat.x"] <- "inStreamCat"
+# PredDataMas = subset(PredDataMas, select = -c(inStreamCat.y))
+
+# names(PredDataMas)[names(PredDataMas) == "CatAreaSqKm.x"] <- "CatAreaSqKm"
+# PredDataMas = subset(PredDataMas, select = -c(CatAreaSqKm.y))
+
+# names(PredDataMas)[names(PredDataMas) == "WsAreaSqKm.x"] <- "WsAreaSqKm"
+# PredDataMas = subset(PredDataMas, select = -c(WsAreaSqKm.y))
+
+# runoff x is from 2007-2012 data compilation, runoff y is from lakecat data loaded recently
+
+names(PredDataMas)[names(PredDataMas) == "RunoffWs.x"] <- "Runoff.2012"
+names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff.2006"
+
+colnames(PredDataMas)
+
+```
