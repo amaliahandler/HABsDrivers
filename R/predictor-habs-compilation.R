@@ -244,7 +244,7 @@ colnames(PredDataMas)
 
 # PredDataMas = subset(PredDataMas, select = -c(BFIWs.x)) # remove duplicate
 
-names(BFI)[names(BFI) == "BFIWs"] <- "BFIWs.2006" # USGS BFIWs compiled up to 2006
+names(BFI)[names(BFI) == "BFIWs"] <- "BFIWs.2003" # USGS BFIWs compiled up to 2003
 names(PredDataMas)[names(PredDataMas) == "BFIWs"] <- "BFIWs.2012" # BFIWs 2007-2012 data compiled
 
 PredDataMas <- merge(PredDataMas, BFI, by = "COMID")
