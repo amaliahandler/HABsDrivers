@@ -88,13 +88,13 @@ PredData2012 <- PredData12_05Ws %>%
   bind_rows(PredData12_07Ws) %>%
   bind_rows(PredData12_10Ws)
 
-which(PredData2012$wbCOMID == "487") # checking to make sure the data combined as intended
+which(PredData2012$wbCOMID == "487") # checking to make sure the data combined as intended, should be 3
 
 PredData2012 <- PredData2012%>%
   group_by(across(wbCOMID)) %>%
   summarise(across(where(is.numeric), mean))
 
-which(PredData2012$wbCOMID == "487") # checking to make sure the data combined as intended
+which(PredData2012$wbCOMID == "487") # checking to make sure the data combined as intended, should be 1
 
 # Failed attempt, embarrassing -------------------------------------------------------------
 
@@ -154,13 +154,13 @@ which(PredData2012$wbCOMID == "487") # checking to make sure the data combined a
 PredDataMas <- PredData2007 %>%
   bind_rows(PredData2012)
 
-which(PredDataMas$wbCOMID == "487") # checking to make sure the data combined as intended
+which(PredDataMas$wbCOMID == "487") # checking to make sure the data combined as intended, should be 2
 
 PredDataMas <- PredDataMas%>%
   group_by(across(wbCOMID)) %>%
   summarise(across(where(is.numeric), mean))
 
-which(PredDataMas$wbCOMID == "487") # checking to make sure the data combined as intended
+which(PredDataMas$wbCOMID == "487") # checking to make sure the data combined as intended, should be 1
 head(PredDataMas)
 
 # check for the N/As
@@ -201,13 +201,13 @@ colSums(is.na(PredDataMas))
 
 pesticides <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/Pesticides97.csv")
 
-head(pesticides)
-mean(pesticides$CatPctFull)
+# head(pesticides)
+# mean(pesticides$CatPctFull)
 
 # wbCOMID and/or catCOMID merge with pesticide$COMID variable
 
-colnames(pesticides)
-colnames(PredDataMas)
+# colnames(pesticides)
+# colnames(PredDataMas)
 
 names(PredDataMas)[names(PredDataMas) == "wbCOMID"] <- "COMID"
 
@@ -218,18 +218,16 @@ PredDataMas <- merge(PredDataMas, pesticides, by = "COMID") # need to change the
 # pestic97cat average pre merge: 60.609
 # pestic97cat average post merge: 45.88692 hmmmmmmmmm
 
-mean(PredDataMas$Pestic97Cat)
-sum(PredDataMas$Pestic97Cat)
+# mean(PredDataMas$Pestic97Cat)
+# sum(PredDataMas$Pestic97Cat)
 
-sum(is.na(PredDataMas$Pestic97Cat))
+# sum(is.na(PredDataMas$Pestic97Cat))
 
 # load the BFI data ---------------------------------------------------------------------------------
 
 BFI <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/BFI.csv")
 
 head(BFI)
-
-names(PredDataMas)[names(PredDataMas) == "wbCOMID"] <- "COMID"
 
 BFI = subset(BFI, select = -c(CatAreaSqKm,WsAreaSqKm,CatPctFull,WsPctFull,inStreamCat))
 
@@ -239,8 +237,8 @@ head(PredDataMas) # check to make sure it went well
 # PredDataMas$BFIWs.x[is.zero(PredDataMas$BFIWs.x)] <- na reverse this
 # PredDataMas$BFIWs.y[is.zero(PredDataMas$BFIWs.y)] <- na
 
-sum(PredDataMas$BFIWs.y) # resulted in duplicate BFIW columns, check to see if theyr're identical
-sum(PredDataMas$BFIWs.x)
+# sum(PredDataMas$BFIWs.y) # resulted in duplicate BFIW columns, check to see if theyr're identical
+# sum(PredDataMas$BFIWs.x)
 
 colnames(PredDataMas)
 
@@ -266,6 +264,8 @@ PredDataMas <- merge(PredDataMas, PRISM, by = "COMID")
 runoff <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/runoff.csv")
 
 # rm(Runoff)
+
+summary(PredDataMas$NHDLakeDepth) # nhd lake depth numbers look into!
 
 runoff = subset(runoff, select = -c(CatAreaSqKm, WsAreaSqKm, CatPctFull, WsPctFull, inStreamCat))
 
@@ -301,14 +301,14 @@ PredDataMas$WsAreaSqKm.x == PredDataMas$WsAreaSqKm.y # all true
 
 # remove and rename duplicate variables
 
-names(PredDataMas)[names(PredDataMas) == "inStreamCat.x"] <- "inStreamCat"
-PredDataMas = subset(PredDataMas, select = -c(inStreamCat.y))
+# names(PredDataMas)[names(PredDataMas) == "inStreamCat.x"] <- "inStreamCat"
+# PredDataMas = subset(PredDataMas, select = -c(inStreamCat.y))
 
-names(PredDataMas)[names(PredDataMas) == "CatAreaSqKm.x"] <- "CatAreaSqKm"
-PredDataMas = subset(PredDataMas, select = -c(CatAreaSqKm.y))
+# names(PredDataMas)[names(PredDataMas) == "CatAreaSqKm.x"] <- "CatAreaSqKm"
+# PredDataMas = subset(PredDataMas, select = -c(CatAreaSqKm.y))
 
-names(PredDataMas)[names(PredDataMas) == "WsAreaSqKm.x"] <- "WsAreaSqKm"
-PredDataMas = subset(PredDataMas, select = -c(WsAreaSqKm.y))
+# names(PredDataMas)[names(PredDataMas) == "WsAreaSqKm.x"] <- "WsAreaSqKm"
+# PredDataMas = subset(PredDataMas, select = -c(WsAreaSqKm.y))
 
 # runoff x is from 2007-2012 data compilation, runoff y is from lakecat data loaded recently
 
@@ -316,4 +316,5 @@ names(PredDataMas)[names(PredDataMas) == "RunoffWs.x"] <- "Runoff.2012"
 names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff.2006"
 
 colnames(PredDataMas)
+
 
