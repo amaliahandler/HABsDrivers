@@ -40,11 +40,11 @@ library(stars)
 #   # Creating a categorical variable for lake depth
 #   mutate(lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
 #
-# model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
-# model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
-#
-# model_cyano_nolakedata$formula
-# model_micx_nolakes$formula
+model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
+model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
+
+model_cyano_nolakedata$formula
+model_micx_nolakes$formula
 
 # needed variables <- B_G_DENS + BFIWs + Tmean8110Ws + Precip8110Ws +
 # n_farm_inputs + n_dev_inputs + p_farm_inputs + lake_dep +
@@ -349,5 +349,16 @@ cor(PredDataMas$Tmean9120Ws, PredDataMas$SNOW_YrMean,
 
 cor(PredDataMas$Tmean9120Ws, PredDataMas$COMID,
     method = "spearman", use = "pairwise.complete.obs") # should not be correlated
+
+# model compilation ----------------------------------------------------------------------------
+
+# > model_cyano_nolakedata$formula
+# log10(B_G_DENS + 1000) ~ BFIWs + Tmean8110Ws + Precip8110Ws +
+#   n_farm_inputs + n_dev_inputs + p_farm_inputs + lake_dep +
+#   lakemorpho_fetch
+#
+# > model_micx_nolakes$formula
+# MICX_DET ~ p_farm_inputs + fst_ws + Precip_Minus_EVTWs + MAXDEPTH +
+#   lakemorpho_fetch + BFIWs + AG_ECO3
 
 
