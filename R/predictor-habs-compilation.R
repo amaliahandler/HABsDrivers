@@ -313,7 +313,7 @@ PredDataMas$WsAreaSqKm.x == PredDataMas$WsAreaSqKm.y # all true
 # runoff x is from 2007-2012 data compilation, runoff y is from lakecat data loaded recently
 
 names(PredDataMas)[names(PredDataMas) == "RunoffWs.x"] <- "Runoff.2012"
-names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff.2006"
+names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff.2003"
 
 colnames(PredDataMas)
 
@@ -324,3 +324,30 @@ library(corrplot)
 corrplot(cor(PredDataMas[,29:44], use="pairwise.complete.obs", method = c("pearson")))
 corrplot(cor(PredDataMas[,29:44], use="pairwise.complete.obs", method = c("spearman")))
 corrplot(cor(PredDataMas[,29:44], use="pairwise.complete.obs", method = c("kendall")))
+
+# double checking the merges, all numbers should be the same
+
+mean(PredDataMas$Precip_YrMean, na.rm = TRUE)
+(mean(PredData2007$Precip_YrMean, na.rm = TRUE) + mean(PredData2012$Precip_YrMean, na.rm = TRUE)) / 2
+
+mean(PredDataMas$Total.Input, na.rm = TRUE)
+(mean(PredData2007$Total.Input, na.rm = TRUE) + mean(PredData2012$Total.Input, na.rm = TRUE)) / 2
+
+# plotting
+plot(PredDataMas$Tmean9120Ws, PredDataMas$Precip_YrMean, xlab = "Mean Temp 1991-2020",
+     ylab = " Mean Precip")
+
+plot(PredDataMas$Tmean9120Ws, PredDataMas$SNOW_YrMean, xlab = "Mean Temp 1991-2020",
+     ylab = " Mean Snowfall")
+
+# spearman correlation
+cor(PredDataMas$Pestic97Ws, PredDataMas$P_Accumulated_ag_inputs_2007,
+    method = "spearman", use = "pairwise.complete.obs")
+
+cor(PredDataMas$Tmean9120Ws, PredDataMas$SNOW_YrMean,
+    method = "spearman", use = "pairwise.complete.obs")
+
+cor(PredDataMas$Tmean9120Ws, PredDataMas$COMID,
+    method = "spearman", use = "pairwise.complete.obs") # should not be correlated
+
+
