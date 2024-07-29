@@ -168,6 +168,19 @@ head(PredDataMas)
 sum(is.na(PredDataMas)) # ouch
 colSums(is.na(PredDataMas))
 
+sum(is.na(PredData2007$NHDLakeDepth))
+sum(is.na(PredData2012$NHDLakeDepth))
+
+sum(is.na(PredData07_05Ws$NHDLakeDepth))
+sum(is.na(PredData07_07Ws$NHDLakeDepth))
+sum(is.na(PredData07_10Ws$NHDLakeDepth))
+
+count(PredDataMas$NHDLakeDepth == "-9998")
+sum(is.na(PredData07_10Ws$NHDLakeDepth))
+
+class(PredDataMas$NHDLakeDepth)
+
+print(table(PredDataMas$NHDLakeDepth))
 # no longer needed -------------------------------------------------------------------------------------
 
 # most of the NA values seem to be LAGOS data set
@@ -350,7 +363,21 @@ cor(PredDataMas$Tmean9120Ws, PredDataMas$SNOW_YrMean,
 cor(PredDataMas$Tmean9120Ws, PredDataMas$COMID,
     method = "spearman", use = "pairwise.complete.obs") # should not be correlated
 
+sum(is.na(PredDataMas$LAGOSLakeDepth)) # ouch
+sum(is.na(PredDataMas$NHDLakeDepth))
+
 # model compilation ----------------------------------------------------------------------------
+
+
+# habs <- habs |>
+#   # Robert suggested using agricultural inputs rather than land cover
+#   mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
+#          n_dev_inputs = N_Human_Waste + N_Fert_Urban,
+#          p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
+#          p_dev_inputs = P_human_waste_kg + P_nf_fertilizer) |> # ,
+#   # nfarm_inputs_pres = ifelse(n_farm_inputs == 0, 0, 1),
+#   # Creating a categorical variable for lake depth
+#   mutate(lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
 
 # > model_cyano_nolakedata$formula
 # log10(B_G_DENS + 1000) ~ BFIWs + Tmean8110Ws + Precip8110Ws +
@@ -360,5 +387,13 @@ cor(PredDataMas$Tmean9120Ws, PredDataMas$COMID,
 # > model_micx_nolakes$formula
 # MICX_DET ~ p_farm_inputs + fst_ws + Precip_Minus_EVTWs + MAXDEPTH +
 #   lakemorpho_fetch + BFIWs + AG_ECO3
+
+
+
+
+
+
+
+
 
 
