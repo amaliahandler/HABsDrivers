@@ -42,6 +42,8 @@ library(stars)
 #
 model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
 model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
+model_micx_lakes <- readRDS('./inst/model_objects/model_micx_withlakedata.rds')
+
 
 model_cyano_nolakedata$formula
 model_micx_nolakes$formula
@@ -329,14 +331,33 @@ names(PredDataMas)[names(PredDataMas) == "RunoffWs.x"] <- "Runoff.2012"
 names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff.2003"
 
 colnames(PredDataMas)
+colSums(is.na(PredDataMas))
+sum(is.na(PredDataMas))
+
+mean(PredDataMas$BFIWs.2003, na.rm = TRUE)
+mean(PredDataMas$BFIWs.2012, na.rm = TRUE)
+
+summary(PredDataMas$Runoff.2012, na.rm = TRUE)
+summary(PredDataMas$Runoff.2003, na.rm = TRUE)
+
+#remove bfiw
+#remove runoff 1340
+
+PredDataMas = subset(PredDataMas, select = -c(Runoff.2012))
+PredDataMas = subset(PredDataMas, select = -c(BFIWs.2012))
+
+names(PredDataMas)[names(PredDataMas) == "BFIWs.2003"] <- "BFIWs"
+names(PredDataMas)[names(PredDataMas) == "Runoff.2003"] <- "Runoff"
+
+
 
 # correlation testing ---------------------------------------------------------------------
 
 library(corrplot)
 
-corrplot(cor(PredDataMas[,29:44], use="pairwise.complete.obs", method = c("pearson")))
-corrplot(cor(PredDataMas[,29:44], use="pairwise.complete.obs", method = c("spearman")))
-corrplot(cor(PredDataMas[,29:44], use="pairwise.complete.obs", method = c("kendall")))
+corrplot(cor(PredDataMas[,29:42], use="pairwise.complete.obs", method = c("pearson")))
+corrplot(cor(PredDataMas[,29:42], use="pairwise.complete.obs", method = c("spearman")))
+corrplot(cor(PredDataMas[,29:42], use="pairwise.complete.obs", method = c("kendall")))
 
 # double checking the merges, all numbers should be the same
 
