@@ -46,7 +46,7 @@
 #'                 Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011,
 #'                 NLA 2017 - NLCD 2016 (percent)}
 #'   \item{precip_mean_month}{Mean precipitation for the month in which the NLA sample was collected (mm)}
-#'   \item{temp_mean_month}{Mean temperature for the month in which the NLA sample was collected (celcius)}
+#'   \item{temp_mean_month}{Mean temperature for the month in which the NLA sample was collected (celsius)}
 #'   \item{lakemorpho_depth}{Estimated lake maximum depth from lakemorpho package (m)}
 #'   \item{lakemorpho_fetch}{Estimated lake fetch from lakemorpho package (m)}
 #'   \item{lakemorpho_shoreline.length}{Estimated lake shoreline length from lakemorpho package (m)}
@@ -64,32 +64,57 @@
 #'                      from LakeCat (per mil)}
 #'   \item{ElevWs}{Mean watershed elevation from LakeCat (meters)}
 #'   \item{SlopeWs}{Mean watershed slope from LakeCat (meters)}
-#'   \item{N_CBNF}{Annual total cultivated crop biological nitrogen fixation (kg N/ha)}
-#'   \item{N_Crop_N_Rem}{Annual total nitrogen in crops removed from the watershed (kg N/ha)}
-#'   \item{N_Fert_Farm}{Annual total nitrogen inputs from farm fertilizer into the watershed (kg N/ha)}
-#'   \item{N_Fert_Urban}{Annual total nitrogen inputs from non-farm fertilizer to the watershed (kg N/ha)}
-#'   \item{N_Forest_Fire}{Annual total nitrogen inputs from forest fire to the watershed (kg N/ha)}
-#'   \item{N_Human_N_Demand}{Annual total nitrogen human food nitrogen demand (kg N/ha)}
-#'   \item{N_Human_Waste}{Annual total nitrogen in human waste in the watershed (kg N/ha)}
-#'   \item{N_Manure_Recov}{Annual total nitrogen in livestock manure recovered in the watershed (kg N/ha)}
-#'   \item{N_Rock}{Annual total nitrogen inputs estimated from rock weathering in the watershed (kg N/ha)}
-#'   \item{N_Surplus}{Annual total nitrogen inputs minus outputs in the watershed (kg N/ha)}
-#'   \item{N_Total_Deposition}{Annual total nitrogen inputs from atmospheric deposition in the watershed (kg N/ha)}
-#'   \item{N_Inputs}{Annual total nitrogen inputs in the watershed (kg N/ha)}
-#'   \item{N_Outputs}{Annual total nitrogen outputs from the watershed (kg N/ha)}
-#'   \item{N_nBNF}{Annual total nitrogen inputs from non-farm biological fixation in the watershed (kg N/ha)}
-#'   \item{N_livestock_Waste}{Annual total nitrogen inputs livestock waste in the watershed (kg N/ha)}
+#'   \item{N_CBNF}{Annual total cultivated crop biological nitrogen fixation, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_Crop_N_Rem}{Annual total nitrogen in crops removed from the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_Fert_Farm}{Annual total nitrogen inputs from farm fertilizer into the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_Fert_Urban}{Annual total nitrogen inputs from non-farm fertilizer to the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_Forest_Fire}{Annual total nitrogen inputs from forest fire to the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_Human_N_Demand}{Annual total nitrogen human food nitrogen demand, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_Human_Waste}{Annual total nitrogen in human waste in the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_Manure_Recov}{Annual total nitrogen in livestock manure recovered in the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_Rock}{Annual total nitrogen inputs estimated from rock weathering in the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_Surplus}{Annual total nitrogen inputs minus outputs in the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_Total_Deposition}{Annual total nitrogen inputs from atmospheric deposition in the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_Inputs}{Annual total nitrogen inputs in the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_Outputs}{Annual total nitrogen outputs from the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_nBNF}{Annual total nitrogen inputs from non-farm biological fixation in the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
+#'   \item{N_livestock_Waste}{Annual total nitrogen inputs livestock waste in the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg N/ha)}
 #'   \item{P_Accumulated_ag_inputs}{Annual total phosphorus inputs accumulated over the period of
-#'                                  record to the watershed (kg P/ha)}
-#'   \item{P_Crop_removal}{Annual total phosphorus in crops that are removed from the watershed (kg P/ha)}
-#'   \item{P_Deposition}{Annual total phosphorus from atmospheric deposition to the watershed (kg P/ha)}
-#'   \item{P_Legacy_P}{Annual total phosphorus from legacy inputs to the watershed (kg P/ha)}
-#'   \item{P_Recovered_P}{Annual total phosphorus recovered from inputs to the watershed (kg P/ha)}
-#'   \item{P_Surplus}{Annual total phosphorus inputs minus outputs to the watershed (kg P/ha)}
-#'   \item{P_f_fertilizer}{Annual total phosphorus inputs as farm fertilizer to the watershed (kg P/ha)}
-#'   \item{P_human_waste_kg}{Annual total phosphorus inputs as human waste to the watershed (kg P/ha)}
-#'   \item{P_livestock_Waste}{Annual total phosphorus inputs as livestock waste to the watershed (kg P/ha)}
-#'   \item{P_nf_fertilizer}{Annual total phosphorus inputs non-farm fertilizer to the watershed (kg P/ha)}
+#'                                  record to the watershed, mean of 2002, 2007, and 2012 National
+#'                                  Nutrient Inventory (kg P/ha)}
+#'   \item{P_Crop_removal}{Annual total phosphorus in crops that are removed from the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg P/ha)}
+#'   \item{P_Deposition}{Annual total phosphorus from atmospheric deposition to the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg P/ha)}
+#'   \item{P_Legacy_P}{Annual total phosphorus from legacy inputs to the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg P/ha)}
+#'   \item{P_Recovered_P}{Annual total phosphorus recovered from inputs to the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg P/ha)}
+#'   \item{P_Surplus}{Annual total phosphorus inputs minus outputs to the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg P/ha)}
+#'   \item{P_f_fertilizer}{Annual total phosphorus inputs as farm fertilizer to the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg P/ha)}
+#'   \item{P_human_waste_kg}{Annual total phosphorus inputs as human waste to the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg P/ha)}
+#'   \item{P_livestock_Waste}{Annual total phosphorus inputs as livestock waste to the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg P/ha)}
+#'   \item{P_nf_fertilizer}{Annual total phosphorus inputs non-farm fertilizer to the watershed, mean of 2002, 2007,
+#'         and 2012 National Nutrient Inventory (kg P/ha)}
 #'   \item{AG_ECO3}{The aggregated 3 ecoregional location of the lake (character)}
 #'   \item{AG_ECO9_NM}{The aggregated 9 ecoregional location of the lake (character)}
 #'   \item{geometry}{The centroid of the lake (point)}
