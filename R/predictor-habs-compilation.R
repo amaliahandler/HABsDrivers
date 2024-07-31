@@ -409,9 +409,9 @@ sum(is.na(PredDataMas$NHDLakeDepth))
 # MICX_DET ~ p_farm_inputs + fst_ws + Precip_Minus_EVTWs + MAXDEPTH +
 #   lakemorpho_fetch + BFIWs + AG_ECO3
 
+# making an edit in an attempt so save
 
-
-
+git mv predictor-habs-compilation.R HABsDrivers/inst/scripts
 
 
 
