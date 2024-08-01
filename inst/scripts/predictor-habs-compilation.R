@@ -387,6 +387,33 @@ cor(PredDataMas$Tmean9120Ws, PredDataMas$COMID,
 sum(is.na(PredDataMas$LAGOSLakeDepth)) # ouch
 sum(is.na(PredDataMas$NHDLakeDepth))
 
+# Land Cover Data -----------------------------------------------------------------------
+
+library(remotes)
+install_github("USEPA/StreamCatTools", build_vignettes=FALSE, auth_token= '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')
+library(StreamCatTools)
+
+# COMIDs <- PredDataMas$COMID
+# COMIDs <- as.character(PredDataMas$COMID)
+# COMIDs[] <- lapply(COMIDs, as.character)
+COMIDs <- paste(PredDataMas$COMID, collapse =",")
+
+sum(is.na(PredDataMas$COMID))
+
+
+land_cover <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
+                          PctMxFst2016, PctCrop2016, PctHay2016, PctGrs2016, PctDecid2016,
+                          PctConif2016',
+                  aoi='watershed',
+                  comid = COMIDs,
+                  showAreaSqKm = TRUE)
+
+# test <- merge(PredDataMas, land_cover, by = 'COMID') #hmmm
+# rm(test)
+
+
+
+
 # model compilation ----------------------------------------------------------------------------
 
 
@@ -409,11 +436,6 @@ sum(is.na(PredDataMas$NHDLakeDepth))
 # MICX_DET ~ p_farm_inputs + fst_ws + Precip_Minus_EVTWs + MAXDEPTH +
 #   lakemorpho_fetch + BFIWs + AG_ECO3
 
-# making an edit in an attempt so save
-
-# literally why didn't that work where did it go
-
-# commit test 1 2 3
 
 
 
