@@ -393,13 +393,14 @@ library(remotes)
 install_github("USEPA/StreamCatTools", build_vignettes=FALSE, auth_token= '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')
 library(StreamCatTools)
 
-# COMIDs <- PredDataMas$COMID
+ COMIDs <- PredDataMas$COMID[0:999]
 # COMIDs <- as.character(PredDataMas$COMID)
 # COMIDs[] <- lapply(COMIDs, as.character)
-COMIDs <- paste(PredDataMas$COMID, collapse =",")
+# COMIDs <- paste(PredDataMas$COMID, collapse =",")
 
 sum(is.na(PredDataMas$COMID))
 
+lc_get_params(param = 'metrics')
 
 land_cover <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
                           PctMxFst2016, PctCrop2016, PctHay2016, PctGrs2016, PctDecid2016,
@@ -412,7 +413,17 @@ land_cover <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, Pc
 # rm(test)
 
 
+# Ecoregions --------------------------------------------------------------------------
 
+eco3 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/NLA_SampleFrame_L3L4Ecoregions 1.csv")
+
+colnames(eco3)
+names(eco3)[names(eco3) == "comid"] <- "COMID"
+
+test <- merge(PredDataMas, eco3, by = "COMID")
+rm(test)
+
+PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
 
 # model compilation ----------------------------------------------------------------------------
 
