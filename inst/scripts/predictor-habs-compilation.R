@@ -413,7 +413,7 @@ land_cover <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, Pc
 # rm(test)
 
 
-# Ecoregions --------------------------------------------------------------------------
+# Ecoregions ----------------------------------------------------------------------------------
 
 eco3 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/NLA_SampleFrame_L3L4Ecoregions 1.csv")
 
@@ -424,6 +424,67 @@ test <- merge(PredDataMas, eco3, by = "COMID")
 rm(test)
 
 PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
+
+# Depth? ------------------------------------------------------------------------------------
+
+install.packages("hydroloom")
+library(hydroloom)
+
+install.packages("lakemorpho")
+library(lakemorpho)
+
+install.packages("elevatr")
+library(elevatr)
+
+# get elevation data for around the lakes
+
+loc_df <- data.frame(x = PredDataMas$lon_dd83,
+                     y = PredDataMas$lat_dd83)
+
+x <- get_elev_raster(
+  locations = loc_df,
+  prj = st_crs(4326),
+  z = 1)
+
+# create surrounding topo maps
+
+# spatial polygon of variables?
+
+poly1 <- sp::Polygon(cbind(PredDataMas$lon_dd83,PredDataMas$lat_dd83))
+
+poly1 <- st_crs(4326)
+
+lakeSurroundTopo(
+  poly1,
+  inElev = x,
+  reso = ifelse(!is.null(inElev), res(inElev)[1], 10)
+)
+
+
+
+# mapping some stuff --------------------------------------------------------------------------------------------------------
+
+# make sure I have all the packages
+
+library(tidyverse)
+library(sf)
+library(tigris)
+library(StreamCatTools)
+library(spmodel)
+library(ggplot2)
+
+MN <-
+
+# # Plot sample locations
+# ggplot() +
+#   geom_sf(data = states,
+#           fill = NA) +
+#   geom_sf(data = PredDataMas,
+#           aes(color = year)) +
+#   scale_color_manual(values=c("#a6cee3", "#1f78b4", "#b2df8a")) +
+#   theme_bw() +
+#   theme(legend.position="bottom")
+
 
 # model compilation ----------------------------------------------------------------------------
 
