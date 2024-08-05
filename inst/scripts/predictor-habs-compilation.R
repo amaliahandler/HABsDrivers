@@ -428,43 +428,65 @@ PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
 # Depth? ------------------------------------------------------------------------------------
 
 install.packages("hydroloom")
-library(hydroloom)
-
 install.packages("lakemorpho")
-library(lakemorpho)
-
 install.packages("elevatr")
+install.packages("raster")
+
 library(elevatr)
+library(lakemorpho)
+library(hydroloom)
+library(raster)
 
 # get elevation data for around the lakes
 
 loc_df <- data.frame(x = PredDataMas$lon_dd83,
-                     y = PredDataMas$lat_dd83)
+                     y = PredDataMas$lat_dd83,
+                     z = PredDataMas$COMID)
 
 x <- get_elev_raster(
   locations = loc_df,
-  prj = st_crs(4326),
-  z = 1)
+  prj = st_crs(4269), # NAD 83 projection code
+  z = 9)
+  #override_size_check = TRUE)
+
+raster(x)
+plot(x)
+
+hist(x, main="Distribution of elevation values",
+     maxpixels=22000000)
 
 # create surrounding topo maps
 
 # spatial polygon of variables?
 
-poly1 <- sp::Polygon(cbind(PredDataMas$lon_dd83,PredDataMas$lat_dd83))
+# poly1 <- sp::Polygon(cbind(PredDataMas$lon_dd83,PredDataMas$lat_dd83))
+# poly1 <- st_crs(4269)
 
-poly1 <- st_crs(4326)
 
 lakeSurroundTopo(
-  poly1,
-  inElev = x,
-  reso = ifelse(!is.null(inElev), res(inElev)[1], 10)
+  wbd$shape,
+  inElev = x
 )
 
+library(nhdplusTools)
+
+download_wbd(
+  outdir = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS",
+  url = paste0("https://prd-tnm.s3.amazonaws.com/StagedProducts/",
+               "Hydrography/WBD/National/GDB/WBD_National_GDB.zip"),
+  progress = TRUE
+)
+
+wbd <- st_read("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/WBD_National_GDB/WBD_National_GDB.gdb")
+
+water_water <- get_waterbodies(AOI = 'watershed', id = COMIDs)
 
 
-# mapping some stuff --------------------------------------------------------------------------------------------------------
+
+# mapping some stuff ----------------------------------COMID# mapping some stuff --------------------------------------------------------------------------------------------------------
 
 # make sure I have all the packages
+
 
 library(tidyverse)
 library(sf)
@@ -473,7 +495,6 @@ library(StreamCatTools)
 library(spmodel)
 library(ggplot2)
 
-MN <-
 
 # # Plot sample locations
 # ggplot() +
