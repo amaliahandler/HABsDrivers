@@ -167,22 +167,22 @@ head(PredDataMas)
 
 # check for the N/As
 
-sum(is.na(PredDataMas)) # ouch
-colSums(is.na(PredDataMas))
-
-sum(is.na(PredData2007$NHDLakeDepth))
-sum(is.na(PredData2012$NHDLakeDepth))
-
-sum(is.na(PredData07_05Ws$NHDLakeDepth))
-sum(is.na(PredData07_07Ws$NHDLakeDepth))
-sum(is.na(PredData07_10Ws$NHDLakeDepth))
-
-count(PredDataMas$NHDLakeDepth == "-9998")
-sum(is.na(PredData07_10Ws$NHDLakeDepth))
-
-class(PredDataMas$NHDLakeDepth)
-
-print(table(PredDataMas$NHDLakeDepth))
+# sum(is.na(PredDataMas)) # ouch
+# colSums(is.na(PredDataMas))
+#
+# sum(is.na(PredData2007$NHDLakeDepth))
+# sum(is.na(PredData2012$NHDLakeDepth))
+#
+# sum(is.na(PredData07_05Ws$NHDLakeDepth))
+# sum(is.na(PredData07_07Ws$NHDLakeDepth))
+# sum(is.na(PredData07_10Ws$NHDLakeDepth))
+#
+# count(PredDataMas$NHDLakeDepth == "-9998")
+# sum(is.na(PredData07_10Ws$NHDLakeDepth))
+#
+# class(PredDataMas$NHDLakeDepth)
+#
+# print(table(PredDataMas$NHDLakeDepth))
 # no longer needed -------------------------------------------------------------------------------------
 
 # most of the NA values seem to be LAGOS data set
@@ -393,7 +393,7 @@ library(remotes)
 install_github("USEPA/StreamCatTools", build_vignettes=FALSE, auth_token= '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')
 library(StreamCatTools)
 
- COMIDs <- PredDataMas$COMID[0:999]
+ COMIDs <- PredDataMas$COMID
 # COMIDs <- as.character(PredDataMas$COMID)
 # COMIDs[] <- lapply(COMIDs, as.character)
 # COMIDs <- paste(PredDataMas$COMID, collapse =",")
@@ -402,12 +402,17 @@ sum(is.na(PredDataMas$COMID))
 
 lc_get_params(param = 'metrics')
 
-land_cover <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
+land_cover <- function(df) {
+  lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
                           PctMxFst2016, PctCrop2016, PctHay2016, PctGrs2016, PctDecid2016,
                           PctConif2016',
                   aoi='watershed',
                   comid = COMIDs,
                   showAreaSqKm = TRUE)
+}
+
+ncld_data <- lapply(PredDataMas, land_cover)
+
 
 # test <- merge(PredDataMas, land_cover, by = 'COMID') #hmmm
 # rm(test)
@@ -472,10 +477,6 @@ lm_function <- function(lake){
     lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
     data.frame(lake_id = lake$lake_id, lake_maxdepth)
   }
-
-
-
-
 
 
 #
