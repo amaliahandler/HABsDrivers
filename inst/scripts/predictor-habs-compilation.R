@@ -439,35 +439,6 @@ library(raster)
 
 # get elevation data for around the lakes
 
-loc_df <- data.frame(x = PredDataMas$lon_dd83,
-                     y = PredDataMas$lat_dd83,
-                     z = PredDataMas$COMID)
-
-x <- get_elev_raster(
-  locations = loc_df,
-  prj = st_crs(4269), # NAD 83 projection code
-  z = 9)
-  #override_size_check = TRUE)
-
-raster(x)
-plot(x)
-
-hist(x, main="Distribution of elevation values",
-     maxpixels=22000000)
-
-# create surrounding topo maps
-
-# spatial polygon of variables?
-
-# poly1 <- sp::Polygon(cbind(PredDataMas$lon_dd83,PredDataMas$lat_dd83))
-# poly1 <- st_crs(4269)
-
-
-lakeSurroundTopo(
-  wbd$shape,
-  inElev = x
-)
-
 library(nhdplusTools)
 
 download_wbd(
@@ -479,11 +450,63 @@ download_wbd(
 
 wbd <- st_read("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/WBD_National_GDB/WBD_National_GDB.gdb")
 
-water_water <- get_waterbodies(AOI = 'watershed', id = COMIDs)
+max(wbd$areasqkm)
+
+lake_test1 <- filter(wbd, tnmid == '{AAF0D733-828B-4B8E-9E52-388A49AC0A23}') %>%
+  st_transform(5072)
+
+lake_elev <- get_elev_raster(lake_test1, z=12)
+mapview(lake_elev)
+
+lake_morpho <- lakeSurroundTopo(lake_test1, lake_elev)
+
+lake_depth <- lakeMaxDepth(lake_morpho, correctFactor = 0.4)
+
+#Expand = 1 , ex: 1 degree expansion around the lake
+
+# function to do the same thing as above
+
+lm_function <- function(lake){
+    lake_elev <- get_elev_raster(lake, z = 12, expand = 1000)
+    lake_lm <- lakeSurroundTopo(lake, lake_elev)
+    lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+    data.frame(lake_id = lake$lake_id, lake_maxdepth)
+  }
 
 
 
-# mapping some stuff ----------------------------------COMID# mapping some stuff --------------------------------------------------------------------------------------------------------
+
+
+
+#
+# loc_df <- data.frame(x = PredDataMas$lon_dd83,
+#                      y = PredDataMas$lat_dd83,
+#                      COMID = PredDataMas$COMID)
+#
+# x <- get_elev_raster(
+#   locations = loc_df,
+#   prj = st_crs(4269), # NAD 83 projection code, reproject to 5072
+#   z = 9)
+#   #override_size_check = TRUE)
+#
+# raster(x)
+# plot(x)
+#
+# hist(x, main="Distribution of elevation values",
+#      maxpixels=22000000)
+#
+# lake_test1 <- filter(wbd, tnmid == '{AAF0D733-828B-4B8E-9E52-388A49AC0A23}')
+#
+# install.packages(mapview)
+# library(mapview)
+#
+# Lake_elevation <- get_elev_raster(lake_test1, z=12)
+# mapview(Lake_elevation)
+
+
+library(nhdplusTools)
+
+# mapping some stuff ---------------------------------------------------------------------------
 
 # make sure I have all the packages
 
