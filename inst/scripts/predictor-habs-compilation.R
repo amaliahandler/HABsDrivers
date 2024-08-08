@@ -3,17 +3,26 @@
 
 # ~ I'm not proud of how messy this is right now it's just a work in progress ~
 
+install.packages("lakemorpho")
+install.packages("elevatr")
+install.packages("raster")
+install_github("USEPA/StreamCatTools", build_vignettes=FALSE, auth_token= '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', force = TRUE)
+
 library(devtools)
 library(dplyr)
-library(ggplot2)
-library(scales)
-library(ggpubr)
-library(tidyr)
 library(stars)
-
-# install.packages("magrittr")
-# library(magrittr)
-
+library(nhdplusTools)
+library(tidyverse)
+library(sf)
+library(tigris)
+library(StreamCatTools)
+library(ggplot2)
+library(spmodel)
+library(elevatr)
+library(lakemorpho)
+library(raster)
+library(corrplot)
+library(remotes)
 
 # create mean of 2002/2007/2012 nutrient inventories, 2002 nutrient inventories from Meredith
 # reach out to meredith to see if she has the 2002 data for the same locations, create mean of all variables if possible
@@ -43,10 +52,15 @@ library(stars)
 model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
 model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
 model_micx_lakes <- readRDS('./inst/model_objects/model_micx_withlakedata.rds')
-
-
 model_cyano_nolakedata$formula
 model_micx_nolakes$formula
+
+# st_point_on_surface function -> point ON polygon
+
+cyano_model_test <- predict(model_cyano_nolakes, newdata = habs)
+
+cyano_mod_t2 <- loocv(model_cyano_nolakes)
+
 
 # needed variables <- B_G_DENS + BFIWs + Tmean8110Ws + Precip8110Ws +
 # n_farm_inputs + n_dev_inputs + p_farm_inputs + lake_dep +
@@ -346,14 +360,13 @@ summary(PredDataMas$Runoff.2003, na.rm = TRUE)
 PredDataMas = subset(PredDataMas, select = -c(Runoff.2012))
 PredDataMas = subset(PredDataMas, select = -c(BFIWs.2012))
 
+
 names(PredDataMas)[names(PredDataMas) == "BFIWs.2003"] <- "BFIWs"
 names(PredDataMas)[names(PredDataMas) == "Runoff.2003"] <- "Runoff"
 
 
 
 # correlation testing ---------------------------------------------------------------------
-
-library(corrplot)
 
 corrplot(cor(PredDataMas[,29:42], use="pairwise.complete.obs", method = c("pearson")))
 corrplot(cor(PredDataMas[,29:42], use="pairwise.complete.obs", method = c("spearman")))
@@ -389,10 +402,6 @@ sum(is.na(PredDataMas$NHDLakeDepth))
 
 # Land Cover Data -----------------------------------------------------------------------
 
-library(remotes)
-install_github("USEPA/StreamCatTools", build_vignettes=FALSE, auth_token= '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')
-library(StreamCatTools)
-
  COMIDs <- PredDataMas$COMID
 # COMIDs <- as.character(PredDataMas$COMID)
 # COMIDs[] <- lapply(COMIDs, as.character)
@@ -402,21 +411,44 @@ sum(is.na(PredDataMas$COMID))
 
 lc_get_params(param = 'metrics')
 
-land_cover <- function(df) {
-  lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
+a <- split(seq(nrow(PredDataMas)), ceiling(seq(nrow(PredDataMas))/999))
+
+comids <- paste(PredDataMas$COMID[0:60000], collapse = ',')
+
+nlcd <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
                           PctMxFst2016, PctCrop2016, PctHay2016, PctGrs2016, PctDecid2016,
                           PctConif2016',
-                  aoi='watershed',
-                  comid = COMIDs,
-                  showAreaSqKm = TRUE)
-}
+            aoi='watershed',
+            comid = comids,
+            showAreaSqKm = TRUE)
 
-ncld_data <- lapply(PredDataMas, land_cover)
+comid2 <- paste(PredDataMas$COMID[60001:120000], collapse = ',')
 
+nlcd2 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
+                          PctMxFst2016, PctCrop2016, PctHay2016, PctGrs2016, PctDecid2016,
+                          PctConif2016',
+                    aoi='watershed',
+                    comid = comid2,
+                    showAreaSqKm = TRUE)
 
-# test <- merge(PredDataMas, land_cover, by = 'COMID') #hmmm
-# rm(test)
+comid3 <- paste(PredDataMas$COMID[120001:125993], collapse = ',')
 
+nlcd3 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
+                          PctMxFst2016, PctCrop2016, PctHay2016, PctGrs2016, PctDecid2016,
+                          PctConif2016',
+                     aoi='watershed',
+                     comid = comid3,
+                     showAreaSqKm = TRUE)
+
+nlcdMas <- nlcd %>%
+  bind_rows(nlcd2) %>%
+  bind_rows(nlcd3)
+
+which(nlcdMas$COMID == "487")
+
+rm(nlcd, nlcd2, nlcd3)
+
+PredDataMas <- merge(PredDataMas, nlcdMas, by = 'COMID')
 
 # Ecoregions ----------------------------------------------------------------------------------
 
@@ -432,19 +464,8 @@ PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
 
 # Depth? ------------------------------------------------------------------------------------
 
-install.packages("hydroloom")
-install.packages("lakemorpho")
-install.packages("elevatr")
-install.packages("raster")
-
-library(elevatr)
-library(lakemorpho)
-library(hydroloom)
-library(raster)
-
 # get elevation data for around the lakes
 
-library(nhdplusTools)
 
 download_wbd(
   outdir = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS",
@@ -476,7 +497,8 @@ lm_function <- function(lake){
     lake_lm <- lakeSurroundTopo(lake, lake_elev)
     lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
     data.frame(lake_id = lake$lake_id, lake_maxdepth)
-  }
+}
+
 
 
 #
@@ -505,20 +527,7 @@ lm_function <- function(lake){
 # mapview(Lake_elevation)
 
 
-library(nhdplusTools)
-
 # mapping some stuff ---------------------------------------------------------------------------
-
-# make sure I have all the packages
-
-
-library(tidyverse)
-library(sf)
-library(tigris)
-library(StreamCatTools)
-library(spmodel)
-library(ggplot2)
-
 
 # # Plot sample locations
 # ggplot() +
