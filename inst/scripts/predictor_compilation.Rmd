@@ -41,7 +41,7 @@ library(remotes)
 
 #### Function Development
 
-Establish functions required to load, organzie, and clean data
+Establish functions required to load, organize, and clean data
 
 ```{r}
 
