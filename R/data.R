@@ -3,7 +3,7 @@
 #' A dataset containing data from the National Lakes Assessment as well as
 #'  watershed, climate, and lake characteristics. The variables are as follows:
 #'
-#' @format A data frame with 3678 rows and 100 variables:
+#' @format A data frame with 3678 rows and 74 variables:
 #' \describe{
 #'   \item{SITE_ID}{A site ID assigned to a lake within an NLA survey cycle (character)}
 #'   \item{VISIT_NO}{The first or second visit to a site (1--2)}
