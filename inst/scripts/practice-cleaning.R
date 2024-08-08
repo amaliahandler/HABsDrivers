@@ -1,19 +1,3 @@
----
-title: "predictors_compilation"
-output: html_document
-date: "2024-07-16"
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-## Script background
-
-The purpose of this script is to combine 2007 and 2012 nutrient inventories and apply cyanobacteria and microcystin estimator models to the \~125,000 lakes in the data set.
-
-```{r}
-# load packages
 
 install.packages("lakemorpho")
 install.packages("elevatr")
@@ -37,13 +21,14 @@ library(raster)
 library(corrplot)
 library(remotes)
 
-```
+PredData07_05Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_05Ws.csv")
+PredData07_07Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_05Ws.csv")
+PredData07_10Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_10Ws.csv")
+PredData12_05Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData12_05Ws.csv")
+PredData12_07Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData12_07Ws.csv")
+PredData12_10Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData12_10Ws.csv")
 
-#### Function Development
-
-Establish functions required to load, organzie, and clean data
-
-```{r}
+# function set up
 
 verify <- function(df){
   print(which(df$wbCOMID == "487"))
@@ -60,30 +45,8 @@ incorp <- function(df){
   merge(PredDataMas, df, by = 'COMID')
 }
 
-```
 
-### Load Nutrient Data
-
-Nutrient data sourced from Meredith Brehob and Robert Sabo
-
-```{r}
-
-PredData07_05Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_05Ws.csv")
-PredData07_07Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_05Ws.csv")
-PredData07_10Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_10Ws.csv")
-PredData12_05Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData12_05Ws.csv")
-PredData12_07Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData12_07Ws.csv")
-PredData12_10Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData12_10Ws.csv")
-
-```
-
-### Combine Year Datasets
-
-2007 and 2012 data 
-
-```{r}
-
-# 2007
+# Combine the 2007 and 2012 data --------------------------------------------------------------------------
 
 PredData2007 <- PredData07_05Ws %>%
   bind_rows(PredData07_07Ws) %>%
@@ -91,6 +54,7 @@ PredData2007 <- PredData07_05Ws %>%
 verify(PredData2007)
 
 PredData2007 <- mean_group(PredData2007)
+
 
 # 2012
 
@@ -102,7 +66,8 @@ verify(PredData2012)
 PredData2012 <- mean_group(PredData2012)
 verify(PredData2012)
 
-# multi-year data set
+
+# Create the multi-year dataset --------------------------------------------------------------------------
 
 PredDataMas <- PredData2007 %>%
   bind_rows(PredData2012)
@@ -115,13 +80,7 @@ names(PredDataMas)[names(PredDataMas) == "wbCOMID"] <- "COMID"
 
 head(PredDataMas)
 
-```
-
-### Incorporate Alternate Variables
-
-Supporting variables sourced from StreamCat Data developed by Marc Weber and Ryan Hill
-
-```{r}
+# Combine other datasets --------------------------------------------------------------------------------
 
 pesticides <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/Pesticides97.csv")
 BFI <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/BFI.csv")
@@ -143,7 +102,29 @@ PredDataMas = subset(PredDataMas, select = -c(RunoffWs.x, BFIWs.2012))
 names(PredDataMas)[names(PredDataMas) == "BFIWs.2003"] <- "BFIWs"
 names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff"
 
+# Data Validation --------------------------------------------------------------------------------------
 
-```
+mean(PredDataMas$Precip_YrMean, na.rm = TRUE)
+(mean(PredData2007$Precip_YrMean, na.rm = TRUE) + mean(PredData2012$Precip_YrMean, na.rm = TRUE)) / 2
+
+mean(PredDataMas$Total.Input, na.rm = TRUE)
+(mean(PredData2007$Total.Input, na.rm = TRUE) + mean(PredData2012$Total.Input, na.rm = TRUE)) / 2
+
+# plotting
+plot(PredDataMas$Tmean9120Ws, PredDataMas$Precip_YrMean, xlab = "Mean Temp 1991-2020",
+     ylab = " Mean Precip")
+
+plot(PredDataMas$Tmean9120Ws, PredDataMas$SNOW_YrMean, xlab = "Mean Temp 1991-2020",
+     ylab = " Mean Snowfall")
+
+# spearman correlation
+cor(PredDataMas$Pestic97Ws, PredDataMas$P_Accumulated_ag_inputs_2007,
+    method = "spearman", use = "pairwise.complete.obs")
+
+cor(PredDataMas$Tmean9120Ws, PredDataMas$SNOW_YrMean,
+    method = "spearman", use = "pairwise.complete.obs")
+
+cor(PredDataMas$Tmean9120Ws, PredDataMas$COMID,
+    method = "spearman", use = "pairwise.complete.obs") # should not be correlated
 
 
