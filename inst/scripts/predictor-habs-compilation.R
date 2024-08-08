@@ -416,8 +416,8 @@ a <- split(seq(nrow(PredDataMas)), ceiling(seq(nrow(PredDataMas))/999))
 comids <- paste(PredDataMas$COMID[0:60000], collapse = ',')
 
 nlcd <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
-                          PctMxFst2016, PctCrop2016, PctHay2016, PctGrs2016, PctDecid2016,
-                          PctConif2016',
+                          PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
+                          PctConif2016, PctUrbOp2016, PctHbWet2016',
             aoi='watershed',
             comid = comids,
             showAreaSqKm = TRUE)
@@ -425,8 +425,8 @@ nlcd <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi
 comid2 <- paste(PredDataMas$COMID[60001:120000], collapse = ',')
 
 nlcd2 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
-                          PctMxFst2016, PctCrop2016, PctHay2016, PctGrs2016, PctDecid2016,
-                          PctConif2016',
+                          PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
+                          PctConif2016, PctUrbOp2016, PctHbWet2016',
                     aoi='watershed',
                     comid = comid2,
                     showAreaSqKm = TRUE)
@@ -434,8 +434,8 @@ nlcd2 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbH
 comid3 <- paste(PredDataMas$COMID[120001:125993], collapse = ',')
 
 nlcd3 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
-                          PctMxFst2016, PctCrop2016, PctHay2016, PctGrs2016, PctDecid2016,
-                          PctConif2016',
+                          PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
+                          PctConif2016, PctUrbOp2016, PctHbWet2016',
                      aoi='watershed',
                      comid = comid3,
                      showAreaSqKm = TRUE)
@@ -446,9 +446,35 @@ nlcdMas <- nlcd %>%
 
 which(nlcdMas$COMID == "487")
 
-rm(nlcd, nlcd2, nlcd3)
-
 PredDataMas <- merge(PredDataMas, nlcdMas, by = 'COMID')
+
+# variables that need to be created still
+
+# agr_ws
+# NLCD agricultural land cover including hay and cultivated crop. Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011, NLA 2017 - NLCD 2016 (percent)
+# PctCrop2016, PctHay2016
+
+PredDataMas$agr_ws <- PredDataMas$PCTCROP2016WS + PredDataMas$PCTHAY2016WS
+
+# dev_ws
+# NLCD developed land cover including open spaces, low, medium, and high intensity. Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011, NLA 2017 - NLCD 2016 (percent)
+# PctUrbOp2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016
+
+PredDataMas$dev_ws <- PredDataMas$PCTURBLO2016WS + PredDataMas$PCTURBMD2016WS + PredDataMas$PCTURBOP2016WS + PredDataMas$PCTURBHI2016WS
+
+# fst_ws
+# NLCD forested land cover including coniferous, deciduous, and mixed forest. Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011, NLA 2017 - NLCD 2016 (percent)
+# PctMxFst2016, PctDecid2016, PctConif2016
+
+PredDataMas$fst_ws <- PredDataMas$PCTMXFST2016WS + PredDataMas$PCTDECID2016WS + PredDataMas$PCTCONIF2016WS
+
+# wet_ws
+# NLCD wetland land cover including herbaceous and woody wetlands. Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011, NLA 2017 - NLCD 2016 (percent)
+# PctWdWet2016, PctHbWet2016
+
+PredDataMas$wet_ws <- PredDataMas$PCTWDWET2016WS + PredDataMas$PCTHBWET2016WS
+
+colnames(PredDataMas)
 
 # Ecoregions ----------------------------------------------------------------------------------
 
