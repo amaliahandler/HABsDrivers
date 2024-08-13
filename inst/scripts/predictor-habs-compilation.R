@@ -3,12 +3,13 @@
 
 # ~ I'm not proud of how messy this is right now it's just a work in progress ~
 
-install.packages("lakemorpho")
-install.packages("elevatr")
-install.packages("raster")
-install_github("USEPA/StreamCatTools", build_vignettes=FALSE, auth_token= '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', force = TRUE)
+# install.packages("lakemorpho")
+# install.packages("elevatr")
+# install.packages("raster")
+# install_github("USEPA/StreamCatTools", build_vignettes=FALSE, auth_token= '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', force = TRUE)
 
 library(devtools)
+library(mapview)
 library(dplyr)
 library(stars)
 library(nhdplusTools)
@@ -402,16 +403,16 @@ sum(is.na(PredDataMas$NHDLakeDepth))
 
 # Land Cover Data -----------------------------------------------------------------------
 
- COMIDs <- PredDataMas$COMID
+# COMIDs <- PredDataMas$COMID
 # COMIDs <- as.character(PredDataMas$COMID)
 # COMIDs[] <- lapply(COMIDs, as.character)
 # COMIDs <- paste(PredDataMas$COMID, collapse =",")
 
-sum(is.na(PredDataMas$COMID))
+# sum(is.na(PredDataMas$COMID))
 
-lc_get_params(param = 'metrics')
+# lc_get_params(param = 'metrics')
 
-a <- split(seq(nrow(PredDataMas)), ceiling(seq(nrow(PredDataMas))/999))
+# a <- split(seq(nrow(PredDataMas)), ceiling(seq(nrow(PredDataMas))/999))
 
 comids <- paste(PredDataMas$COMID[0:60000], collapse = ',')
 
@@ -491,21 +492,24 @@ PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
 # Depth? ------------------------------------------------------------------------------------
 
 # get elevation data for around the lakes
+rm(lakes)
+rm(lakes_subset)
 
+lakes_all <- read_sf('O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusPN/NHDPlus17/NHDSnapshot/Hydrography/NHDWaterbody.shp')
 
-download_wbd(
-  outdir = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS",
-  url = paste0("https://prd-tnm.s3.amazonaws.com/StagedProducts/",
-               "Hydrography/WBD/National/GDB/WBD_National_GDB.zip"),
-  progress = TRUE
-)
-
-wbd <- st_read("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/WBD_National_GDB/WBD_National_GDB.gdb")
-
-max(wbd$areasqkm)
-
-lake_test1 <- filter(wbd, tnmid == '{AAF0D733-828B-4B8E-9E52-388A49AC0A23}') %>%
+lake_test1 <- filter(lakes_all, COMID == '22887551') %>%
   st_transform(5072)
+
+# Set location
+loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
+
+# Read in data
+wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody")
+
+# test <- merge(PredDataMas, wbd, by = "COMID")
+# rm(test)
+
+PredDataMas <- merge(PredDataMas, wbd, by = 'COMID')
 
 lake_elev <- get_elev_raster(lake_test1, z=12)
 mapview(lake_elev)
@@ -524,8 +528,6 @@ lm_function <- function(lake){
     lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
     data.frame(lake_id = lake$lake_id, lake_maxdepth)
 }
-
-
 
 #
 # loc_df <- data.frame(x = PredDataMas$lon_dd83,

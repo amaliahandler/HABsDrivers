@@ -87,9 +87,12 @@ BFI <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (E
 PRISM <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/PRISM_1991_2020.csv")
 runoff <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/runoff.csv")
 rockN <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/RockN.csv")
+eco3 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/NLA_SampleFrame_L3L4Ecoregions 1.csv")
 
-names(BFI)[names(BFI) == "BFIWs"] <- "BFIWs.2003" # USGS BFIWs compiled up to 2003
-names(PredDataMas)[names(PredDataMas) == "BFIWs"] <- "BFIWs.2012" # BFIWs 2007-2012 data compiled
+names(BFI)[names(BFI) == "BFIWs"] <- "BFIWs.Str" # USGS BFIWs compiled up to 2003
+names(PredDataMas)[names(PredDataMas) == "BFIWs"] <- "BFIWs.Nutr" # BFIWs 2007-2012 data compiled
+
+names(eco3)[names(eco3) == "comid"] <- "COMID"
 
 PredDataMas <- incorp(pesticides)
 PredDataMas <- incorp(BFI)
@@ -97,10 +100,11 @@ PredDataMas <- incorp(PRISM)
 PredDataMas <- incorp(runoff)
 PredDataMas <- incorp(rockN)
 
-PredDataMas = subset(PredDataMas, select = -c(RunoffWs.x, BFIWs.2012))
+PredDataMas = subset(PredDataMas, select = -c(RunoffWs.x))
+PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
 
-names(PredDataMas)[names(PredDataMas) == "BFIWs.2003"] <- "BFIWs"
-names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff"
+# names(PredDataMas)[names(PredDataMas) == "BFIWs.2003"] <- "BFIWs"
+# names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff"
 
 # Data Validation --------------------------------------------------------------------------------------
 
@@ -127,4 +131,14 @@ cor(PredDataMas$Tmean9120Ws, PredDataMas$SNOW_YrMean,
 cor(PredDataMas$Tmean9120Ws, PredDataMas$COMID,
     method = "spearman", use = "pairwise.complete.obs") # should not be correlated
 
+# Lake Depth Data
+
+loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
+wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody")
+
+PredDataMas <- merge(PredDataMas, wbd, by = 'COMID')
+
+wbd_copy <- wbd
+
+wbd_copy <- subset(wbd_copy, COMID %in% PredDataMas$COMID)
 
