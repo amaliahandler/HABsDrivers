@@ -1,8 +1,8 @@
 
-install.packages("lakemorpho")
-install.packages("elevatr")
-install.packages("raster")
-install_github("USEPA/StreamCatTools", build_vignettes=FALSE, auth_token= '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', force = TRUE)
+# install.packages("lakemorpho")
+# install.packages("elevatr")
+# install.packages("raster")
+# install_github("USEPA/StreamCatTools", build_vignettes=FALSE, auth_token= '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', force = TRUE)
 
 library(devtools)
 library(dplyr)
@@ -46,7 +46,7 @@ incorp <- function(df){
 }
 
 
-# Combine the 2007 and 2012 data --------------------------------------------------------------------------
+# Combine the 2007 and 2012 data -----------------------------------------------
 
 PredData2007 <- PredData07_05Ws %>%
   bind_rows(PredData07_07Ws) %>%
@@ -67,7 +67,7 @@ PredData2012 <- mean_group(PredData2012)
 verify(PredData2012)
 
 
-# Create the multi-year dataset --------------------------------------------------------------------------
+# Create the multi-year dataset ------------------------------------------------
 
 PredDataMas <- PredData2007 %>%
   bind_rows(PredData2012)
@@ -80,7 +80,7 @@ names(PredDataMas)[names(PredDataMas) == "wbCOMID"] <- "COMID"
 
 head(PredDataMas)
 
-# Combine other datasets --------------------------------------------------------------------------------
+# Combine other datasets -------------------------------------------------------
 
 pesticides <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/Pesticides97.csv")
 BFI <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/BFI.csv")
@@ -106,7 +106,7 @@ PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
 # names(PredDataMas)[names(PredDataMas) == "BFIWs.2003"] <- "BFIWs"
 # names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff"
 
-# Data Validation --------------------------------------------------------------------------------------
+# Data Validation --------------------------------------------------------------
 
 mean(PredDataMas$Precip_YrMean, na.rm = TRUE)
 (mean(PredData2007$Precip_YrMean, na.rm = TRUE) + mean(PredData2012$Precip_YrMean, na.rm = TRUE)) / 2
@@ -131,14 +131,20 @@ cor(PredDataMas$Tmean9120Ws, PredDataMas$SNOW_YrMean,
 cor(PredDataMas$Tmean9120Ws, PredDataMas$COMID,
     method = "spearman", use = "pairwise.complete.obs") # should not be correlated
 
-# Lake Depth Data
+# Lake Depth Data --------------------------------------------------------------
 
 loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
-wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody")
+
+wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
+  st_transform(5072)
+
+wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 
 PredDataMas <- merge(PredDataMas, wbd, by = 'COMID')
 
-wbd_copy <- wbd
 
-wbd_copy <- subset(wbd_copy, COMID %in% PredDataMas$COMID)
+
+
+
+
 
