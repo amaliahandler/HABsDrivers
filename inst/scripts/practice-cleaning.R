@@ -46,7 +46,7 @@ incorp <- function(df){
 }
 
 
-# Combine the 2007 and 2012 data -----------------------------------------------
+# Combine 2007 and 2012 Data -----------------------------------------------
 
 PredData2007 <- PredData07_05Ws %>%
   bind_rows(PredData07_07Ws) %>%
@@ -67,7 +67,7 @@ PredData2012 <- mean_group(PredData2012)
 verify(PredData2012)
 
 
-# Create the multi-year dataset ------------------------------------------------
+# Create the Master Dataset ------------------------------------------------
 
 PredDataMas <- PredData2007 %>%
   bind_rows(PredData2012)
@@ -80,7 +80,7 @@ names(PredDataMas)[names(PredDataMas) == "wbCOMID"] <- "COMID"
 
 head(PredDataMas)
 
-# Combine other datasets -------------------------------------------------------
+# Combine Datasets -------------------------------------------------------
 
 pesticides <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/Pesticides97.csv")
 BFI <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/BFI.csv")
@@ -100,7 +100,7 @@ PredDataMas <- incorp(PRISM)
 PredDataMas <- incorp(runoff)
 PredDataMas <- incorp(rockN)
 
-PredDataMas = subset(PredDataMas, select = -c(RunoffWs.x))
+PredDataMas = subset(PredDataMas, select = -c(RunoffWs.x, X))
 PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
 
 # names(PredDataMas)[names(PredDataMas) == "BFIWs.2003"] <- "BFIWs"
@@ -140,7 +140,19 @@ wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
 
 wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 
-PredDataMas <- merge(PredDataMas, wbd, by = 'COMID')
+morph_it <- function(lake){
+  #st_drop_geometry(lake)
+  lake_elev <- get_elev_raster(lake, z = 8, prj = st_crs(wbd), expand = 100)
+  lake_lm <- lakeSurroundTopo(lake, lake_elev)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+  data.frame(COMID = lake$COMID, lake_maxdepth)
+}
+
+lake_depth <- lapply(wbd_copy, morph_it)
+lake_depth_df <- bind_rows(lake_depth)
+lake_depth_df
+
+PredDataMas <- merge(PredDataMas, lake_depth_df, by = 'COMID')
 
 
 
