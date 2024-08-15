@@ -149,7 +149,7 @@ wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
 
 lake_elev <- get_elev_raster(testtest, z = 8, prj = st_crs(wbd), expand = 10)
-lake_lm <- lakeSurroundTopo(testtest, lake_elev)
+# lake_lm <- lakeSurroundTopo(testtest, lake_elev)
 temp_lakemorpho <- lakeSurroundTopo(as_Spatial(testtest), lake_elev)
 
 lake_meandepth <- lakeMeanDepth(temp_lakemorpho, correctFactor = 1)
@@ -247,4 +247,7 @@ view(slope1)
 
 slope_med <- as.numeric(quantile(slope, probs = slope_quant, na.rm = TRUE))
 
+# slope <- raster::getValues(terrain(temp_lakemorpho$slope, "slope"))
+
+plot(temp_lakemorpho$elev) # why is it coming up as null??????
 
