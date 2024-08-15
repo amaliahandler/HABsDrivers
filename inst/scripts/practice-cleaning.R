@@ -149,12 +149,12 @@ wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
 
 lake_elev <- get_elev_raster(testtest, z = 8, prj = st_crs(wbd), expand = 10)
-# lake_lm <- lakeSurroundTopo(testtest, lake_elev)
+lake_lm <- lakeSurroundTopo(testtest, lake_elev)
 temp_lakemorpho <- lakeSurroundTopo(as_Spatial(testtest), lake_elev)
 
 lake_meandepth <- lakeMeanDepth(temp_lakemorpho, correctFactor = 1)
 lake_maxdepth <- lakeMaxDepth(temp_lakemorpho, correctFactor = 1)
-# lake_maxdepth <- lakeMaxDepth_func(temp_lakemorpho, correctFactor = 1)
+lake_maxdepth <- lakeMaxDepth_func(temp_lakemorpho, correctFactor = 1)
 
 # data.frame(COMID = wbd_copy$COMID, lake_maxdepth)
 
@@ -219,12 +219,12 @@ lakeMaxDepth_func <- function(inLakeMorpho, slope_quant = 0.5, correctFactor = 1
   if(is.null(inLakeMorpho$elev)){
     warning("Input elevation dataset required to estimate depth related metrics. Returning NA.
              Run lakeSurround Topo first with elevation included.")
-    return(NA)
+    return(2) # signal digit for each issue
   }
   slope <- raster::getValues(terrain(inLakeMorpho$elev, "slope"))
   slope_med <- as.numeric(quantile(slope, probs = slope_quant, na.rm = TRUE))
   if (is.na(slope_med)) {
-    return(NA)
+    return(5) # create signal digit for each issue
   }
   if (slope_med == 0) {
     slope_med <- mean(slope, na.rm = TRUE)
@@ -233,7 +233,18 @@ lakeMaxDepth_func <- function(inLakeMorpho, slope_quant = 0.5, correctFactor = 1
   return(round(correctFactor * (slope_med * maxDist), 4))
 }
 
+# function returned a 5, it's a slope issue - but where!!???
+
 rm(lakeMaxDepth)
 raster(lake_elev)
+
+slope <- raster::getValues(terrain(lake_elev, "slope"))
+summary(slope)
+
+slope1 <- subset(slope, (!is.na(slope)))
+summary(slope1)
+view(slope1)
+
+slope_med <- as.numeric(quantile(slope, probs = slope_quant, na.rm = TRUE))
 
 
