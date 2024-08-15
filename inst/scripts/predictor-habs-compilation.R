@@ -54,7 +54,7 @@ library(remotes)
 model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
 model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
 model_micx_lakes <- readRDS('./inst/model_objects/model_micx_withlakedata.rds')
-model_cyano_nolakedata$formula
+model_cyano_nolakes$formula
 model_micx_nolakes$formula
 
 # st_point_on_surface function -> point ON polygon

@@ -138,27 +138,56 @@ loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYD
 wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
   st_transform(5072)
 
+# This just worked for like no reason, not sure what was changed but it worked kind of
+
 wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
+# wbd_copy <- wbd %>%
+#   slice(1:30)
 
-morph_it <- function(lake){
-  #st_drop_geometry(lake)
-  lake_elev <- get_elev_raster(lake, z = 8, prj = st_crs(wbd), expand = 100)
-  lake_lm <- lakeSurroundTopo(lake, lake_elev)
-  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
-  data.frame(COMID = lake$COMID, lake_maxdepth)
-}
+wbd_list <- split(wbd_copy[1:50,], 1:50)
 
-lake_depth <- lapply(wbd_copy, morph_it)
-lake_depth_df <- bind_rows(lake_depth)
-lake_depth_df
+testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
 
-PredDataMas <- merge(PredDataMas, lake_depth_df, by = 'COMID')
+lake_elev <- get_elev_raster(testtest, z = 8, prj = st_crs(wbd), expand = 100)
+lake_lm <- lakeSurroundTopo(testtest, lake_elev)
+lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+data.frame(COMID = wbd_copy$COMID, lake_maxdepth)
 
+plot(lake_elev_ras)
+plot(lake_elev)
 
+# test fetch
+fetch <- lakeFetch(lake_lm, bearing = -10, addLine = TRUE)
 
+lake_elev_ras <- projectRaster(lake_elev,
+                                   crs = 5072)
 
+# bad code? function not working
 
+# morph_it <- function(df){
+#   #st_drop_geometry(df)
+#   lake_elev <- get_elev_raster(df, z = 8, prj = st_crs(df), expand = 100)
+#   lake_lm <- lakeSurroundTopo(df, lake_elev)
+#   lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+#   data.frame(COMID = df$COMID, lake_maxdepth)
+# }
+#
+# lake_depth <- lapply(wbd_copy, morph_it)
+# lake_depth_df <- bind_rows(lake_depth)
+# lake_depth_df
+#
+# PredDataMas <- merge(PredDataMas, lake_depth_df, by = 'COMID')
 
+# found this lake analysis theme online- helpful!
+# also based on online data for big creek lake, colorado lake area is in square meters
+Alex_theme = ggplot2::theme(axis.text = ggplot2::element_text(size=12),
+                            panel.background = ggplot2::element_rect(fill="white"),
+                            panel.grid = ggplot2::element_line(color="black"),
+                            axis.text.x = ggplot2::element_text(angle = 90))
+
+ggplot2::ggplot() +
+  ggplot2::geom_sf(data = testtest$Shape) +
+  Alex_theme #lake look perfect!
 
 
 
