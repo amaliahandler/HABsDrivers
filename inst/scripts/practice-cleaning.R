@@ -107,29 +107,29 @@ PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
 # names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff"
 
 # Data Validation --------------------------------------------------------------
-
-mean(PredDataMas$Precip_YrMean, na.rm = TRUE)
-(mean(PredData2007$Precip_YrMean, na.rm = TRUE) + mean(PredData2012$Precip_YrMean, na.rm = TRUE)) / 2
-
-mean(PredDataMas$Total.Input, na.rm = TRUE)
-(mean(PredData2007$Total.Input, na.rm = TRUE) + mean(PredData2012$Total.Input, na.rm = TRUE)) / 2
-
-# plotting
-plot(PredDataMas$Tmean9120Ws, PredDataMas$Precip_YrMean, xlab = "Mean Temp 1991-2020",
-     ylab = " Mean Precip")
-
-plot(PredDataMas$Tmean9120Ws, PredDataMas$SNOW_YrMean, xlab = "Mean Temp 1991-2020",
-     ylab = " Mean Snowfall")
-
-# spearman correlation
-cor(PredDataMas$Pestic97Ws, PredDataMas$P_Accumulated_ag_inputs_2007,
-    method = "spearman", use = "pairwise.complete.obs")
-
-cor(PredDataMas$Tmean9120Ws, PredDataMas$SNOW_YrMean,
-    method = "spearman", use = "pairwise.complete.obs")
-
-cor(PredDataMas$Tmean9120Ws, PredDataMas$COMID,
-    method = "spearman", use = "pairwise.complete.obs") # should not be correlated
+#
+# mean(PredDataMas$Precip_YrMean, na.rm = TRUE)
+# (mean(PredData2007$Precip_YrMean, na.rm = TRUE) + mean(PredData2012$Precip_YrMean, na.rm = TRUE)) / 2
+#
+# mean(PredDataMas$Total.Input, na.rm = TRUE)
+# (mean(PredData2007$Total.Input, na.rm = TRUE) + mean(PredData2012$Total.Input, na.rm = TRUE)) / 2
+#
+# # plotting
+# plot(PredDataMas$Tmean9120Ws, PredDataMas$Precip_YrMean, xlab = "Mean Temp 1991-2020",
+#      ylab = " Mean Precip")
+#
+# plot(PredDataMas$Tmean9120Ws, PredDataMas$SNOW_YrMean, xlab = "Mean Temp 1991-2020",
+#      ylab = " Mean Snowfall")
+#
+# # spearman correlation
+# cor(PredDataMas$Pestic97Ws, PredDataMas$P_Accumulated_ag_inputs_2007,
+#     method = "spearman", use = "pairwise.complete.obs")
+#
+# cor(PredDataMas$Tmean9120Ws, PredDataMas$SNOW_YrMean,
+#     method = "spearman", use = "pairwise.complete.obs")
+#
+# cor(PredDataMas$Tmean9120Ws, PredDataMas$COMID,
+#     method = "spearman", use = "pairwise.complete.obs") # should not be correlated
 
 # Lake Depth Data --------------------------------------------------------------
 
@@ -138,23 +138,19 @@ loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYD
 wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
   st_transform(5072)
 
-# This just worked for like no reason, not sure what was changed but it worked kind of
-
 wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
-# wbd_copy <- wbd %>%
-#   slice(1:30)
 
 # wbd_list <- split(wbd_copy[1:50,], 1:50)
 
 testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
 
 lake_elev <- get_elev_raster(testtest, z = 8, prj = st_crs(wbd), expand = 10)
-# lake_lm <- lakeSurroundTopo(testtest, lake_elev)
-temp_lakemorpho <- lakeSurroundTopo(as_Spatial(testtest), lake_elev)
+lake_lm <- lakeSurroundTopo(testtest, lake_elev)
+#temp_lakemorpho <- lakeSurroundTopo(as_Spatial(testtest), lake_elev)
 
-lake_meandepth <- lakeMeanDepth(temp_lakemorpho, correctFactor = 1)
+#lake_meandepth <- lakeMeanDepth(temp_lakemorpho, correctFactor = 1)
 lake_maxdepth <- lakeMaxDepth(temp_lakemorpho, correctFactor = 1)
-lake_maxdepth <- lakeMaxDepth_func(temp_lakemorpho, correctFactor = 1)
+#lake_maxdepth <- lakeMaxDepth_func(temp_lakemorpho, correctFactor = 1)
 
 # data.frame(COMID = wbd_copy$COMID, lake_maxdepth)
 
@@ -179,8 +175,6 @@ elev_sf <- st_as_sf(elev_poly) %>%
 summary(sf::st_intersects(elev_sf, testtest, sparse = FALSE)) # check if overlapping
 # 41 overlapping cells
 
-# bad code? function not working
-
 # morph_it <- function(df){
 #   #st_drop_geometry(df)
 #   lake_elev <- get_elev_raster(df, z = 8, prj = st_crs(df), expand = 100)
@@ -195,8 +189,6 @@ summary(sf::st_intersects(elev_sf, testtest, sparse = FALSE)) # check if overlap
 #
 # PredDataMas <- merge(PredDataMas, lake_depth_df, by = 'COMID')
 
-# found this lake analysis theme online- helpful!
-# also based on online data for big creek lake, colorado lake area is in square meters
 lake_theme = ggplot2::theme(axis.text = ggplot2::element_text(size=12),
                             panel.background = ggplot2::element_rect(fill="white"),
                             panel.grid = ggplot2::element_line(color="black"),
@@ -219,12 +211,12 @@ lakeMaxDepth_func <- function(inLakeMorpho, slope_quant = 0.5, correctFactor = 1
   if(is.null(inLakeMorpho$elev)){
     warning("Input elevation dataset required to estimate depth related metrics. Returning NA.
              Run lakeSurround Topo first with elevation included.")
-    return(2) # signal digit for each issue
+    return(2) # signal digit
   }
   slope <- raster::getValues(terrain(inLakeMorpho$elev, "slope"))
   slope_med <- as.numeric(quantile(slope, probs = slope_quant, na.rm = TRUE))
   if (is.na(slope_med)) {
-    return(5) # create signal digit for each issue
+    return(5) # create signal digit
   }
   if (slope_med == 0) {
     slope_med <- mean(slope, na.rm = TRUE)
@@ -233,7 +225,7 @@ lakeMaxDepth_func <- function(inLakeMorpho, slope_quant = 0.5, correctFactor = 1
   return(round(correctFactor * (slope_med * maxDist), 4))
 }
 
-# function returned a 5, it's a slope issue - but where!!???
+# function returned a 5
 
 rm(lakeMaxDepth)
 raster(lake_elev)
@@ -247,7 +239,10 @@ view(slope1)
 
 slope_med <- as.numeric(quantile(slope, probs = slope_quant, na.rm = TRUE))
 
-# slope <- raster::getValues(terrain(temp_lakemorpho$slope, "slope"))
+slope2 <- raster::getValues(terrain(temp_lakemorpho$slope, "slope"))
 
-plot(temp_lakemorpho$elev) # why is it coming up as null??????
+plot(temp_lakemorpho$slope)
+temp_lakemorpho$slope
+temp_lakemorpho$elev
+
 
