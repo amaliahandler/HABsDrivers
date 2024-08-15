@@ -144,12 +144,12 @@ wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 
 testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
 
-lake_elev <- get_elev_raster(testtest, z = 8, prj = st_crs(wbd), expand = 10)
+lake_elev <- get_elev_raster(testtest, z = 9, prj = st_crs(wbd), expand = 10)
 lake_lm <- lakeSurroundTopo(testtest, lake_elev)
 #temp_lakemorpho <- lakeSurroundTopo(as_Spatial(testtest), lake_elev)
 
-#lake_meandepth <- lakeMeanDepth(temp_lakemorpho, correctFactor = 1)
-lake_maxdepth <- lakeMaxDepth(temp_lakemorpho, correctFactor = 1)
+lake_meandepth <- lakeMeanDepth(lake_lm, correctFactor = 0.4)
+lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
 #lake_maxdepth <- lakeMaxDepth_func(temp_lakemorpho, correctFactor = 1)
 
 # data.frame(COMID = wbd_copy$COMID, lake_maxdepth)
@@ -175,13 +175,24 @@ elev_sf <- st_as_sf(elev_poly) %>%
 summary(sf::st_intersects(elev_sf, testtest, sparse = FALSE)) # check if overlapping
 # 41 overlapping cells
 
-# morph_it <- function(df){
-#   #st_drop_geometry(df)
-#   lake_elev <- get_elev_raster(df, z = 8, prj = st_crs(df), expand = 100)
-#   lake_lm <- lakeSurroundTopo(df, lake_elev)
-#   lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
-#   data.frame(COMID = df$COMID, lake_maxdepth)
-# }
+morph_it(testtest)
+
+morph_it <- function(df){
+  #st_drop_geometry(df)
+  lake_elev <- get_elev_raster(df, z = 12, prj = st_crs(df), expand = 100)
+  lake_lm <- lakeSurroundTopo(df, lake_elev)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+  data.frame(COMID = df$COMID, lake_maxdepth)
+}
+
+wb_list <- split(wbd_copy[1:25,], 1:25)
+
+lake_depth <- lapply(wbd_copy, morph_it)
+lake_depth_df <- bind_rows(lake_depth)
+lake_depth_df
+
+
+
 #
 # lake_depth <- lapply(wbd_copy, morph_it)
 # lake_depth_df <- bind_rows(lake_depth)
@@ -241,8 +252,35 @@ slope_med <- as.numeric(quantile(slope, probs = slope_quant, na.rm = TRUE))
 
 slope2 <- raster::getValues(terrain(temp_lakemorpho$slope, "slope"))
 
-plot(temp_lakemorpho$slope)
+plot(lake_lm$elev)
 temp_lakemorpho$slope
 temp_lakemorpho$elev
+
+morph_it <- function(df, start = 1) {
+  # Base case: if start index is out of range, return an empty data frame
+  if (start > nrow(df)) {
+    return(data.frame(COMID = integer(0), lake_maxdepth = numeric(0)))
+  }
+
+  # Process the current batch of 50 rows
+  batch <- df[start:min(start + 49, nrow(df)), ]
+  lake_elev <- get_elev_raster(batch, z = 12, prj = st_crs(batch), expand = 100)
+  lake_lm <- lakeSurroundTopo(batch, lake_elev)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+  result <- data.frame(COMID = batch$COMID, lake_maxdepth)
+
+  # Recursive call to process the next batch and combine results
+  rbind(result, morph_it(df, start + 50))
+}
+
+
+lake_depth <- lapply(wbd_copy, morph_it)
+#lake_depth <- morph_it(wbd_copy, 50)
+lake_depth_df <- bind_rows(lake_depth)
+lake_depth_df
+morph_it(wbd_copy)
+
+
+
 
 
