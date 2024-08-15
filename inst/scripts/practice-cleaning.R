@@ -144,23 +144,40 @@ wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 # wbd_copy <- wbd %>%
 #   slice(1:30)
 
-wbd_list <- split(wbd_copy[1:50,], 1:50)
+# wbd_list <- split(wbd_copy[1:50,], 1:50)
 
 testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
 
-lake_elev <- get_elev_raster(testtest, z = 8, prj = st_crs(wbd), expand = 100)
-lake_lm <- lakeSurroundTopo(testtest, lake_elev)
-lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
-data.frame(COMID = wbd_copy$COMID, lake_maxdepth)
+lake_elev <- get_elev_raster(testtest, z = 8, prj = st_crs(wbd), expand = 10)
+# lake_lm <- lakeSurroundTopo(testtest, lake_elev)
+temp_lakemorpho <- lakeSurroundTopo(as_Spatial(testtest), lake_elev)
 
-plot(lake_elev_ras)
+lake_meandepth <- lakeMeanDepth(temp_lakemorpho, correctFactor = 1)
+lake_maxdepth <- lakeMaxDepth(temp_lakemorpho, correctFactor = 1)
+# lake_maxdepth <- lakeMaxDepth_func(temp_lakemorpho, correctFactor = 1)
+
+# data.frame(COMID = wbd_copy$COMID, lake_maxdepth)
+
 plot(lake_elev)
+raster(lake_elev)
 
 # test fetch
 fetch <- lakeFetch(lake_lm, bearing = -10, addLine = TRUE)
 
 lake_elev_ras <- projectRaster(lake_elev,
                                    crs = 5072)
+
+# make raster polygon
+
+elev_poly <- rasterToPolygons(lake_elev)
+
+st_crs(testtest)
+
+elev_sf <- st_as_sf(elev_poly) %>%
+  st_transform(5072)
+
+summary(sf::st_intersects(elev_sf, testtest, sparse = FALSE)) # check if overlapping
+# 41 overlapping cells
 
 # bad code? function not working
 
@@ -180,15 +197,43 @@ lake_elev_ras <- projectRaster(lake_elev,
 
 # found this lake analysis theme online- helpful!
 # also based on online data for big creek lake, colorado lake area is in square meters
-Alex_theme = ggplot2::theme(axis.text = ggplot2::element_text(size=12),
+lake_theme = ggplot2::theme(axis.text = ggplot2::element_text(size=12),
                             panel.background = ggplot2::element_rect(fill="white"),
                             panel.grid = ggplot2::element_line(color="black"),
                             axis.text.x = ggplot2::element_text(angle = 90))
 
 ggplot2::ggplot() +
   ggplot2::geom_sf(data = testtest$Shape) +
-  Alex_theme #lake look perfect!
+  lake_theme #lake looks perfect!
 
+ggplot2::ggplot() +
+  ggplot2::geom_sf(data = elev_sf) +
+  lake_theme
 
+# lake morpho function test
+
+lakeMaxDepth_func <- function(inLakeMorpho, slope_quant = 0.5, correctFactor = 1) {
+  if (!inherits(inLakeMorpho, "lakeMorpho")) {
+    stop("Input data is not of class 'lakeMorpho'.  Run lakeSurround Topo or lakeMorphoClass first.")
+  }
+  if(is.null(inLakeMorpho$elev)){
+    warning("Input elevation dataset required to estimate depth related metrics. Returning NA.
+             Run lakeSurround Topo first with elevation included.")
+    return(NA)
+  }
+  slope <- raster::getValues(terrain(inLakeMorpho$elev, "slope"))
+  slope_med <- as.numeric(quantile(slope, probs = slope_quant, na.rm = TRUE))
+  if (is.na(slope_med)) {
+    return(NA)
+  }
+  if (slope_med == 0) {
+    slope_med <- mean(slope, na.rm = TRUE)
+  }
+  maxDist <- max(raster::getValues(inLakeMorpho$lakeDistance), na.rm = TRUE)
+  return(round(correctFactor * (slope_med * maxDist), 4))
+}
+
+rm(lakeMaxDepth)
+raster(lake_elev)
 
 
