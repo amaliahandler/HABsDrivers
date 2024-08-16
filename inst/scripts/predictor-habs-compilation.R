@@ -492,104 +492,155 @@ PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
 
 # Depth? ------------------------------------------------------------------------------------
 
-# get elevation data for around the lakes
-rm(lakes)
-rm(lakes_subset)
-
-lakes_all <- read_sf('O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusPN/NHDPlus17/NHDSnapshot/Hydrography/NHDWaterbody.shp')
-
-lake_test1 <- filter(lakes_all, COMID == '22887551') %>%
-  st_transform(5072)
-
-# Set location
 loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
 
-# Read in data
-wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody")
+wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
+  st_transform(5072)
 
-# test <- merge(PredDataMas, wbd, by = "COMID")
-# rm(test)
+wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 
-PredDataMas <- merge(PredDataMas, wbd, by = 'COMID')
+# wbd_list <- split(wbd_copy[1:50,], 1:50)
 
-lake_elev <- get_elev_raster(lake_test1, z=12)
-mapview(lake_elev)
+testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
+morph_it(testtest)
 
-lake_morpho <- lakeSurroundTopo(lake_test1, lake_elev)
 
-lake_depth <- lakeMaxDepth(lake_morpho, correctFactor = 0.4)
+lake_elev <- get_elev_raster(testtest, z = 9, prj = st_crs(wbd), expand = 10)
+lake_lm <- lakeSurroundTopo(testtest, lake_elev)
+#temp_lakemorpho <- lakeSurroundTopo(as_Spatial(testtest), lake_elev)
 
-#Expand = 1 , ex: 1 degree expansion around the lake
+lake_meandepth <- lakeMeanDepth(lake_lm, correctFactor = 0.4)
+lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+#lake_maxdepth <- lakeMaxDepth_func(temp_lakemorpho, correctFactor = 1)
 
-# function to do the same thing as above
+# data.frame(COMID = wbd_copy$COMID, lake_maxdepth)
 
-lm_function <- function(lake){
-    lake_elev <- get_elev_raster(lake, z = 12, expand = 1000)
-    lake_lm <- lakeSurroundTopo(lake, lake_elev)
-    lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
-    data.frame(lake_id = lake$lake_id, lake_maxdepth)
+plot(lake_elev)
+raster(lake_elev)
+
+# test fetch
+fetch <- lakeFetch(lake_lm, bearing = -10, addLine = TRUE)
+
+lake_elev_ras <- projectRaster(lake_elev,
+                               crs = 5072)
+
+# make raster polygon
+
+elev_poly <- rasterToPolygons(lake_elev)
+
+st_crs(testtest)
+
+elev_sf <- st_as_sf(elev_poly) %>%
+  st_transform(5072)
+
+summary(sf::st_intersects(elev_sf, testtest, sparse = FALSE)) # check if overlapping
+# 41 overlapping cells
+
+morph_it(testtest)
+
+morph_it <- function(df){
+  #st_drop_geometry(df)
+  lake_elev <- get_elev_raster(df, z = 12, prj = st_crs(df), expand = 100)
+  lake_lm <- lakeSurroundTopo(df, lake_elev)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+  data.frame(COMID = df$COMID, lake_maxdepth)
 }
 
-#
-# loc_df <- data.frame(x = PredDataMas$lon_dd83,
-#                      y = PredDataMas$lat_dd83,
-#                      COMID = PredDataMas$COMID)
-#
-# x <- get_elev_raster(
-#   locations = loc_df,
-#   prj = st_crs(4269), # NAD 83 projection code, reproject to 5072
-#   z = 9)
-#   #override_size_check = TRUE)
-#
-# raster(x)
-# plot(x)
-#
-# hist(x, main="Distribution of elevation values",
-#      maxpixels=22000000)
-#
-# lake_test1 <- filter(wbd, tnmid == '{AAF0D733-828B-4B8E-9E52-388A49AC0A23}')
-#
-# install.packages(mapview)
-# library(mapview)
-#
-# Lake_elevation <- get_elev_raster(lake_test1, z=12)
-# mapview(Lake_elevation)
+wb_list <- split(wbd_copy[1:25,], 1:25)
+
+lake_depth <- lapply(wbd_copy, morph_it)
+lake_depth_df <- bind_rows(lake_depth)
+lake_depth_df
 
 
-# mapping some stuff ---------------------------------------------------------------------------
 
-# # Plot sample locations
-# ggplot() +
-#   geom_sf(data = states,
-#           fill = NA) +
-#   geom_sf(data = PredDataMas,
-#           aes(color = year)) +
-#   scale_color_manual(values=c("#a6cee3", "#1f78b4", "#b2df8a")) +
-#   theme_bw() +
-#   theme(legend.position="bottom")
-
-
-# model compilation ----------------------------------------------------------------------------
-
-
-# habs <- habs |>
-#   # Robert suggested using agricultural inputs rather than land cover
-#   mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
-#          n_dev_inputs = N_Human_Waste + N_Fert_Urban,
-#          p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
-#          p_dev_inputs = P_human_waste_kg + P_nf_fertilizer) |> # ,
-#   # nfarm_inputs_pres = ifelse(n_farm_inputs == 0, 0, 1),
-#   # Creating a categorical variable for lake depth
-#   mutate(lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
-
-# > model_cyano_nolakedata$formula
-# log10(B_G_DENS + 1000) ~ BFIWs + Tmean8110Ws + Precip8110Ws +
-#   n_farm_inputs + n_dev_inputs + p_farm_inputs + lake_dep +
-#   lakemorpho_fetch
 #
-# > model_micx_nolakes$formula
-# MICX_DET ~ p_farm_inputs + fst_ws + Precip_Minus_EVTWs + MAXDEPTH +
-#   lakemorpho_fetch + BFIWs + AG_ECO3
+# lake_depth <- lapply(wbd_copy, morph_it)
+# lake_depth_df <- bind_rows(lake_depth)
+# lake_depth_df
+#
+# PredDataMas <- merge(PredDataMas, lake_depth_df, by = 'COMID')
+
+lake_theme = ggplot2::theme(axis.text = ggplot2::element_text(size=12),
+                            panel.background = ggplot2::element_rect(fill="white"),
+                            panel.grid = ggplot2::element_line(color="black"),
+                            axis.text.x = ggplot2::element_text(angle = 90))
+
+ggplot2::ggplot() +
+  ggplot2::geom_sf(data = testtest$Shape) +
+  lake_theme #lake looks perfect!
+
+ggplot2::ggplot() +
+  ggplot2::geom_sf(data = elev_sf) +
+  lake_theme
+
+# lake morpho function test
+
+lakeMaxDepth_func <- function(inLakeMorpho, slope_quant = 0.5, correctFactor = 1) {
+  if (!inherits(inLakeMorpho, "lakeMorpho")) {
+    stop("Input data is not of class 'lakeMorpho'.  Run lakeSurround Topo or lakeMorphoClass first.")
+  }
+  if(is.null(inLakeMorpho$elev)){
+    warning("Input elevation dataset required to estimate depth related metrics. Returning NA.
+             Run lakeSurround Topo first with elevation included.")
+    return(2) # signal digit
+  }
+  slope <- raster::getValues(terrain(inLakeMorpho$elev, "slope"))
+  slope_med <- as.numeric(quantile(slope, probs = slope_quant, na.rm = TRUE))
+  if (is.na(slope_med)) {
+    return(5) # create signal digit
+  }
+  if (slope_med == 0) {
+    slope_med <- mean(slope, na.rm = TRUE)
+  }
+  maxDist <- max(raster::getValues(inLakeMorpho$lakeDistance), na.rm = TRUE)
+  return(round(correctFactor * (slope_med * maxDist), 4))
+}
+
+# function returned a 5
+
+rm(lakeMaxDepth)
+raster(lake_elev)
+
+slope <- raster::getValues(terrain(lake_elev, "slope"))
+summary(slope)
+
+slope1 <- subset(slope, (!is.na(slope)))
+summary(slope1)
+view(slope1)
+
+slope_med <- as.numeric(quantile(slope, probs = slope_quant, na.rm = TRUE))
+
+slope2 <- raster::getValues(terrain(temp_lakemorpho$slope, "slope"))
+
+plot(lake_lm$elev)
+temp_lakemorpho$slope
+temp_lakemorpho$elev
+
+morph_it <- function(df, start = 1) {
+  # Base case: if start index is out of range, return an empty data frame
+  if (start > nrow(df)) {
+    return(data.frame(COMID = integer(0), lake_maxdepth = numeric(0)))
+  }
+
+  # Process the current batch of 50 rows
+  batch <- df[start:min(start + 49, nrow(df)), ]
+  lake_elev <- get_elev_raster(batch, z = 12, prj = st_crs(batch), expand = 100)
+  lake_lm <- lakeSurroundTopo(batch, lake_elev)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+  result <- data.frame(COMID = batch$COMID, lake_maxdepth)
+
+  # Recursive call to process the next batch and combine results
+  rbind(result, morph_it(df, start + 50))
+}
+
+
+lake_depth <- lapply(wbd_copy, morph_it)
+#lake_depth <- morph_it(wbd_copy, 50)
+lake_depth_df <- bind_rows(lake_depth)
+lake_depth_df
+morph_it(wbd_copy)
+
 
 
 
