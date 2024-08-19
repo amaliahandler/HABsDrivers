@@ -103,6 +103,8 @@ PredDataMas <- incorp(rockN)
 PredDataMas = subset(PredDataMas, select = -c(RunoffWs.x, X))
 PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
 
+colnames(PredDataMas)
+
 # names(PredDataMas)[names(PredDataMas) == "BFIWs.2003"] <- "BFIWs"
 # names(PredDataMas)[names(PredDataMas) == "RunoffWs.y"] <- "Runoff"
 
@@ -148,15 +150,10 @@ morph_it <- function(df){
   data.frame(COMID = df$COMID, lake_maxdepth)
 }
 
-lake_elev <- get_elev_raster(wbd_copy, z = 9, prj = st_crs(wbd), expand = 100)
-lake_lm <- lakeSurroundTopo(df, lake_elev)
-lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
-data.frame(COMID = df$COMID, lake_maxdepth)
-
 wb_list <- split(wbd_copy, 1:25)
 
 #lake_depth <- apply(wbd_copy, 1, morph_it)
-lake_depth <- lapply(split(wbd_copy, seq_along(wbd_copy$COMID)), morph_it)
+lake_depth <- apply(split(wbd_copy, seq_along(wbd_copy$COMID)),1, morph_it)
 lake_depth_df <- bind_rows(lake_depth)
 lake_depth_df
 
@@ -178,4 +175,66 @@ testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
 fetch_it(testtest)
 
 fetchs <- apply(wbd_copy, 1, fetch_it)
+
+# Land Cover Data --------------------------------------------------------------
+
+
+comids <- paste(PredDataMas$COMID[0:60000], collapse = ',')
+
+nlcd <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
+                          PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
+                          PctConif2016, PctUrbOp2016, PctHbWet2016',
+                    aoi='watershed',
+                    comid = comids,
+                    showAreaSqKm = TRUE)
+
+comid2 <- paste(PredDataMas$COMID[60001:120000], collapse = ',')
+
+nlcd2 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
+                          PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
+                          PctConif2016, PctUrbOp2016, PctHbWet2016',
+                     aoi='watershed',
+                     comid = comid2,
+                     showAreaSqKm = TRUE)
+
+comid3 <- paste(PredDataMas$COMID[120001:125778], collapse = ',')
+
+nlcd3 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
+                          PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
+                          PctConif2016, PctUrbOp2016, PctHbWet2016',
+                     aoi='watershed',
+                     comid = comid3,
+                     showAreaSqKm = TRUE)
+
+nlcdMas <- nlcd %>%
+  bind_rows(nlcd2) %>%
+  bind_rows(nlcd3)
+
+which(nlcdMas$COMID == "487")
+
+PredDataMas <- merge(PredDataMas, nlcdMas, by = 'COMID')
+
+# variables for the model
+
+# agr_ws
+# NLCD agricultural land cover including hay and cultivated crop. Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011, NLA 2017 - NLCD 2016 (percent)
+
+PredDataMas$agr_ws <- PredDataMas$PCTCROP2016WS + PredDataMas$PCTHAY2016WS
+
+# dev_ws
+# NLCD developed land cover including open spaces, low, medium, and high intensity. Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011, NLA 2017 - NLCD 2016 (percent)
+
+PredDataMas$dev_ws <- PredDataMas$PCTURBLO2016WS + PredDataMas$PCTURBMD2016WS + PredDataMas$PCTURBOP2016WS + PredDataMas$PCTURBHI2016WS
+
+# fst_ws
+# NLCD forested land cover including coniferous, deciduous, and mixed forest. Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011, NLA 2017 - NLCD 2016 (percent)
+
+PredDataMas$fst_ws <- PredDataMas$PCTMXFST2016WS + PredDataMas$PCTDECID2016WS + PredDataMas$PCTCONIF2016WS
+
+# wet_ws
+# NLCD wetland land cover including herbaceous and woody wetlands. Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011, NLA 2017 - NLCD 2016 (percent)
+
+PredDataMas$wet_ws <- PredDataMas$PCTWDWET2016WS + PredDataMas$PCTHBWET2016WS
+
+
 

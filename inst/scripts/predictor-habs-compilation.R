@@ -433,7 +433,7 @@ nlcd2 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbH
                     comid = comid2,
                     showAreaSqKm = TRUE)
 
-comid3 <- paste(PredDataMas$COMID[120001:125993], collapse = ',')
+comid3 <- paste(PredDataMas$COMID[120001:125778], collapse = ',')
 
 nlcd3 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
                           PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
@@ -640,6 +640,8 @@ lake_depth <- lapply(wbd_copy, morph_it)
 lake_depth_df <- bind_rows(lake_depth)
 lake_depth_df
 morph_it(wbd_copy)
+
+
 
 
 
