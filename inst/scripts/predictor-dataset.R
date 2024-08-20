@@ -21,6 +21,9 @@ library(raster)
 library(corrplot)
 library(remotes)
 
+# Load nutrient data pulled from Meredith Brehob and Robert Sabo
+# 2007 and 2012 data
+
 PredData07_05Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_05Ws.csv")
 PredData07_07Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_05Ws.csv")
 PredData07_10Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_10Ws.csv")
@@ -28,24 +31,28 @@ PredData12_05Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protecti
 PredData12_07Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData12_07Ws.csv")
 PredData12_10Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData12_10Ws.csv")
 
-# function set up
+# Function set up --------------------------------------------------------------
 
+# Ensure the files combined as intended, checking for the number of repeated COMIDs
 verify <- function(df){
   print(which(df$wbCOMID == "487"))
 }
 
+# Visually cleaner way to bind rows, more reproducible
 combines <- function(x, y, z){
   x %>%
     bind_rows(y) %>%
     bind_rows(z)
 }
 
+# Aggregating and averaging data across binded data sets
 mean_group <- function(df){
   df %>%
     group_by(across(wbCOMID)) %>%
     summarise(across(where(is.numeric), mean))
 }
 
+# Combining variables to main predictor data set, removing repeated columns and merging by COMID
 incorp <- function(df){
   df <- subset(df, select = -c(CatAreaSqKm,WsAreaSqKm,CatPctFull,WsPctFull,inStreamCat))
   merge(PredDataMas, df, by = 'COMID')
@@ -76,36 +83,51 @@ verify(PredDataMas)
 PredDataMas <- mean_group(PredDataMas)
 verify(PredDataMas)
 
+# rename the COMID variable to match other data sets
 names(PredDataMas)[names(PredDataMas) == "wbCOMID"] <- "COMID"
+
+# rename the Runoff variable to clarify it was derived from the nutrient inventory data
 names(PredDataMas)[names(PredDataMas) == "RunoffWs"] <- "Runoff.Nutr"
 
 head(PredDataMas)
 
 # Combine Datasets -------------------------------------------------------
 
+# pesticide data from 1997 StreamCat ------
 pesticides <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/Pesticides97.csv")
-BFI <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/BFI.csv")
-PRISM <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/PRISM_1991_2020.csv")
-runoff <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/runoff.csv")
-rockN <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/RockN.csv")
-eco3 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/NLA_SampleFrame_L3L4Ecoregions 1.csv")
+PredDataMas <- incorp(pesticides)
 
-names(BFI)[names(BFI) == "BFIWs"] <- "BFIWs.Str" # USGS BFIWs from Streamcat
-names(PredDataMas)[names(PredDataMas) == "BFIWs"] <- "BFIWs.Nutr" # BFIWs 2007-2012 data compiled
+# base flow index derived from Streamcat ------
+BFI <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/BFI.csv")
+names(BFI)[names(BFI) == "BFIWs"] <- "BFIWs.Str" # Renmaed for clarity
+PredDataMas <- incorp(BFI)
+
+# PRISM data derived from Stream Cat ------
+PRISM <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/PRISM_1991_2020.csv")
+PredDataMas <- incorp(PRISM)
+
+# Runoff data derived from Stream Cat ------
+runoff <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/runoff.csv")
+
 names(runoff)[names(runoff) == "RunoffWs"] <- "Runoff.Str"
 runoff <- subset(runoff, select = -c(RunoffCat))
-
-
-names(eco3)[names(eco3) == "comid"] <- "COMID"
-
-PredDataMas <- incorp(pesticides)
-PredDataMas <- incorp(BFI)
-PredDataMas <- incorp(PRISM)
 PredDataMas <- incorp(runoff)
+
+# Lithological Nitrogen, Stream Cat ------
+rockN <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/RockN.csv")
 PredDataMas <- incorp(rockN)
 
-PredDataMas = subset(PredDataMas, select = -c(X))
+# Ecoregions data, derived from NLA ------
+eco3 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/NLA_SampleFrame_L3L4Ecoregions 1.csv")
+names(eco3)[names(eco3) == "comid"] <- "COMID"
+
 PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
+
+# Renaming variables for the merge
+names(PredDataMas)[names(PredDataMas) == "BFIWs"] <- "BFIWs.Nutr" # BFIWs 2007-2012 data compiled
+
+# Remove excess column
+PredDataMas = subset(PredDataMas, select = -c(X))
 
 colnames(PredDataMas)
 
