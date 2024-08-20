@@ -21,6 +21,9 @@ library(raster)
 library(corrplot)
 library(remotes)
 
+# Load nutrient data pulled from Meredith Brehob and Robert Sabo
+# 2007 and 2012 data
+
 PredData07_05Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_05Ws.csv")
 PredData07_07Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_05Ws.csv")
 PredData07_10Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData07_10Ws.csv")
@@ -28,44 +31,48 @@ PredData12_05Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protecti
 PredData12_07Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData12_07Ws.csv")
 PredData12_10Ws <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/PredData12_10Ws.csv")
 
-# function set up
+# Function set up --------------------------------------------------------------
 
+# Ensure the files combined as intended, checking for the number of repeated COMIDs
 verify <- function(df){
   print(which(df$wbCOMID == "487"))
 }
 
+# Visually cleaner way to bind rows, more reproducible
+combines <- function(x, y, z){
+  x %>%
+    bind_rows(y) %>%
+    bind_rows(z)
+}
+
+# Aggregating and averaging data across binded data sets
 mean_group <- function(df){
   df %>%
     group_by(across(wbCOMID)) %>%
     summarise(across(where(is.numeric), mean))
 }
 
+# Combining variables to main predictor data set, removing repeated columns and merging by COMID
 incorp <- function(df){
   df <- subset(df, select = -c(CatAreaSqKm,WsAreaSqKm,CatPctFull,WsPctFull,inStreamCat))
   merge(PredDataMas, df, by = 'COMID')
 }
 
-
 # Combine 2007 and 2012 Data -----------------------------------------------
 
-PredData2007 <- PredData07_05Ws %>%
-  bind_rows(PredData07_07Ws) %>%
-  bind_rows(PredData07_10Ws)
+PredData2007 <- combines(PredData07_05Ws, PredData07_07Ws, PredData07_10Ws)
 verify(PredData2007)
 
 PredData2007 <- mean_group(PredData2007)
-
+verify(PredData2007)
 
 # 2012
 
-PredData2012 <- PredData12_05Ws %>%
-  bind_rows(PredData12_07Ws) %>%
-  bind_rows(PredData12_10Ws)
+PredData2012 <- combines(PredData12_05Ws, PredData12_07Ws, PredData12_10Ws)
 verify(PredData2012)
 
 PredData2012 <- mean_group(PredData2012)
 verify(PredData2012)
-
 
 # Create the Master Dataset ------------------------------------------------
 
@@ -76,32 +83,51 @@ verify(PredDataMas)
 PredDataMas <- mean_group(PredDataMas)
 verify(PredDataMas)
 
+# rename the COMID variable to match other data sets
 names(PredDataMas)[names(PredDataMas) == "wbCOMID"] <- "COMID"
+
+# rename the Runoff variable to clarify it was derived from the nutrient inventory data
+names(PredDataMas)[names(PredDataMas) == "RunoffWs"] <- "Runoff.Nutr"
 
 head(PredDataMas)
 
 # Combine Datasets -------------------------------------------------------
 
+# pesticide data from 1997 StreamCat ------
 pesticides <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/Pesticides97.csv")
-BFI <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/BFI.csv")
-PRISM <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/PRISM_1991_2020.csv")
-runoff <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/runoff.csv")
-rockN <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/RockN.csv")
-eco3 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/NLA_SampleFrame_L3L4Ecoregions 1.csv")
-
-names(BFI)[names(BFI) == "BFIWs"] <- "BFIWs.Str" # USGS BFIWs compiled up to 2003
-names(PredDataMas)[names(PredDataMas) == "BFIWs"] <- "BFIWs.Nutr" # BFIWs 2007-2012 data compiled
-
-names(eco3)[names(eco3) == "comid"] <- "COMID"
-
 PredDataMas <- incorp(pesticides)
+
+# base flow index derived from Streamcat ------
+BFI <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/BFI.csv")
+names(BFI)[names(BFI) == "BFIWs"] <- "BFIWs.Str" # Renmaed for clarity
 PredDataMas <- incorp(BFI)
+
+# PRISM data derived from Stream Cat ------
+PRISM <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/PRISM_1991_2020.csv")
 PredDataMas <- incorp(PRISM)
+
+# Runoff data derived from Stream Cat ------
+runoff <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/runoff.csv")
+
+names(runoff)[names(runoff) == "RunoffWs"] <- "Runoff.Str"
+runoff <- subset(runoff, select = -c(RunoffCat))
 PredDataMas <- incorp(runoff)
+
+# Lithological Nitrogen, Stream Cat ------
+rockN <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/PredData/lakecat-metrics-melanie/RockN.csv")
 PredDataMas <- incorp(rockN)
 
-PredDataMas = subset(PredDataMas, select = -c(RunoffWs.x, X))
+# Ecoregions data, derived from NLA ------
+eco3 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/LakePredData/NLA_SampleFrame_L3L4Ecoregions 1.csv")
+names(eco3)[names(eco3) == "comid"] <- "COMID"
+
 PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
+
+# Renaming variables for the merge
+names(PredDataMas)[names(PredDataMas) == "BFIWs"] <- "BFIWs.Nutr" # BFIWs 2007-2012 data compiled
+
+# Remove excess column
+PredDataMas = subset(PredDataMas, select = -c(X))
 
 colnames(PredDataMas)
 
@@ -133,86 +159,24 @@ colnames(PredDataMas)
 # cor(PredDataMas$Tmean9120Ws, PredDataMas$COMID,
 #     method = "spearman", use = "pairwise.complete.obs") # should not be correlated
 
-# Lake Depth Data --------------------------------------------------------------
-
-loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
-
-wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
-  st_transform(5072)
-
-wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
-
-morph_it <- function(df){
-  #st_drop_geometry(df)
-  lake_elev <- get_elev_raster(df, z = 9, prj = st_crs(wbd), expand = 100)
-  lake_lm <- lakeSurroundTopo(df, lake_elev)
-  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
-  data.frame(COMID = df$COMID, lake_maxdepth)
-}
-
-wb_list <- split(wbd_copy, 1:25)
-
-#lake_depth <- apply(wbd_copy, 1, morph_it)
-lake_depth <- apply(split(wbd_copy, seq_along(wbd_copy$COMID)),1, morph_it)
-lake_depth_df <- bind_rows(lake_depth)
-lake_depth_df
-
-PredDataMas <- merge(PredDataMas, lake_depth_df, by = 'COMID')
-
-# Lake Fetch -------------------------------------------------------------------
-
-fetch <- lakeFetch(lake_lm, bearing = -10, addLine = TRUE)
-
-fetch_it <- function(df){
-  lake_elev <- get_elev_raster(df, z = 9, prj = st_crs(wbd), expand = 100)
-  lake_lm <- lakeSurroundTopo(as_Spatial(df), lake_elev)
-  fetch_lake <- lakeFetch(lake_lm, bearing = -10, addLine = TRUE)
-  data.frame(COMID = df$COMID, fetch_lake)
-}
-
-testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
-
-fetch_it(testtest)
-
-fetchs <- apply(wbd_copy, 1, fetch_it)
-
 # Land Cover Data --------------------------------------------------------------
 
-
-comids <- paste(PredDataMas$COMID[0:60000], collapse = ',')
-
-nlcd <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
+get_nlcd <- function(coms){
+  lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
                           PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
                           PctConif2016, PctUrbOp2016, PctHbWet2016',
                     aoi='watershed',
-                    comid = comids,
+                    comid = coms,
                     showAreaSqKm = TRUE)
+}
 
-comid2 <- paste(PredDataMas$COMID[60001:120000], collapse = ',')
+chunks <- split(PredDataMas$COMID, ceiling(seq_along(PredDataMas$COMID) / 10000))
 
-nlcd2 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
-                          PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
-                          PctConif2016, PctUrbOp2016, PctHbWet2016',
-                     aoi='watershed',
-                     comid = comid2,
-                     showAreaSqKm = TRUE)
+ncldMas2 <- do.call(rbind, lapply(chunks, get_nlcd))
 
-comid3 <- paste(PredDataMas$COMID[120001:125778], collapse = ',')
-
-nlcd3 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
-                          PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
-                          PctConif2016, PctUrbOp2016, PctHbWet2016',
-                     aoi='watershed',
-                     comid = comid3,
-                     showAreaSqKm = TRUE)
-
-nlcdMas <- nlcd %>%
-  bind_rows(nlcd2) %>%
-  bind_rows(nlcd3)
-
-which(nlcdMas$COMID == "487")
-
-PredDataMas <- merge(PredDataMas, nlcdMas, by = 'COMID')
+PredDataMas <- merge(PredDataMas, ncldMas2, by = 'COMID')
+PredDataMas <- subset(PredDataMas, select = -c(WSAREASQKM,WsAreaSqKm.y))
+names(PredDataMas)[names(PredDataMas) == "WsAreaSqKm.x"] <- "WsAreaSqKm"
 
 # variables for the model
 
@@ -235,6 +199,56 @@ PredDataMas$fst_ws <- PredDataMas$PCTMXFST2016WS + PredDataMas$PCTDECID2016WS + 
 # NLCD wetland land cover including herbaceous and woody wetlands. Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011, NLA 2017 - NLCD 2016 (percent)
 
 PredDataMas$wet_ws <- PredDataMas$PCTWDWET2016WS + PredDataMas$PCTHBWET2016WS
+
+# Lake Depth Data --------------------------------------------------------------
+
+loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
+
+wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
+  st_transform(5072)
+
+wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
+
+chunks_smaller <- split(wbd_copy, (seq(nrow(wbd_copy))-1) %/% 25)
+
+
+morph_it <- function(com, df){
+  lake_com <- filter(df, COMID == com)
+  lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(wbd), expand = 100)
+  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+  data.frame(com, lake_maxdepth)
+}
+
+lake1 <- do.call(rbind, lapply(wbd_copy$COMID[1:5], morph_it, wbd_copy))
+
+#lake_depth <- apply(wbd_copy, 1, morph_it)
+lake_depth <- do.call(rbind, lapply(wbd_copy[1:25,], morph_it))
+
+# lake_depth <- apply(split(wbd_copy, seq_along(wbd_copy$COMID)),1, morph_it)
+lake_depth <- morph_it
+lake_depth_df <- bind_rows(lake_depth)
+lake_depth_df
+
+PredDataMas <- merge(PredDataMas, lake_depth_df, by = 'COMID')
+
+# Lake Fetch -------------------------------------------------------------------
+
+# function to determine longest distance across a lake
+
+fetch_it <- function(df){
+  lake_elev <- get_elev_raster(df, z = 9, prj = st_crs(wbd), expand = 100)
+  lake_lm <- lakeSurroundTopo(as_Spatial(df), lake_elev)
+  max_length <- lakeMaxLength(lake_lm, 100, addLine = TRUE)
+  data.frame(COMID = df$COMID, max_length)
+}
+
+testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
+
+max_len <- fetch_it(testtest)
+
+fetchs <- apply(split(wbd_copy, seq_along(wbd_copy$COMID)),1, fetch_it)
+
 
 
 
