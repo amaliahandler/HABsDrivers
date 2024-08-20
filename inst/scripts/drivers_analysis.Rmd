@@ -327,7 +327,7 @@ const <- 1000
 run_cyano <- function(mod_vars, interact){
   splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
               data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
-              spcov_type = "none",
+              spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
               local = T)
 }
@@ -387,8 +387,10 @@ cyano <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact
               local = T)
 
 # Look at model details
-summary(cyano)
+summary(c20)
 varcomp(cyano)
+
+# Model comparison
 
 # Evaluate fit
 cyano_pred       <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
