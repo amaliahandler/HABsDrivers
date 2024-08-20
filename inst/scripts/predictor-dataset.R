@@ -174,7 +174,7 @@ chunks <- split(PredDataMas$COMID, ceiling(seq_along(PredDataMas$COMID) / 10000)
 
 ncldMas2 <- do.call(rbind, lapply(chunks, get_nlcd))
 
-PredDataMas <- merge(PredDataMas, nlcdMas2, by = 'COMID')
+PredDataMas <- merge(PredDataMas, ncldMas2, by = 'COMID')
 PredDataMas <- subset(PredDataMas, select = -c(WSAREASQKM,WsAreaSqKm.y))
 names(PredDataMas)[names(PredDataMas) == "WsAreaSqKm.x"] <- "WsAreaSqKm"
 
@@ -234,20 +234,18 @@ PredDataMas <- merge(PredDataMas, lake_depth_df, by = 'COMID')
 
 # Lake Fetch -------------------------------------------------------------------
 
-# fetch <- lakeFetch(lake_lm, bearing = -10, addLine = TRUE)
+# function to determine longest distance across a lake
 
 fetch_it <- function(df){
   lake_elev <- get_elev_raster(df, z = 9, prj = st_crs(wbd), expand = 100)
   lake_lm <- lakeSurroundTopo(as_Spatial(df), lake_elev)
-  fetch_lake <- lakeFetch(lake_lm, bearing = -10, addLine = TRUE)
-  data.frame(COMID = df$COMID, fetch_lake)
+  max_length <- lakeMaxLength(lake_lm, 100, addLine = TRUE)
+  data.frame(COMID = df$COMID, max_length)
 }
 
 testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
 
-fetch_it(testtest)
-
-fetchs <- apply(wbd_copy, 1, fetch_it)
+max_len <- fetch_it(testtest)
 
 fetchs <- apply(split(wbd_copy, seq_along(wbd_copy$COMID)),1, fetch_it)
 
