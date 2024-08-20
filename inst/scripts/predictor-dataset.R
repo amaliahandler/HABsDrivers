@@ -161,43 +161,20 @@ colnames(PredDataMas)
 
 # Land Cover Data --------------------------------------------------------------
 
-
-comids <- paste(PredDataMas$COMID[0:60000], collapse = ',')
-
-nlcd <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
+get_nlcd <- function(coms){
+  lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
                           PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
                           PctConif2016, PctUrbOp2016, PctHbWet2016',
                     aoi='watershed',
-                    comid = comids,
+                    comid = coms,
                     showAreaSqKm = TRUE)
+}
 
-comid2 <- paste(PredDataMas$COMID[60001:120000], collapse = ',')
+chunks <- split(PredDataMas$COMID, ceiling(seq_along(PredDataMas$COMID) / 10000))
 
-nlcd2 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
-                          PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
-                          PctConif2016, PctUrbOp2016, PctHbWet2016',
-                     aoi='watershed',
-                     comid = comid2,
-                     showAreaSqKm = TRUE)
+ncldMas2 <- do.call(rbind, lapply(chunks, get_nlcd))
 
-comid3 <- paste(PredDataMas$COMID[120001:125778], collapse = ',')
-
-nlcd3 <- lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
-                          PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
-                          PctConif2016, PctUrbOp2016, PctHbWet2016',
-                     aoi='watershed',
-                     comid = comid3,
-                     showAreaSqKm = TRUE)
-
-nlcdMas <- nlcd %>%
-  bind_rows(nlcd2) %>%
-  bind_rows(nlcd3)
-
-which(nlcdMas$COMID == "487")
-
-rm(nlcd, nlcd2, nlcd3)
-
-PredDataMas <- merge(PredDataMas, nlcdMas, by = 'COMID')
+PredDataMas <- merge(PredDataMas, nlcdMas2, by = 'COMID')
 PredDataMas <- subset(PredDataMas, select = -c(WSAREASQKM,WsAreaSqKm.y))
 names(PredDataMas)[names(PredDataMas) == "WsAreaSqKm.x"] <- "WsAreaSqKm"
 
@@ -232,18 +209,24 @@ wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
 
 wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 
-morph_it <- function(df){
-  #st_drop_geometry(df)
-  lake_elev <- get_elev_raster(df, z = 9, prj = st_crs(wbd), expand = 100)
-  lake_lm <- lakeSurroundTopo(df, lake_elev)
+chunks_smaller <- split(wbd_copy, (seq(nrow(wbd_copy))-1) %/% 25)
+
+
+morph_it <- function(com, df){
+  lake_com <- filter(df, COMID == com)
+  lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(wbd), expand = 100)
+  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
   lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
-  data.frame(COMID = df$COMID, lake_maxdepth)
+  data.frame(com, lake_maxdepth)
 }
 
-wb_list <- split(wbd_copy, 1:25)
+lake1 <- do.call(rbind, lapply(wbd_copy$COMID[1:5], morph_it, wbd_copy))
 
 #lake_depth <- apply(wbd_copy, 1, morph_it)
-lake_depth <- apply(split(wbd_copy, seq_along(wbd_copy$COMID)),1, morph_it)
+lake_depth <- do.call(rbind, lapply(wbd_copy[1:25,], morph_it))
+
+# lake_depth <- apply(split(wbd_copy, seq_along(wbd_copy$COMID)),1, morph_it)
+lake_depth <- morph_it
 lake_depth_df <- bind_rows(lake_depth)
 lake_depth_df
 
