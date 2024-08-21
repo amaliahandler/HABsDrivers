@@ -80,8 +80,8 @@ cormat_pred <- cor(st_drop_geometry(select(habs, TEMPERATURE:P_Surplus)), use = 
 # Trim to just the variables explored in the models
 cor_dat <- habs |>
   st_drop_geometry() |>
-  select(TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, fst_ws, wet_ws, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, n_farm_inputs:p_dev_inputs) |>
-  relocate(NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, n_dev_inputs, p_dev_inputs, N_Total_Deposition, Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
+  select(TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, n_farm_inputs:p_dev_inputs) |>
+  relocate(NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, n_dev_inputs, p_dev_inputs, N_Total_Deposition, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
 
 var_names <- c("Total N", 
                "Total P",   
@@ -91,7 +91,8 @@ var_names <- c("Total N",
                "pH", 
                "Water Temp",
                "Turbidity",
-               "Evaporation", 
+               "Evaporation",
+               "Evaporation/Inflow",
                "Forest Cover", 
                "Wetland Cover",
                "Soil Erodability",
@@ -100,9 +101,11 @@ var_names <- c("Total N",
                "Developed N", 
                "Developed P",
                "Deposition N", 
-               "Precip-ET", 
-               "Precip", 
-               "Air Temp",
+               "Monthly Precip",
+               "Monthly Temp",
+               "Annual Precip", 
+               "Annual Air Temp",
+               "Annual Precip-ET",
                "Runoff", 
                "Baseflow Index",
                "Lake Depth",
@@ -391,6 +394,38 @@ summary(c20)
 varcomp(cyano)
 
 # Model comparison
+
+# Full, best model?
+cy1 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+
+# Compare EVAP_INFL versus ecoregion. 
+cy2 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "AG_ECO3", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+
+# Does TN or TP fit better?
+cy3 <- run_cyano(mod_vars = c("PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+
+# Monthly mean temperature and precipitation or climate normals?
+# cy4 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "precip_mean_month", "temp_mean_month", "EVAP_INFL", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+
+# Does including fetch improve the model?
+cy5 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs", "lakemorpho_fetch"), interact = NULL)
+
+# Does another nutrient inventory variable fit better?
+cy6 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_dev_inputs"), interact = NULL)
+
+
+# Compile AIC and loocv data for each model
+cyano_nla_comp <- do.call(rbind, lapply(list(cy1, cy2, cy3, cy5, cy6), function(mod){
+  cv_res <- loocv(mod)
+  cv_res$AIC <- AIC(mod)
+  coef_names <- names(mod$coefficients$fixed)
+  coef_names <- coef_names[!coef_names %in% c("(Intercept)", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB")]
+  coefs <- paste(coef_names, collapse = ", ")
+  cv_res$coefs_fixed <- coefs
+  return(cv_res)
+}))
+
+arrange(cyano_nla_comp, AIC)
 
 # Evaluate fit
 cyano_pred       <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
