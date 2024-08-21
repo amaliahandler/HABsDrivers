@@ -202,25 +202,62 @@ PredDataMas$wet_ws <- PredDataMas$PCTWDWET2016WS + PredDataMas$PCTHBWET2016WS
 
 # Lake Depth Data --------------------------------------------------------------
 
+# full lake set estimates
+# if LAGOSlakedepth & NHDLakeDepth are not equal to NA or hold a negative value
+# select this row
+# save to new df
+
+y_lake_depth <- data.frame(PredDataMas %>%
+  filter(!is.na(LAGOSLakeDepth) & !is.na(NHDLakeDepth) &
+           LAGOSLakeDepth >= 0 & NHDLakeDepth >= 0))
+
+summary(y_lake_depth$NHDLakeDepth)
+summary(y_lake_depth$LAGOSLakeDepth)
+
+large_lakes <- y_lake_depth %>%
+  filter(LAGOSLakeDepth >= 75 & NHDLakeDepth >= 75)
+large_lakes <- subset(wbd, COMID %in% L_COMID)
+
+L_COMID <- large_lakes$COMID
+
+large_lake_depth <- do.call(rbind, lapply(L_COMID, morph_it, large_lakes))
+
+names(large_lake_depth)[names(large_lake_depth) == "lake_maxdepth"] <- "morpho_depth"
+names(large_lake_depth)[names(large_lake_depth) == "com"] <- "COMID"
+
+large_lakes <- merge(large_lakes, y_lake_depth, by = 'COMID')
+
+depth_overview <- subset(large_lakes, select = c(COMID, morpho_depth, LAGOSLakeDepth, NHDLakeDepth, MeanDepth))
+
+summary(depth_overview)
+
+# Full Depth Estimates
+
 loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
 
 wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
   st_transform(5072)
 
-wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
-
 chunks_smaller <- split(wbd_copy, (seq(nrow(wbd_copy))-1) %/% 25)
-
 
 morph_it <- function(com, df){
   lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(wbd), expand = 100)
+  lake_elev <- get_elev_raster(lake_com, z = 9, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
   lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
   lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
   data.frame(com, lake_maxdepth)
 }
 
-lake1 <- do.call(rbind, lapply(wbd_copy$COMID[1:5], morph_it, wbd_copy))
+# morph_it <- function(df){
+#   #st_drop_geometry(df)
+#   lake_elev <- get_elev_raster(df, z = 12, prj = st_crs(df), expand = 100)
+#   lake_lm <- lakeSurroundTopo(df, lake_elev)
+#   lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+#   data.frame(COMID = df$COMID, lake_maxdepth)
+# }
+
+
+lake1 <- do.call(rbind, lapply(wbd_copy$COMID[1:5,], morph_it, wbd_copy))
 
 #lake_depth <- apply(wbd_copy, 1, morph_it)
 lake_depth <- do.call(rbind, lapply(wbd_copy[1:25,], morph_it))
