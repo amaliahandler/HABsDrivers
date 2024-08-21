@@ -225,11 +225,55 @@ large_lake_depth <- do.call(rbind, lapply(L_COMID, morph_it, large_lakes))
 names(large_lake_depth)[names(large_lake_depth) == "lake_maxdepth"] <- "morpho_depth"
 names(large_lake_depth)[names(large_lake_depth) == "com"] <- "COMID"
 
-large_lakes <- merge(large_lakes, y_lake_depth, by = 'COMID')
+large_lakes <- merge(large_lake_depth, y_lake_depth, by = 'COMID')
 
-depth_overview <- subset(large_lakes, select = c(COMID, morpho_depth, LAGOSLakeDepth, NHDLakeDepth, MeanDepth))
+depth_overview <- subset(large_lakes, select = c(COMID, morpho_depth, LAGOSLakeDepth, NHDLakeDepth))
 
 summary(depth_overview)
+
+# Medium sized lakes
+
+med_lakes <- y_lake_depth %>%
+  filter(LAGOSLakeDepth >= 8 & LAGOSLakeDepth <= 15 & NHDLakeDepth >= 8 & NHDLakeDepth <= 15)
+med_lakes <- subset(wbd, COMID %in% med_lakes$COMID)
+
+# med_lakes <- sample_n(med_lakes, 15)
+med_lakes <- subset(med_lakes, COMID %in% c("724970", "1102366", "2267173", "2615482", "3594346", "4099949", "4854979", "6718825", "6742526", "12421133", "15457344", "15477543", "15509690", "24277309", "166766656"))
+
+med_lake_depth <- do.call(rbind, lapply(med_lakes$COMID, morph_it, med_lakes))
+
+names(med_lake_depth)[names(med_lake_depth) == "lake_maxdepth"] <- "morpho_depth"
+names(med_lake_depth)[names(med_lake_depth) == "com"] <- "COMID"
+
+med_lakes <- merge(med_lake_depth, y_lake_depth, by = 'COMID')
+
+med_depth_overview <- subset(med_lakes, select = c(COMID, morpho_depth, LAGOSLakeDepth, NHDLakeDepth))
+
+summary(med_depth_overview)
+
+# could I make a full data filter to bucket small medium and large lakes?
+
+# categorize lakes function
+# cat_lakes <-
+
+summary(PredDataMas$WsAreaSqKm)
+plot(log10(y_lake_depth$NHDLakeDepth), log10(y_lake_depth$WsAreaSqKm), ylab = "Wastershed Area",
+    xlab = "NHD Lake Depth")
+
+plot(log10(wbd_copy$LakeArea), log10(wbd_copy$MaxDepth), ylab = "Lake Area",
+    xlab = "Max Depth")
+
+summary(wbd_copy$LakeArea) # st_area fill in the lake area from polygons
+
+cor(y_lake_depth$NHDLakeDepth, y_lake_depth$WsAreaSqKm,
+    method = "spearman", use = "pairwise.complete.obs")
+
+cor(wbd_copy$LakeArea, wbd_copy$MaxDepth,
+    method = "spearman", use = "pairwise.complete.obs")
+
+cor(wbd_copy$LakeArea, wbd_copy$MeanDepth,
+    method = "spearman", use = "pairwise.complete.obs")
+
 
 # Full Depth Estimates
 
@@ -242,9 +286,9 @@ chunks_smaller <- split(wbd_copy, (seq(nrow(wbd_copy))-1) %/% 25)
 
 morph_it <- function(com, df){
   lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 9, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
+  lake_elev <- get_elev_raster(lake_com, z = 10, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
   lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
   data.frame(com, lake_maxdepth)
 }
 
@@ -284,7 +328,9 @@ testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
 
 max_len <- fetch_it(testtest)
 
-fetchs <- apply(split(wbd_copy, seq_along(wbd_copy$COMID)),1, fetch_it)
+fetch_all <- do.call(rbind, lapply(wbd_copy$COMID, fetch_it, wbd_copy))
+
+# fetchs <- apply(split(wbd_copy, seq_along(wbd_copy$COMID)),1, fetch_it)
 
 
 
