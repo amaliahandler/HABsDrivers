@@ -334,6 +334,7 @@ run_cyano <- function(mod_vars, interact){
               data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
+              estmethod = "ml",
               local = T)
 }
 
@@ -460,6 +461,7 @@ cy_res_table <- glances(cy1, cy3, cy4, cy5, cy6, cy7) |>
   cbind(mods_loocv) |>
   mutate(distinct_vars = dif_vars,
          common_vars = paste(com_vars, collapse = ", ")) |>
+  arrange(AIC) |>
   tibble()
   
 
