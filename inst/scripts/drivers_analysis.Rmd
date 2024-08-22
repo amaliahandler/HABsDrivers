@@ -55,6 +55,7 @@ habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
 
 # There is a MAXDEPTH measurement that is close to 1000 m and three lakemorpho observations > 500 m. Need to remove these.
 # There are also some extreme values for the nutrient inputs. Could this be an issue with the watershed area?
+# In addition, there are three water temperatures that exceed 50 degC, including over 250 degC (!) that should be removed.
 habs <- habs|>
   mutate(MAXDEPTH = ifelse(MAXDEPTH > 200, NA, MAXDEPTH),
          lakemorpho_depth = ifelse(lakemorpho_depth > 500, NA, lakemorpho_depth),
@@ -62,7 +63,8 @@ habs <- habs|>
          p_farm_inputs = ifelse(p_farm_inputs > 100, NA, p_farm_inputs),
          n_dev_inputs = ifelse(n_dev_inputs > 100, NA, n_dev_inputs),
          p_dev_inputs = ifelse(p_dev_inputs > 100, NA, p_dev_inputs),
-         N_Surplus = ifelse(N_Surplus > 3000, NA, N_Surplus))
+         N_Surplus = ifelse(N_Surplus > 3000, NA, N_Surplus),
+         TEMPERATURE = ifelse(TEMPERATURE > 50, NA, TEMPERATURE))
 ```
 
 
@@ -395,27 +397,33 @@ varcomp(cyano)
 
 # Model comparison
 
+habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
+
 # Full, best model?
-cy1 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+cy1 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_dev_inputs"), interact = NULL)
 
 # Compare EVAP_INFL versus ecoregion. 
-cy2 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "AG_ECO3", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+cy2 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "AG_ECO3", "MAXDEPTH","p_dev_inputs"), interact = NULL)
 
 # Does TN or TP fit better?
-cy3 <- run_cyano(mod_vars = c("PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+cy3 <- run_cyano(mod_vars = c("PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","n_dev_inputs"), interact = NULL)
 
 # Monthly mean temperature and precipitation or climate normals?
-# cy4 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "precip_mean_month", "temp_mean_month", "EVAP_INFL", "MAXDEPTH","p_farm_inputs"), interact = NULL)
+cy4 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "precip_mean_month", "temp_mean_month", "EVAP_INFL", "MAXDEPTH","p_dev_inputs"), interact = NULL)
 
 # Does including fetch improve the model?
-cy5 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_farm_inputs", "lakemorpho_fetch"), interact = NULL)
+cy5 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_dev_inputs", "lakemorpho_fetch"), interact = NULL)
 
-# Does another nutrient inventory variable fit better?
-cy6 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "TEMPERATURE", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH","p_dev_inputs"), interact = NULL)
+# What about no nutrient inventory variable?
+cy0 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH"), interact = NULL)
+
+cy6 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "AG_ECO3"), interact = "AG_ECO3 * NTL")
+
+cy7 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "p_dev_inputs"), interact = "MAXDEPTH * NTL")
 
 
 # Compile AIC and loocv data for each model
-cyano_nla_comp <- do.call(rbind, lapply(list(cy1, cy2, cy3, cy5, cy6), function(mod){
+cyano_nla_comp <- do.call(rbind, lapply(list(cy0, cy1, cy2, cy3, cy4, cy5, cy6, cy7), function(mod){
   cv_res <- loocv(mod)
   cv_res$AIC <- AIC(mod)
   coef_names <- names(mod$coefficients$fixed)
@@ -426,6 +434,34 @@ cyano_nla_comp <- do.call(rbind, lapply(list(cy1, cy2, cy3, cy5, cy6), function(
 }))
 
 arrange(cyano_nla_comp, AIC)
+
+# Make a table of the model comparison
+
+# Variables common to all models
+com_vars <- c("NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "MAXDEPTH", "EVAP_INFL")
+
+# Which models are included in the table?
+cy_list <- list(cy1, cy3, cy4, cy5, cy6, cy7)
+
+# Get the fixed effects that are different between the models
+dif_vars <- sapply(cy_list, function(mod){
+  coef_names <- names(mod$coefficients$fixed)
+  coef_names <- coef_names[!coef_names %in% c("(Intercept)", com_vars)]
+  paste(coef_names, collapse = ", ")
+})
+
+# Get the loocv to get the R^2 between observed and fit
+mods_loocv <- do.call(rbind, lapply(cy_list, loocv))
+
+# Put it all together into a table
+cy_res_table <- glances(cy1, cy3, cy4, cy5, cy6, cy7) |>
+  arrange(model) |>
+  select(model, n, p, npar, AIC) |>
+  cbind(mods_loocv) |>
+  mutate(distinct_vars = dif_vars,
+         common_vars = paste(com_vars, collapse = ", ")) |>
+  tibble()
+  
 
 # Evaluate fit
 cyano_pred       <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
