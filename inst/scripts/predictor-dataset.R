@@ -202,6 +202,21 @@ PredDataMas$wet_ws <- PredDataMas$PCTWDWET2016WS + PredDataMas$PCTHBWET2016WS
 
 # Lake Depth Data --------------------------------------------------------------
 
+loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
+
+wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
+  st_transform(5072)
+
+wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
+
+morph_it <- function(com, df){
+  lake_com <- filter(df, COMID == com)
+  lake_elev <- get_elev_raster(lake_com, z = 10, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
+  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+  data.frame(com, lake_maxdepth)
+}
+
 # full lake set estimates
 # if LAGOSlakedepth & NHDLakeDepth are not equal to NA or hold a negative value
 # select this row
@@ -231,6 +246,43 @@ depth_overview <- subset(large_lakes, select = c(COMID, morpho_depth, LAGOSLakeD
 
 summary(depth_overview)
 
+depth_overview$lake_indiv <- 1:15
+
+# line chart
+
+ggplot(depth_overview, aes(x = lake_indiv)) +
+
+  geom_point(aes(y = morpho_depth, fill = "Lake Morpho Depth"),
+             color = "chartreuse4", stat = "identity") +
+
+  geom_point(aes(y = NHDLakeDepth, fill = "NHD Lake Depth"),
+             color = "darkmagenta", stat = "identity") +
+
+  geom_point(aes(y = LAGOSLakeDepth, fill = "Measured Depth"),
+             color = "black", stat = "identity") +
+
+  labs(y = "Estimated Depth (m)", x = "Individual Lake", fill = "Legend")
+
+# bar chart
+
+ggplot(depth_overview, aes(x = lake_indiv)) +
+
+  geom_bar(aes(y = morpho_depth, fill = "Lake Morpho Depth"),
+           color = "darkolivegreen3", stat = "identity", position = "stack") +
+
+  geom_bar(aes(y = NHDLakeDepth, fill = "NHD Lake Depth"),
+           color = "darksalmon", stat = "identity", position = "stack") +
+
+  geom_bar(aes(y = LAGOSLakeDepth, fill = "Measured Depth"),
+           color = "black", stat = "identity", position = "stack", alpha = 0.4) +
+
+  labs(y = "Estimated Depth (m)", x = "Individual Lake", fill = "Legend",
+       title = "> 75m Deep Lakes Sample") +
+
+  scale_fill_manual(values = c("Lake Morpho Depth" = "darkolivegreen3",
+                               "NHD Lake Depth" = "darksalmon",
+                               "Measured Depth" = "black"))
+
 # Medium sized lakes
 
 med_lakes <- y_lake_depth %>%
@@ -250,6 +302,31 @@ med_lakes <- merge(med_lake_depth, y_lake_depth, by = 'COMID')
 med_depth_overview <- subset(med_lakes, select = c(COMID, morpho_depth, LAGOSLakeDepth, NHDLakeDepth))
 
 summary(med_depth_overview)
+
+med_depth_overview$lake_indiv = 1:15
+
+# med bar chart
+
+ggplot(med_depth_overview, aes(x = lake_indiv)) +
+
+  geom_bar(aes(y = morpho_depth, fill = "Lake Morpho Depth"),
+           color = "darkolivegreen3", stat = "identity", alpha = 0.5,
+           position = position_dodge2(preserve = 'total')) +
+
+  geom_bar(aes(y = NHDLakeDepth, fill = "NHD Lake Depth"),
+           color = "darksalmon", stat = "identity", alpha = 0.5,
+           position = position_dodge2(preserve = 'total')) +
+
+  geom_bar(aes(y = LAGOSLakeDepth, fill = "Measured Depth"),
+           color = "black", stat = "identity", alpha = 0.2,
+           position = position_dodge2(preserve = 'total')) +
+
+  labs(y = "Estimated Depth (m)", x = "Individual Lake", fill = "Legend",
+       title = "Medium Depth Lakes Sample, Between 8m and 15m") +
+
+  scale_fill_manual(values = c("Lake Morpho Depth" = "darkolivegreen3",
+                               "NHD Lake Depth" = "darksalmon",
+                               "Measured Depth" = "black"))
 
 # could I make a full data filter to bucket small medium and large lakes?
 
@@ -277,20 +354,7 @@ cor(wbd_copy$LakeArea, wbd_copy$MeanDepth,
 
 # Full Depth Estimates
 
-loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
-
-wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
-  st_transform(5072)
-
 chunks_smaller <- split(wbd_copy, (seq(nrow(wbd_copy))-1) %/% 25)
-
-morph_it <- function(com, df){
-  lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 10, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
-  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
-  data.frame(com, lake_maxdepth)
-}
 
 # morph_it <- function(df){
 #   #st_drop_geometry(df)
