@@ -327,6 +327,21 @@ ggplot(med_depth_overview, aes(x = lake_indiv)) +
   scale_fill_manual(values = c("Lake Morpho Depth" = "darkolivegreen3",
                                "NHD Lake Depth" = "darksalmon",
                                "Measured Depth" = "black"))
+colnames(med_depth_overview)
+
+med_piv <- pivot_wider()
+
+# med_piv <- pivot_longer(med_depth_overview, cols = 5, values_from = morpho_depth)
+# med_piv <- subset(med_piv, select = -c(COMID, NHDLakeDepth, lake_indiv))
+med_piv <- med_depth_overview
+
+# med_piv %>% pivot_longer(cols=c("morpho_depth","LAGOSLakeDepth","NHDLakeDepth","lake_indiv", "COMID"),
+#                     names_to='col1_name',
+#                     values_to='col2_name')
+
+
+colnames(med_piv)
+
 
 # could I make a full data filter to bucket small medium and large lakes?
 
