@@ -332,7 +332,7 @@ const <- 1000
 run_cyano <- function(mod_vars, interact){
   splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
               # Edited to run for a unified set of observations for the purposes of model comparison
-              data = habs_mod, # filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
+              data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
               spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
               estmethod = "ml",
