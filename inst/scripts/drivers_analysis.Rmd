@@ -346,7 +346,7 @@ habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EH
 
 # Filter to the same set of observations for model comparison
 habs_mod <- habs |>
-  select(B_G_DENS, NTL, PTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, EVAP_INFL, MAXDEPTH, p_dev_inputs, n_dev_inputs, lakemorpho_fetch, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
+  select(B_G_DENS, NTL, PTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
   drop_na()
 
 # Does TN or TP fit better?
@@ -408,12 +408,12 @@ fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS + const))) +
   ylab("Observed") +
   xlab("Fitted") +
   ggtitle(name)
-ggsave(paste0("./figures/", "Model Fit_Cyano.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
+ggsave(paste0("./figures/", "Model Fit_Cyano_With NLA.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
 # Save the model
 # saveRDS(cy5, "./inst/model_objects/model_cyano_withlakedata.rds")
 
-# Cyanobacteria models without NLA covariates
+### Cyanobacteria models without NLA covariates ###
 
 # *** Turns out I was using mass of N and P inputs rather than area-normalized inputs. This has been updated in the input data. Now N and P inputs are on a per hectare basis and the numbers are more reasonable and not in the billions/millions. ***
 
@@ -434,9 +434,77 @@ ggsave(paste0("./figures/", "Model Fit_Cyano.jpg"), fig, height = 4, width = 5, 
 # Adding N_Rock and N_Total_Dep were related when included together, but N_Rock was negatively related. N_Total_Dep was positively related. 
 
 # Construct the model
-dep_var  <- "B_G_DENS"
-const    <- 1000
-mod_vars <- c("N_Fert_Farm", "N_CBNF", "N_Livestock_N_Content", "N_Human_Waste", "N_Fert_Urban", "P_Surplus", "P_f_fertilizer", "P_livestock_Waste", "P_human_waste_kg", "P_nf_fertilizer")
+
+# Filter to the same set of observations for model comparison
+habs_mod <- habs |>
+  select(B_G_DENS, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, N_Total_Deposition, p_farm_inputs, n_farm_inputs, fst_ws, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
+  drop_na()
+
+# Different combos of nutrient drivers
+c2 <- run_cyano(mod_vars = c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+c3 <- run_cyano(mod_vars = c("N_Total_Deposition", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+c4 <- run_cyano(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+# Climate normals versus monthly precip and temp
+c5 <- run_cyano(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "precip_mean_month", "temp_mean_month", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+# Ecoregions
+c6 <- run_cyano(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+
+# Interactions
+c7 <- run_cyano(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "MAXDEPTH * n_farm_inputs")
+
+c8 <- run_cyano(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * n_farm_inputs")
+
+# Variables common to all models
+com_vars <- c("BFIWs", "MAXDEPTH", "lakemorpho_fetch")
+
+# Which models are included in the table?
+cy_list <- list(c2, c3, c4, c5, c6, c7, c8)
+
+# Get the fixed effects that are different between the models
+dif_vars <- sapply(cy_list, function(mod){
+  coef_names <- names(mod$coefficients$fixed)
+  coef_names <- coef_names[!coef_names %in% c("(Intercept)", com_vars)]
+  paste(coef_names, collapse = ", ")
+})
+
+# Get the loocv to get the R^2 between observed and fit
+mods_loocv <- do.call(rbind, lapply(cy_list, loocv))
+
+# Put it all together into a table
+cy_res_table <- glances(c2, c3, c4, c5, c6, c7, c8) |>
+  arrange(model) |>
+  select(model, n, p, npar, AIC, AICc, BIC) |>
+  cbind(mods_loocv) |>
+  mutate(distinct_vars = dif_vars,
+         common_vars = paste(com_vars, collapse = ", ")) |>
+  arrange(BIC) |>
+  tibble()
+  
+# Evaluate fit of best model
+cyano_pred       <- habs_mod
+cyano_loocv      <- loocv(c4, cv_predict = TRUE)
+cyano_pred$preds <- cyano_loocv$cv_predict
+
+max_val <- max(log10(cyano_pred$B_G_DENS + const), cyano_pred$preds)
+name    <- paste0("Log10(Cyanobacteria + ", const,")")
+
+fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS + const))) +
+  geom_hex(bins = 60) +
+  scale_fill_continuous(type = "viridis") +
+  xlim(2.8, max_val) + ylim(2.8, max_val) +
+  ylab("Observed") +
+  xlab("Fitted") +
+  ggtitle(name)
+ggsave(paste0("./figures/", "Model Fit_Cyano_No NLA.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
+
+# Save the model
+# saveRDS(c4, "./inst/model_objects/model_cyano_nolakedata.rds")
+
+
 
 mod_vars <- c("N_Total_Inputs", "P_Surplus", "AG_ECO3")
 
