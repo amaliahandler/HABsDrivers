@@ -584,8 +584,10 @@ dep_var  <- "MICX_DET"
 run_micx <- function(mod_vars, int = NULL){
   spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
                 family = "binomial",
-                data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                spcov_type = "none",
+                # Edited to use same set of observations for model comparison
+                data = habs_mod, # drop_na(habs, all_of(dep_var), all_of(mod_vars)),
+                spcov_type = "exponential",
+                estmethod = "ml",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
                 local = T)
 }
@@ -635,7 +637,67 @@ micx11 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "dev_ws", "KffactWs", "BF
 # Save this model
 # saveRDS(micx11, "./inst/model_objects/model_micx_withlakedata.rds")
 
-### Running Models with nutrient inventory instead of land cover
+### Microcystin models without NLA lake data ###
+
+# Filter to the same set of observations for model comparison
+habs_mod <- habs |>
+  select(MICX_DET, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, N_Total_Deposition, N_Surplus, p_farm_inputs, n_farm_inputs, fst_ws, wet_ws, KffactWs, RunoffWs, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
+  drop_na()
+
+# Initial model
+m3 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+
+# Does N inputs fit better?
+m2 <- run_micx(mod_vars = c("n_farm_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+
+# Which climate data?
+m4 <- run_micx(mod_vars = c("n_farm_inputs", "fst_ws", "precip_mean_month", "temp_mean_month", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+
+# Runoff or baseflow index?
+m5 <- run_micx(mod_vars = c("n_farm_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "RunoffWs", "AG_ECO3"), int = NULL)
+
+# Will another inventory variable fit in the model?
+m6 <- run_micx(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+
+m7 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+
+m8 <- run_micx(mod_vars = c("p_farm_inputs", "N_Total_Deposition", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+
+# Interactions
+m9 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "n_farm_inputs * MAXDEPTH")
+
+m10 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "n_farm_inputs * AG_ECO3")
+
+glances(m2, m3, m4, m5, m6, m7, m8, m9, m10)
+
+# Which models are included in the table?
+m_list <- list(m2, m3, m4, m5, m6, m7, m8, m9, m10)
+
+# Variables common to all models
+com_vars <- c("fst_ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
+
+# Get the fixed effects that are different between the models
+dif_vars <- sapply(m_list, function(mod){
+  coef_names <- names(mod$coefficients$fixed)
+  coef_names <- coef_names[!coef_names %in% c("(Intercept)", com_vars)]
+  paste(coef_names, collapse = ", ")
+})
+
+# Augment the data to get fitted values. Note that in the bionomial case, fitted values include fixed and random effects as well as spatial correlation
+mods_auc <- sapply(m_list, function(mod){
+  aug_mod <- augment(mod)
+  pROC::auc(aug_mod$MICX_DET, aug_mod$.fitted)
+})
+
+# Put it all together into a table
+cy_res_table <- glances(m2, m3, m4, m5, m6, m7, m8, m9, m10) |>
+  arrange(model) |>
+  select(model, n, p, npar, AIC, AICc, BIC) |>
+  mutate(AUC = mods_auc) |>
+  mutate(distinct_vars = dif_vars,
+         common_vars = paste(com_vars, collapse = ", ")) |>
+  arrange(BIC) |>
+  tibble()
 
 # The models do run when replace with the log-transformed N inputs. Guessing that the extreme values make the model difficult to fit.
 
