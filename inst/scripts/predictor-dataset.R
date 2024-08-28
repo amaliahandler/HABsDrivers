@@ -402,18 +402,23 @@ morph_it <- function(df, z){
   data.frame(COMID = df$COMID, lake_maxdepth)
 }
 
+
 morph_it(testtest, testtest$z)
 
-wbd_copy$z <- as.numeric(lapply(wbd_copy$custom_area, lakes_bin))
+wbd_copy$z <- unlist(as.numeric(lapply(wbd_copy$custom_area, lakes_bin)))
 
-#
-# wbd_copy$morpho_depth <- lapply(wbd_copy, morph_it, wbd_copy$z)
-#
-# wbchunks <- split(wbd_copy$COMID, ceiling(seq_along(wbd_copy$COMID) / 10000))
-#
-# ncldMas2 <- do.call(rbind, lapply(wbchunks, morph_it, wbd_copy$z))
-#
+morph_it <- function(df, com, z){
+  lake_com <- stats::filter(df, COMID %in% com)
+  lake_elev <- get_elev_raster(lake_com, z = z, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
+  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+  data.frame(com, lake_maxdepth)
+}
 
+wbchunks <- split(wbd_copy$COMID, ceiling(seq_along(wbd_copy$COMID) / 10000))
+
+# depths <- do.call(rbind, lapply(wbd_copy, morph_it, wbd_copy$COMID, wbd_copy$z))
+depths <- apply(wbd_copy, 1, morph_it(wbd_copy, wbd_copy$COMID, wbd_copy$z))
 
 # Lake Fetch -------------------------------------------------------------------
 
@@ -423,7 +428,7 @@ fetch_it <- function(com, df){
   lake_com <- filter(df, COMID == com)
   lake_elev <- get_elev_raster(lake_com, z = 10, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
   lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-  lake_max_len <- lakeMaxLength(lake_lm, correctFactor = 0.6)
+  lake_max_len <- lakeMaxLength(lake_lm, pointDens = 50)
   data.frame(com, lake_max_len)
 }
 
