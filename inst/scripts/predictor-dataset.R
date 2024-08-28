@@ -386,7 +386,7 @@ wbd_copy$custom_area <- drop_units(wbd_copy$custom_area)
 testtest$area <- drop_units(testtest$area)
 
 lakes_bin <- function(lake_area) {
-  if (lake_area > 417 & lake_area < 19990) {z <- 12}
+  if (lake_area > 400 & lake_area < 19990) {z <- 12}
   else if (lake_area > 19991 & lake_area < 37901) {z <- 11}
   else if (lake_area > 37901 & lake_area < 96911) {z <- 10}
   else {z <- 9}
@@ -403,6 +403,16 @@ morph_it <- function(df, z){
 }
 
 morph_it(testtest, testtest$z)
+
+wbd_copy$z <- as.numeric(lapply(wbd_copy$custom_area, lakes_bin))
+
+#
+# wbd_copy$morpho_depth <- lapply(wbd_copy, morph_it, wbd_copy$z)
+#
+# wbchunks <- split(wbd_copy$COMID, ceiling(seq_along(wbd_copy$COMID) / 10000))
+#
+# ncldMas2 <- do.call(rbind, lapply(wbchunks, morph_it, wbd_copy$z))
+#
 
 
 # Lake Fetch -------------------------------------------------------------------
