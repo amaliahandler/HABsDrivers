@@ -589,6 +589,9 @@ run_micx <- function(mod_vars, int = NULL){
                 spcov_type = "exponential",
                 estmethod = "ml",
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
+                # Fix the range for the spatial covariance to keep from getting out of control
+                # spcov_initial = spcov_initial("exponential", range = 7.5e4, known = "range"),
+                range_constrain = TRUE,
                 local = T)
 }
 
@@ -621,6 +624,9 @@ micx8 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "tem
 
 # Try with dissolved N species
 micx9 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "AMMONIA_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
+# Try running with fixed range
+micx9a <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "AMMONIA_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
 # Try with no spatial covariation
 micx10 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
@@ -668,6 +674,13 @@ m9 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip8110W
 
 m10 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "n_farm_inputs * AG_ECO3")
 
+# Run with the range_constrain = TRUE
+m9a <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "n_farm_inputs * MAXDEPTH")
+
+m4a <- run_micx(mod_vars = c("n_farm_inputs", "fst_ws", "precip_mean_month", "temp_mean_month", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+
+
+
 glances(m2, m3, m4, m5, m6, m7, m8, m9, m10)
 
 # Which models are included in the table?
@@ -689,10 +702,14 @@ mods_auc <- sapply(m_list, function(mod){
   pROC::auc(aug_mod$MICX_DET, aug_mod$.fitted)
 })
 
+# Run loocv to get the bias and 
+micx_loocv <- do.call(rbind, lapply(m_list, loocv))
+
 # Put it all together into a table
 cy_res_table <- glances(m2, m3, m4, m5, m6, m7, m8, m9, m10) |>
   arrange(model) |>
-  select(model, n, p, npar, AIC, AICc, BIC) |>
+  # cbind(micx_loocv) |>
+  select(model, n, p, npar, AIC, AICc, BIC) |> # , bias, MSPE, RMSPE
   mutate(AUC = mods_auc) |>
   mutate(distinct_vars = dif_vars,
          common_vars = paste(com_vars, collapse = ", ")) |>
