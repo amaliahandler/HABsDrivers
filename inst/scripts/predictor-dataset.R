@@ -383,6 +383,9 @@ summary(wbd_copy$custom_area) # meters squared
 summary(wbd_copy$LakeArea)
 
 wbd_copy$custom_area <- drop_units(wbd_copy$custom_area)
+
+testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
+testtest$area <- st_area(testtest$Shape)
 testtest$area <- drop_units(testtest$area)
 
 lakes_bin <- function(lake_area) {
@@ -398,27 +401,93 @@ testtest$z <- lakes_bin(testtest$area)
 morph_it <- function(df, z){
   lake_elev <- get_elev_raster(df, z = z, prj = st_crs(df), expand = 100)
   lake_lm <- lakeSurroundTopo(df, lake_elev)
-  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.4)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
   data.frame(COMID = df$COMID, lake_maxdepth)
 }
 
+for (row in 1:nrow(wbd_reduc)) {
+  lake_elev <- get_elev_raster(wbd_reduc, z = wbd_reduc$z, prj = st_crs(wbd_copy), expand = 100)
+  lake_lm <- lakeSurroundTopo(wbd_reduc, lake_elev)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+  data.frame(COMID = depths$COMID, lake_maxdepth)
+}
 
 morph_it(testtest, testtest$z)
 
 wbd_copy$z <- unlist(as.numeric(lapply(wbd_copy$custom_area, lakes_bin)))
+summary(wbd_copy$z)
 
-morph_it <- function(df, com, z){
-  lake_com <- stats::filter(df, COMID %in% com)
-  lake_elev <- get_elev_raster(lake_com, z = z, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
-  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
-  data.frame(com, lake_maxdepth)
-}
+wbd_sim <- subset(wbd_copy, select = c(COMID, Shape, z))
+wbd_reduc <- wbd_sim[1:25,]
+
+# morph_it <- function(df, com, z){
+#   lake_com <- stats::filter(df, com == df$COMID)
+#   lake_elev <- get_elev_raster(lake_com, z = z, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
+#   lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+#   lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+#   data.frame(com, lake_maxdepth)
+# }
+
+test_depth <- morph_it(testtest, testtest$z)
 
 wbchunks <- split(wbd_copy$COMID, ceiling(seq_along(wbd_copy$COMID) / 10000))
 
-# depths <- do.call(rbind, lapply(wbd_copy, morph_it, wbd_copy$COMID, wbd_copy$z))
-depths <- apply(wbd_copy, 1, morph_it(wbd_copy, wbd_copy$COMID, wbd_copy$z))
+depths <- do.call(rbind, lapply(wbchunks, morph_it, wbd_copy$z))
+
+depths <- apply(wbd_copy, 1, morph_it(wbd_copy, wbd_copy$z))
+
+morph_it(wbd_sim, wbd_sim$z)
+
+depths <- mapply(morph_it, wbd_reduc, wbd_reduc$z)
+
+# computer
+
+all_results <- data.frame()
+
+for (row in 1:nrow(wbd_reduc)) {
+  lake_elev <- get_elev_raster(wbd_reduc, z = 10, prj = st_crs(wbd_copy), expand = 100)
+  lake_lm <- lakeSurroundTopo(wbd_reduc, lake_elev)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+  result <- data.frame(COMID = depths$COMID, lake_maxdepth)
+  all_results <- rbind(all_results, result)
+}
+
+print(all_results)
+
+# deep dive
+class(wbd_reduc)
+wbd_reduc <- as.data.frame(wbd_reduc)
+
+lake_elev <- get_elev_raster(wbd_reduc, z = 11, prj = st_crs(wbd_copy), expand = 100)
+
+# lake_elev <- do.call(rbind, lapply(wbd_reduc, get_elev_raster, z = wbd_reduc$z, prj = st_crs(wbd_copy), expand = 100))
+
+lake_lm <- lapply(wbd_reduc, lakeSurroundTopo(wbd_reduc, lake_elev))
+
+lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+
+result <- data.frame(COMID = depths$COMID, lake_maxdepth)
+
+all_results <- rbind(all_results, result)
+
+for (Shape in 1:length(wbd_reduc)) {
+  elev <- get_elev_raster(locations = coords, z = 10)
+} # literally why did this only pull DEM for THREE ROWS AHHHHHHHHH # ripping my hair out
+
+for (Shape in 1:length(wbd_reduc)) {
+  lake_lm <- lakeSurroundTopo(wbd_reduc, lake_elev)
+}
+
+elev <- mapply(get_elev_raster, polys,  z = 8)
+
+elev <- get_elev_raster(locations = polys, z = 10)
+
+polys <- subset(wbd_reduc, select = c(Shape))
+
+rm(polys, lake_elev, elev)
+
+coords <- st_centroid(polys)
+
 
 # Lake Fetch -------------------------------------------------------------------
 
@@ -432,7 +501,4 @@ fetch_it <- function(com, df){
   data.frame(com, lake_max_len)
 }
 
-fetch_all <- do.call(rbind, lapply(wbd_copy$COMID, fetch_it, wbd_copy))
-
-
-
+fetch_all <- do.call(rbind, mapply(wbd_copy$COMID, fetch_it, wbd_copy))
