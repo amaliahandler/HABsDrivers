@@ -640,7 +640,289 @@ lake_depth_df <- bind_rows(lake_depth)
 lake_depth_df
 morph_it(wbd_copy)
 
+# Lake Depth Testers with large and med lakes ----------------------------------
 
+# full lake set estimates
+# if LAGOSlakedepth & NHDLakeDepth are not equal to NA or hold a negative value
+# select this row
+# save to new df
+
+y_lake_depth <- data.frame(PredDataMas %>%
+                             filter(!is.na(LAGOSLakeDepth) & !is.na(NHDLakeDepth) &
+                                      LAGOSLakeDepth >= 0 & NHDLakeDepth >= 0))
+
+large_lakes <- y_lake_depth %>%
+  filter(LAGOSLakeDepth >= 75 & NHDLakeDepth >= 75)
+L_COMID <- large_lakes$COMID
+
+large_lakes <- subset(wbd, COMID %in% L_COMID)
+
+large_lake_depth <- do.call(rbind, lapply(L_COMID, morph_it, large_lakes))
+
+names(large_lake_depth)[names(large_lake_depth) == "lake_maxdepth"] <- "morpho_depth"
+names(large_lake_depth)[names(large_lake_depth) == "com"] <- "COMID"
+
+large_lakes <- merge(large_lake_depth, y_lake_depth, by = 'COMID')
+
+depth_overview <- subset(large_lakes, select = c(COMID, morpho_depth, LAGOSLakeDepth, NHDLakeDepth))
+
+summary(depth_overview)
+
+depth_overview$lake_indiv <- 1:15
+
+# line chart
+
+ggplot(depth_overview, aes(x = lake_indiv)) +
+
+  geom_point(aes(y = morpho_depth, fill = "Lake Morpho Depth"),
+             color = "chartreuse4", stat = "identity") +
+
+  geom_point(aes(y = NHDLakeDepth, fill = "NHD Lake Depth"),
+             color = "darkmagenta", stat = "identity") +
+
+  geom_point(aes(y = LAGOSLakeDepth, fill = "Measured Depth"),
+             color = "black", stat = "identity") +
+
+  labs(y = "Estimated Depth (m)", x = "Individual Lake", fill = "Legend")
+
+# bar chart
+
+ggplot(depth_overview, aes(x = lake_indiv)) +
+
+  geom_bar(aes(y = morpho_depth, fill = "Lake Morpho Depth"),
+           color = "darkolivegreen3", stat = "identity", position = "stack") +
+
+  geom_bar(aes(y = NHDLakeDepth, fill = "NHD Lake Depth"),
+           color = "darksalmon", stat = "identity", position = "stack") +
+
+  geom_bar(aes(y = LAGOSLakeDepth, fill = "Measured Depth"),
+           color = "black", stat = "identity", position = "stack", alpha = 0.4) +
+
+  labs(y = "Estimated Depth (m)", x = "Individual Lake", fill = "Legend",
+       title = "> 75m Deep Lakes Sample") +
+
+  scale_fill_manual(values = c("Lake Morpho Depth" = "darkolivegreen3",
+                               "NHD Lake Depth" = "darksalmon",
+                               "Measured Depth" = "black"))
+
+# Medium sized lakes
+
+med_lakes <- y_lake_depth %>%
+  filter(LAGOSLakeDepth >= 8 & LAGOSLakeDepth <= 15 & NHDLakeDepth >= 8 & NHDLakeDepth <= 15)
+med_lakes <- subset(wbd, COMID %in% med_lakes$COMID)
+
+# med_lakes <- sample_n(med_lakes, 15)
+med_lakes <- subset(med_lakes, COMID %in% c("724970", "1102366", "2267173", "2615482", "3594346", "4099949", "4854979", "6718825", "6742526", "12421133", "15457344", "15477543", "15509690", "24277309", "166766656"))
+
+med_lake_depth <- do.call(rbind, lapply(med_lakes$COMID, morph_it, med_lakes))
+
+names(med_lake_depth)[names(med_lake_depth) == "lake_maxdepth"] <- "morpho_depth"
+names(med_lake_depth)[names(med_lake_depth) == "com"] <- "COMID"
+
+med_lakes <- merge(med_lake_depth, y_lake_depth, by = 'COMID')
+
+med_depth_overview <- subset(med_lakes, select = c(COMID, morpho_depth, LAGOSLakeDepth, NHDLakeDepth))
+
+summary(med_depth_overview)
+
+med_depth_overview$lake_indiv = 1:15
+
+# med bar chart
+
+ggplot(med_depth_overview, aes(x = lake_indiv)) +
+
+  geom_bar(aes(y = morpho_depth, fill = "Lake Morpho Depth"),
+           color = "darkolivegreen3", stat = "identity", alpha = 0.5,
+           position = position_dodge2(preserve = 'total')) +
+
+  geom_bar(aes(y = NHDLakeDepth, fill = "NHD Lake Depth"),
+           color = "darksalmon", stat = "identity", alpha = 0.5,
+           position = position_dodge2(preserve = 'total')) +
+
+  geom_bar(aes(y = LAGOSLakeDepth, fill = "Measured Depth"),
+           color = "black", stat = "identity", alpha = 0.2,
+           position = position_dodge2(preserve = 'total')) +
+
+  labs(y = "Estimated Depth (m)", x = "Individual Lake", fill = "Legend",
+       title = "Medium Depth Lakes Sample, Between 8m and 15m") +
+
+  scale_fill_manual(values = c("Lake Morpho Depth" = "darkolivegreen3",
+                               "NHD Lake Depth" = "darksalmon",
+                               "Measured Depth" = "black"))
+
+# plotting differences MEDIUM DEPTH
+
+ggplot(med_depth_overview, aes(x = LAGOSLakeDepth, y = NHDLakeDepth)) +
+  geom_point(aes(fill = "NHD Depth"))  +
+  geom_abline(slope = 1, linetype = "dashed", color = "red") +
+  labs(y = "NHD Estimated Depth (m)", x = "LAGOS Measured Depth", fill = "Legend",
+       title = "NHD vs LAGOS Depths for Medium Sized Lakes Sample")
+
+morpho_med_model <- lm(LAGOSLakeDepth ~ morpho_depth, data = med_depth_overview)
+summary(morpho_med_model)
+
+plot(morpho_med_model)
+
+cor(med_depth_overview$LAGOSLakeDepth, med_depth_overview$morpho_depth,
+    method = "spearman", use = "pairwise.complete.obs")
+
+cor(med_depth_overview$LAGOSLakeDepth, med_depth_overview$NHDLakeDepth,
+    method = "spearman", use = "pairwise.complete.obs")
+
+ggplot(med_depth_overviLAGOSLakeDepthggplot(med_depth_overview, aes(x = LAGOSLakeDepth, y = morpho_depth)) +
+         geom_point(aes(fill = "Lake Morpho Depth")) +
+         geom_abline(slope = 1, linetype = "dashed", color = "red")  +
+         labs(y = "LakeMorpho Estimated Depth (m)", x = "LAGOS Measured Depth", fill = "Legend",
+              title = "LakeMorpho vs LAGOS Depths for Medium Sized Lakes Sample"))
+
+
+# plotting differences DEEP LAKES
+
+ggplot(depth_overview, aes(x = LAGOSLakeDepth, y = NHDLakeDepth)) +
+  geom_point(aes(fill = "NHD Depth"))  +
+  geom_abline(slope = 1, linetype = "dashed", color = "red") +
+  labs(y = "NHD Estimated Depth (m)", x = "LAGOS Measured Depth", fill = "Legend",
+       title = "NHD vs LAGOS Depths for High Depth Lakes Sample")
+
+ggplot(depth_overview, aes(x = LAGOSLakeDepth, y = morpho_depth)) +
+  geom_point(aes(fill = "Lake Morpho Depth")) +
+  geom_abline(slope = 1, linetype = "dashed", color = "red")  +
+  labs(y = "LakeMorpho Estimated Depth (m)", x = "LAGOS Measured Depth", fill = "Legend",
+       title = "LakeMorpho vs LAGOS Depths for High Depth Lakes Sample")
+
+cor(depth_overview$LAGOSLakeDepth, depth_overview$morpho_depth, method = "spearman", use = "pairwise.complete.obs")
+
+cor(depth_overview$LAGOSLakeDepth, depth_overview$NHDLakeDepth, method = "spearman", use = "pairwise.complete.obs")
+
+# could I make a full data filter to bucket small medium and large lakes?
+
+# THIS WORKED =========================
+COMID <- wbd_copy$COMID
+wbd_copy$z <- unlist(as.numeric(lapply(wbd_copy$custom_area, lakes_bin)))
+summary(wbd_copy$z)
+
+lake_depth <- do.call(rbind, lapply(COMID, morph_it_y, wbd_copy, wbd_copy$z))
+
+testtest$z <- lakes_bin(testtest$area)
+
+morph_it <- function(df, z){
+  lake_elev <- get_elev_raster(df, z = z, prj = st_crs(df), expand = 100)
+  #lake_lm <- lakeSurroundTopo(df, lake_elev)
+  #lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+  data.frame(COMID = df$COMID, lake_elev)
+}
+
+for (row in 1:nrow(wbd_reduc)) {
+  lake_elev <- get_elev_raster(wbd_reduc, z = wbd_reduc$z, prj = st_crs(wbd_copy), expand = 100)
+  lake_lm <- lakeSurroundTopo(wbd_reduc, lake_elev)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+  data.frame(COMID = depths$COMID, lake_maxdepth)
+}
+
+depth <- morph_it(testtest, testtest$z)
+
+
+
+
+wbd_sim <- subset(wbd_copy, select = c(COMID, Shape, z))
+wbd_reduc <- wbd_sim[1:25,]
+
+# morph_it <- function(df, com, z){
+#   lake_com <- stats::filter(df, com == df$COMID)
+#   lake_elev <- get_elev_raster(lake_com, z = z, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
+#   lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+#   lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+#   data.frame(com, lake_maxdepth)
+# }
+
+test_depth <- morph_it(testtest, testtest$z)
+
+wbchunks <- split(wbd_copy$COMID, ceiling(seq_along(wbd_copy$COMID) / 10000))
+
+depths <- do.call(rbind, lapply(wbchunks, morph_it, wbd_copy$z))
+
+depths <- apply(wbd_copy, 1, morph_it(wbd_copy, wbd_copy$z))
+
+morph_it(wbd_sim, wbd_sim$z)
+
+depths <- mapply(morph_it, wbd_reduc, wbd_reduc$z)
+
+# computer
+
+all_results <- data.frame()
+
+depth_please <- function(df){
+  for (row in 1:nrow(wbd_reduc)) {
+    lake_elev <- get_elev_raster(wbd_reduc, z = 10, prj = st_crs(wbd_copy), expand = 100)
+    lake_lm <- lakeSurroundTopo(wbd_reduc, lake_elev)
+    lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+    result <- data.frame(COMID = depths$COMID, lake_maxdepth)
+    all_results <- rbind(all_results, result)
+  }
+}
+
+depth_please(wbd_reduc)
+
+print(all_results)
+
+# deep dive
+class(wbd_reduc)
+wbd_reduc <- as.data.frame(wbd_reduc)
+
+lake_elev <- get_elev_raster(wbd_reduc, z = 11, prj = st_crs(wbd_copy), expand = 100)
+
+# lake_elev <- do.call(rbind, lapply(wbd_reduc, get_elev_raster, z = wbd_reduc$z, prj = st_crs(wbd_copy), expand = 100))
+
+lake_lm <- lapply(wbd_reduc, lakeSurroundTopo(wbd_reduc, lake_elev))
+
+lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+
+result <- data.frame(COMID = depths$COMID, lake_maxdepth)
+
+all_results <- rbind(all_results, result)
+
+for (Shape in 1:length(wbd_reduc)) {
+  elev <- get_elev_raster(locations = coords, z = 10)
+} # literally why did this only pull DEM for THREE ROWS AHHHHHHHHH # ripping my hair out
+
+for (Shape in 1:length(wbd_reduc)) {
+  lake_lm <- lakeSurroundTopo(wbd_reduc, lake_elev)
+}
+
+elev <- mapply(get_elev_raster, polys,  z = 8)
+
+elev <- get_elev_raster(locations = polys, z = 10)
+
+polys <- subset(wbd_reduc, select = c(Shape))
+
+rm(polys, lake_elev, elev)
+
+coords <- st_centroid(polys)
+
+
+# Lake Area Creation -----------------------------------------------------------
+
+for (Shape in 1:length(wbd_copy)) {
+  shapes <- wbd_copy$Shape
+  wbd_copy$custom_area <- st_area(shapes)
+}
+
+summary(wbd_copy$custom_area) # meters squared
+summary(wbd_copy$LakeArea)
+
+wbd_copy$custom_area <- drop_units(wbd_copy$custom_area)
+
+testtest <- wbd[wbd$COMID == "15985627",] #confirmed high elevation
+testtest$area <- st_area(testtest$Shape)
+testtest$area <- drop_units(testtest$area)
+
+lakes_bin <- function(lake_area) {
+  if (lake_area > 400 & lake_area < 19990) {z <- 12}
+  else if (lake_area > 19991 & lake_area < 37901) {z <- 11}
+  else if (lake_area > 37901 & lake_area < 96911) {z <- 10}
+  else {z <- 9}
+  return(z)
+}
 
 
 
