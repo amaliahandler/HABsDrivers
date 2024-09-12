@@ -210,12 +210,17 @@ wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
 
 wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 
+# missing depth data frame
+mrs_depth <- wbd_copy[is.na(wbd_copy$MaxDepth) | wbd_copy$MaxDepth < 0 | wbd_copy$MaxDepth == 0,]
+mrs_depth <- subset(mrs_depth, select = c(COMID, Shape, z))
+
 # Lake Area Creation -----------------------------------------------------------
 
 for (Shape in 1:length(wbd_copy)) {
   shapes <- wbd_copy$Shape
   wbd_copy$custom_area <- st_area(shapes)
 }
+write.table()
 
 wbd_copy$custom_area <- drop_units(wbd_copy$custom_area)
 
@@ -234,18 +239,35 @@ summary(wbd_copy$z)
 
 # Lake Depth Data --------------------------------------------------------------
 
-morph_it <- function(com, df){
+depth_it <- function(com, df){
   lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 10, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
+  lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(df), expand = 100, override_size_check = TRUE)
   lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
   lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
-  data.frame(com, lake_elev)
+  data.frame(com, lake_maxdepth)
 }
+
+lake_elev <- do.call(rbind, lapply(COMID, elev_it, mrs_depth))
+
+morph_it <- function(com, df){
+  lake_com <- filter(df, COMID == com)
+  lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(df), expand = 100, override_size_check = TRUE)
+  #lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+}
+
+lake_morphs <- do.call(rbind, lapply(COMID, morph_it, mrs_depth))
+
+
+lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+lake_maxlen <- lakeMaxLength(lake_lm, pointDens = 50)
+
 
 elev_it <- function(com, df){
   lake_com <- filter(df, COMID == com)
   lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
 }
+lake_elev <- do.call(rbind, lapply(COMID, elev_it, mrs_depth))
+
 
 
 # THIS WORKED
@@ -262,7 +284,6 @@ lake_lm <- lapply(wbd_sm, lakeSurroundTopo, lake_elev)
 class(lake_elev)
 
 
-lake_elev <- do.call(rbind, lapply(COMID, elev_it, wbd_copy))
 
 
 # morph_it <- function(df, z){
