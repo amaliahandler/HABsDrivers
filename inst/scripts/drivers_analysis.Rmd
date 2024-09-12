@@ -581,13 +581,18 @@ Models for microcystin detection (presence/absence)
 # Use binary microcystin variable
 dep_var  <- "MICX_DET"
 
+# When running model comparison with an independent error model (no spatial covariance), setting the spcov_type = "none" will only reproduce the results of glm() when the nugget is set to near zero.
+
+spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
+
 run_micx <- function(mod_vars, int = NULL){
   spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
                 family = "binomial",
                 # Edited to use same set of observations for model comparison
                 data = habs_mod, # drop_na(habs, all_of(dep_var), all_of(mod_vars)),
                 spcov_type = "exponential",
-                estmethod = "ml",
+        estmethod = "reml",
+                # spcov_initial = spcov_init,
                 random = ~ DSGN_CYCLE + UNIQUE_ID,
                 local = T)
 }
@@ -622,6 +627,9 @@ micx8 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "tem
 # Try with dissolved N species
 micx9 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "AMMONIA_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
+# Try running with fixed range
+micx9a <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "AMMONIA_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+
 # Try with no spatial covariation
 micx10 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
@@ -641,8 +649,10 @@ micx11 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "dev_ws", "KffactWs", "BF
 
 # Filter to the same set of observations for model comparison
 habs_mod <- habs |>
-  select(MICX_DET, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, N_Total_Deposition, N_Surplus, p_farm_inputs, n_farm_inputs, fst_ws, wet_ws, KffactWs, RunoffWs, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
+  select(MICX_DET, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, n_dev_inputs, N_Total_Deposition, N_Surplus, p_farm_inputs, n_farm_inputs, fst_ws, wet_ws, KffactWs, RunoffWs, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
   drop_na()
+
+# Based on discussions with Mike, we decided that I would do an initial fixed effects model selection using glm() to compare model AUC/BIC. Then I would take the final set of 3-ish models and run with spatial covariance (est_method = "reml") and choose the final model based on AUC and RMSPE. 
 
 # Initial model
 m3 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
@@ -651,27 +661,40 @@ m3 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "Precip8110Ws", "Tmean811
 m2 <- run_micx(mod_vars = c("n_farm_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
 
 # Which climate data?
-m4 <- run_micx(mod_vars = c("n_farm_inputs", "fst_ws", "precip_mean_month", "temp_mean_month", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+m4 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "precip_mean_month", "temp_mean_month", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
 
 # Runoff or baseflow index?
-m5 <- run_micx(mod_vars = c("n_farm_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "RunoffWs", "AG_ECO3"), int = NULL)
+m5 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "RunoffWs", "AG_ECO3"), int = NULL)
 
 # Will another inventory variable fit in the model?
-m6 <- run_micx(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+m6 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
 
 m7 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
 
 m8 <- run_micx(mod_vars = c("p_farm_inputs", "N_Total_Deposition", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
 
 # Interactions
-m9 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "n_farm_inputs * MAXDEPTH")
+m9 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * MAXDEPTH")
 
-m10 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "n_farm_inputs * AG_ECO3")
+m10 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
 
+# Conclusion: Take m6, m10, and m9 to run as spatial models
 glances(m2, m3, m4, m5, m6, m7, m8, m9, m10)
+AUROC(m10)
+AUROC(m9)
+AUROC(m6)
+
+
+# Run with spatial covariance
+m6_sp <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+
+m9_sp <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * MAXDEPTH")
+
+m10_sp <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
 
 # Which models are included in the table?
-m_list <- list(m2, m3, m4, m5, m6, m7, m8, m9, m10)
+m_list <- list(m6_sp, m9_sp, m10_sp)
+# m_list <- list(m6, m9, m10)
 
 # Variables common to all models
 com_vars <- c("fst_ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
@@ -689,15 +712,24 @@ mods_auc <- sapply(m_list, function(mod){
   pROC::auc(aug_mod$MICX_DET, aug_mod$.fitted)
 })
 
+# Run loocv to get the bias and 
+micx_loocv <- do.call(rbind, lapply(m_list, loocv))
+
 # Put it all together into a table
-cy_res_table <- glances(m2, m3, m4, m5, m6, m7, m8, m9, m10) |>
+cy_res_table <- glances(m6_sp, m9_sp, m10_sp) |>
+  mutate(model = factor(model, levels = c("m6_sp", "m9_sp", "m10_sp"))) |>
   arrange(model) |>
-  select(model, n, p, npar, AIC, AICc, BIC) |>
+  cbind(micx_loocv) |>
+  select(model, n, p, npar, bias, MSPE, RMSPE, deviance) |> 
   mutate(AUC = mods_auc) |>
-  mutate(distinct_vars = dif_vars,
-         common_vars = paste(com_vars, collapse = ", ")) |>
-  arrange(BIC) |>
+  # mutate(distinct_vars = dif_vars,
+  #        common_vars = paste(com_vars, collapse = ", ")) |>
+  arrange(AUC) |>
   tibble()
+
+Sys.time()
+
+# Conclusion: m9 model is probably the best fit with an interaction between the p_farm_inputs and the lake depth. It was in the top 4 models based on AUC comparisison with independent models and had the lowest RMSPE when run with spatial correlation. Model m10 had the highest AUC, but also have slightly higher RMSPE. In reality, these models are all pretty close to each other in terms of performance. Mike recommends picking the one with the highest AUC since that is what folks tend to care about the model
 
 # The models do run when replace with the log-transformed N inputs. Guessing that the extreme values make the model difficult to fit.
 
