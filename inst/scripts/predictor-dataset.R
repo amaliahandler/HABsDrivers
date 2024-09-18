@@ -210,9 +210,6 @@ wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
 
 wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 
-# missing depth data frame
-mrs_depth <- wbd_copy[is.na(wbd_copy$MaxDepth) | wbd_copy$MaxDepth < 0 | wbd_copy$MaxDepth == 0,]
-mrs_depth <- subset(mrs_depth, select = c(COMID, Shape, z))
 
 # Lake Area Creation -----------------------------------------------------------
 
@@ -220,7 +217,6 @@ for (Shape in 1:length(wbd_copy)) {
   shapes <- wbd_copy$Shape
   wbd_copy$custom_area <- st_area(shapes)
 }
-write.table()
 
 wbd_copy$custom_area <- drop_units(wbd_copy$custom_area)
 
@@ -236,6 +232,15 @@ COMID <- wbd_copy$COMID
 wbd_copy$z <- unlist(as.numeric(lapply(wbd_copy$custom_area, lakes_bin)))
 summary(wbd_copy$z)
 
+# missing depth data frame
+mrs_depth <- wbd_copy[is.na(wbd_copy$MaxDepth) | wbd_copy$MaxDepth < 0 | wbd_copy$MaxDepth == 0,]
+mrs_depth <- subset(mrs_depth, select = c(COMID, Shape, z))
+
+# save(mrs_depth, file="missing_depths.rdata")
+#
+# load("missing-depths.rdata")
+
+
 
 # Lake Depth Data --------------------------------------------------------------
 
@@ -247,20 +252,22 @@ depth_it <- function(com, df){
   data.frame(com, lake_maxdepth)
 }
 
-lake_elev <- do.call(rbind, lapply(COMID, elev_it, mrs_depth))
+mrs_com <- mrs_depth$COMID
+
+# ===== remote
 
 morph_it <- function(com, df){
   lake_com <- filter(df, COMID == com)
   lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(df), expand = 100, override_size_check = TRUE)
-  #lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
 }
 
-lake_morphs <- do.call(rbind, lapply(COMID, morph_it, mrs_depth))
+lake_elev <- do.call(rbind, lapply(mrs_com, morph_it, mrs_depth))
 
+lake_maxdepth <- lakeMaxDepth(lake_elev, correctFactor = 0.6)
+lake_maxlen <- lakeMaxLength(lake_elev, pointDens = 50)
 
-lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
-lake_maxlen <- lakeMaxLength(lake_lm, pointDens = 50)
-
+# ======
 
 elev_it <- function(com, df){
   lake_com <- filter(df, COMID == com)
