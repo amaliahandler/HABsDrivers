@@ -100,13 +100,12 @@ nla_long <- nla_long %>%
   mutate(UNITS = case_when(ANALYTE == "TEMPERATURE" ~ "DEG_C",
                            ANALYTE == "MAXDEPTH" ~ "M",
                            ANALYTE == "STRATIFIED" ~ "Y/N_1/0",
-                           ANALYTE == "DO_SURF" ~ "DEG_C",
                            ANALYTE %in% c("PTL", "MICX", "CYLSPER") ~ "UG/L",
                            ANALYTE == "TURB" ~ "NTU",
                            ANALYTE == "B_G_DENS" ~ "CELLS/ML",
                            ANALYTE %in% c("BG_BIOVOL", "PHYT_BIOVOL") ~ "UM3/ML",
                            ANALYTE == "PH" ~ "STD_UNITS",
-                           ANALYTE %in% c("AMMONIA_N", "DOC", "NTL", "NITRATE_N", "CHLA_RESULT") ~ "MG/L"))
+                           ANALYTE %in% c("DO_SURF", "AMMONIA_N", "DOC", "NTL", "NITRATE_N", "CHLA_RESULT") ~ "MG/L"))
 
 # Performing checks for missing data
 
