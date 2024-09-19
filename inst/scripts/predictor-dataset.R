@@ -256,13 +256,35 @@ mrs_com <- mrs_depth$COMID
 
 # ===== remote
 
+library(devtools)
+library(dplyr)
+library(stars)
+install.packages('nhdplusTools')
+library(nhdplusTools)
+library(tidyverse)
+library(tidyr)
+library(sf)
+library(ggplot2)
+install.packages('spmodel')
+library(spmodel)
+install.packages('elevatr')
+library(elevatr)
+install.packages('lakemorpho')
+library(lakemorpho)
+library(raster)
+install.packages("future.apply")
+library(future.apply)
+
+
 morph_it <- function(com, df){
   lake_com <- filter(df, COMID == com)
   lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(df), expand = 100, override_size_check = TRUE)
   lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
 }
 
-lake_elev <- do.call(rbind, lapply(mrs_com, morph_it, mrs_depth))
+lake_chunks <- split(mrs_depth$COMID, ceiling(seq_along(mrs_depthCOMID) / 1000))
+
+lake_elev <- do.call(rbind, future_lapply(mrs_com, morph_it, mrs_depth))
 
 lake_maxdepth <- lakeMaxDepth(lake_elev, correctFactor = 0.6)
 lake_maxlen <- lakeMaxLength(lake_elev, pointDens = 50)
@@ -327,6 +349,68 @@ fetch_all <- do.call(rbind, mapply(wbd_copy$COMID, fetch_it, wbd_copy))
 
 PredDataMas <- subset(PredDataMas, select = -c(US_L4CODE, US_L4NAME, US_L3CODE, US_L3NAME, NA_L3CODE, NA_L3NAME,
                                                NA_L2CODE, NA_L2NAME, NA_L1CODE, NA_L1NAME, nla07_sf, nla12_sf, nla17_sf))
+
+
+# Nutrient Data Farm -----------------------------------------------------------
+
+nutr_01 <- read.csv('O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region01.csv')
+nutr_02 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region02.csv")
+nutr_03N <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region03N.csv")
+nutr_03S <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region03S.csv")
+nutr_03W <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region03W.csv")
+nutr_04 <- read.csv('O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region04.csv')
+nutr_05 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region05.csv")
+nutr_06 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region06.csv")
+nutr_07 <- read.csv('O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region07.csv')
+nutr_08 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region08.csv")
+nutr_09 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region09.csv")
+nutr_10L <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region10L.csv")
+nutr_10U <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region10U.csv")
+nutr_11 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region11.csv")
+nutr_12 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region12.csv")
+nutr_13 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region13.csv")
+nutr_14 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region14.csv")
+nutr_15 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region15.csv")
+nutr_16 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region16.csv")
+nutr_17 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region17.csv")
+nutr_18 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region18.csv")
+
+nutrMas <- nutr_01 %>%
+  bind_rows(nutr_02) %>%
+  bind_rows(nutr_03N) %>%
+  bind_rows(nutr_03S) %>%
+  bind_rows(nutr_03W) %>%
+  bind_rows(nutr_04) %>%
+  bind_rows(nutr_05) %>%
+  bind_rows(nutr_06) %>%
+  bind_rows(nutr_07) %>%
+  bind_rows(nutr_08) %>%
+  bind_rows(nutr_09) %>%
+  bind_rows(nutr_10L) %>%
+  bind_rows(nutr_10U) %>%
+  bind_rows(nutr_11) %>%
+  bind_rows(nutr_12) %>%
+  bind_rows(nutr_13) %>%
+  bind_rows(nutr_14) %>%
+  bind_rows(nutr_15) %>%
+  bind_rows(nutr_16) %>%
+  bind_rows(nutr_17) %>%
+  bind_rows(nutr_18)
+
+print(which(nutrMas$COMID == "487"))
+
+nutrMas <- nutrMas %>% dplyr::select(-contains(c('Cat')))
+unique(colnames(nutrMas))
+
+nutrMas$N_livestock.Waste_kg_Ag <- rowMeans(nutrMas[,c('N_Livestock.Waste_kg_Ag_2002Ws', 'N_Livestock.Waste_kg_Ag_2007Ws', 'N_Livestock.Waste_kg_Ag_2012Ws')], na.rm = TRUE)
+
+nutrMas$P_livestock_Waste_kg_Ag <- rowMeans(nutrMas[,c('P_livestock_Waste_kg_Ag_2002Ws', 'P_livestock_Waste_kg_Ag_2007Ws', 'P_livestock_Waste_kg_Ag_2012Ws')], na.rm = TRUE)
+
+nutrMas$P_livestock_Waste_kg_Ag <- rowMeans(nutrMas[,c('P_livestock_Waste_kg_Ag_2002Ws', 'P_livestock_Waste_kg_Ag_2007Ws', 'P_livestock_Waste_kg_Ag_2012Ws')], na.rm = TRUE)
+
+
+nutrMas$P_f_fertilizer_kg_Ag <- rowMeans(nutrMas[, grepl('P_f_fertilizer_kg_Ag_20', names(nutrMas))], na.rm = TRUE)
+
 
 
 
