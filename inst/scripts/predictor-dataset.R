@@ -284,11 +284,62 @@ install.packages("future.apply")
 library(future.apply)
 
 
+wbd_mini <- wbd_copy[1,]
+com_mini <- wbd_mini$COMID
+
 morph_it <- function(com, df){
   lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(df), expand = 100, override_size_check = TRUE)
+  lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
   lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
+  lake_max_len <- lakeMaxLength(lake_lm, pointDens = 50)
+  output <- data.frame(com, lake_depth = lake_maxdepth, lake_fetch = lake_max_len)
+  saveRDS(output, file = paste0('lake_metrics_', com, ".rds"))
+  return(output)
 }
+
+depth <- morph_it(com_mini, wbd_mini)
+
+##############
+
+morph_it <- function(com, df) {
+  for(i in seq_along(df)) {
+    lake_com <- filter(df, COMID == com)
+    lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(df), expand = 100, override_size_check = TRUE)
+    lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+    save(list = df[i], file = paste0(df[i], ".RData"))
+  }
+}
+
+morph_it <- function(com, df) {
+  for(i in seq_along(df)) {
+    lake_com <- filter(df, COMID == com)
+    lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(df), expand = 100, override_size_check = TRUE)
+    lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+    save(list = df[i], file = paste0(df[i], ".RData"))
+  }
+}
+
+
+
+flw <- vector("list", length(wbd_mini))
+
+morph_it <- function(com, df) {
+  for(i in seq_along(df)) {
+    lake_com <- filter(df, COMID == com)
+    lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(df), expand = 100, override_size_check = TRUE)
+    lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+  saveRDS(flw[[i]], file = paste0(df[i], "file.rds"))
+  cat("*")
+  }
+}
+
+depth <- do.call(rbind, lapply(com_mini, morph_it, wbd_mini))
+
+depth <- morph_it(com_mini, wbd_mini)
+
+##############
+
 
 lake_chunks <- split(mrs_depth$COMID, ceiling(seq_along(mrs_depthCOMID) / 1000))
 
@@ -395,7 +446,7 @@ nutrMas$P_f_fertilizer_kg_Ag <- rowMeans(nutrMas[,c('P_f_fertilizer_kg_Ag_2002Ws
 nutrMas <- subset(nutrMas, select = -c(P_f_fertilizer_kg_Ag_2002Ws, P_f_fertilizer_kg_Ag_2007Ws, P_f_fertilizer_kg_Ag_2012Ws))
 
 # N human waste
-nutrMas$N_Human |> N_Human_Waste_kg_Urb <- rowMeans(nutrMas[,c('N_Human_Waste_kg_Urb_2002Ws', 'N_Human_Waste_kg_Urb_2007Ws', 'N_Human_Waste_kg_Urb_2012Ws')], na.rm = TRUE)
+nutrMas$N_Human_Waste_kg_Urb <- rowMeans(nutrMas[,c('N_Human_Waste_kg_Urb_2002Ws', 'N_Human_Waste_kg_Urb_2007Ws', 'N_Human_Waste_kg_Urb_2012Ws')], na.rm = TRUE)
 nutrMas <- subset(nutrMas, select = -c(N_Human_Waste_kg_Urb_2002Ws, N_Human_Waste_kg_Urb_2007Ws, N_Human_Waste_kg_Urb_2012Ws))
 
 # P human waste
@@ -431,8 +482,32 @@ names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
 
 
 
+# Depth fr =====================================================================
 
 
+get_morpho_obj <- function(com, df){
+  lake_com <- filter(df, COMID == com)
+  lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
+  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+  saveRDS(lake_lm, file = paste0('./private/lake_morpho_objects/lake_morpho_', com, ".rds"))
+}
+
+depths <- lapply(mrs_com, get_morpho_obj, mrs_depth)
+
+# load files from folder
+data_dir <- "./private/lake_morpho_objects/"
+files <- fs::dir_ls(data_dir, regexp = "\\.rds$")
+
+morph_it <- function(file_name){
+  morpho_obj <- readRDS(file_name)
+  max_depth <- lakeMaxDepth(morpho_obj, correctFactor = 0.6)
+  lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
+  COMID <- morpho_obj$lake$COMID
+  output <- data.frame(COMID = COMID, depth = max_depth, fetch = lake_fetch)
+  saveRDS(output, file = paste0('./private/metrics/lake_metric', COMID, ".rds"))
+}
+
+lapply(files, morph_it)
 
 
 
