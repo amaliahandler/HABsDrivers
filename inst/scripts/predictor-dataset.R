@@ -3,6 +3,8 @@
 # install.packages("elevatr")
 # install.packages("raster")
 # install_github("USEPA/StreamCatTools", build_vignettes=FALSE, auth_token= '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', force = TRUE)
+install.packages('fs')
+install.packages("readr")
 
 library(devtools)
 library(dplyr)
@@ -21,6 +23,8 @@ library(raster)
 library(corrplot)
 library(remotes)
 library(units)
+library(fs)
+library(readr)
 
 # Load nutrient data pulled from Meredith Brehob and Robert Sabo
 # 2007 and 2012 data
@@ -347,70 +351,62 @@ fetch_all <- do.call(rbind, mapply(wbd_copy$COMID, fetch_it, wbd_copy))
 
 # Tidying ----------------------------------------------------------------------
 
+# remove unnecessary eco-regions data
 PredDataMas <- subset(PredDataMas, select = -c(US_L4CODE, US_L4NAME, US_L3CODE, US_L3NAME, NA_L3CODE, NA_L3NAME,
                                                NA_L2CODE, NA_L2NAME, NA_L1CODE, NA_L1NAME, nla07_sf, nla12_sf, nla17_sf))
 
 
-# Nutrient Data Farm -----------------------------------------------------------
+# Nutrient Data Compiling -----------------------------------------------------------
 
-nutr_01 <- read.csv('O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region01.csv')
-nutr_02 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region02.csv")
-nutr_03N <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region03N.csv")
-nutr_03S <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region03S.csv")
-nutr_03W <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region03W.csv")
-nutr_04 <- read.csv('O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region04.csv')
-nutr_05 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region05.csv")
-nutr_06 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region06.csv")
-nutr_07 <- read.csv('O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region07.csv')
-nutr_08 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region08.csv")
-nutr_09 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region09.csv")
-nutr_10L <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region10L.csv")
-nutr_10U <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region10U.csv")
-nutr_11 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region11.csv")
-nutr_12 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region12.csv")
-nutr_13 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region13.csv")
-nutr_14 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region14.csv")
-nutr_15 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region15.csv")
-nutr_16 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region16.csv")
-nutr_17 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region17.csv")
-nutr_18 <- read.csv("O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/LakeCat_Nutrients_Region18.csv")
+# load files from folder
+data_dir <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/"
+csv_files <- fs::dir_ls(data_dir)
 
-nutrMas <- nutr_01 %>%
-  bind_rows(nutr_02) %>%
-  bind_rows(nutr_03N) %>%
-  bind_rows(nutr_03S) %>%
-  bind_rows(nutr_03W) %>%
-  bind_rows(nutr_04) %>%
-  bind_rows(nutr_05) %>%
-  bind_rows(nutr_06) %>%
-  bind_rows(nutr_07) %>%
-  bind_rows(nutr_08) %>%
-  bind_rows(nutr_09) %>%
-  bind_rows(nutr_10L) %>%
-  bind_rows(nutr_10U) %>%
-  bind_rows(nutr_11) %>%
-  bind_rows(nutr_12) %>%
-  bind_rows(nutr_13) %>%
-  bind_rows(nutr_14) %>%
-  bind_rows(nutr_15) %>%
-  bind_rows(nutr_16) %>%
-  bind_rows(nutr_17) %>%
-  bind_rows(nutr_18)
+# compile files into a single data frame
+nutrMas <- csv_files %>%
+  map_dfr(read_csv)
 
+# ensure there's no repetition
 print(which(nutrMas$COMID == "487"))
 
+# remove unnecessary columns
 nutrMas <- nutrMas %>% dplyr::select(-contains(c('Cat')))
-unique(colnames(nutrMas))
 
+# aggregate nutrients across years
+
+# N livestock waste
 nutrMas$N_livestock.Waste_kg_Ag <- rowMeans(nutrMas[,c('N_Livestock.Waste_kg_Ag_2002Ws', 'N_Livestock.Waste_kg_Ag_2007Ws', 'N_Livestock.Waste_kg_Ag_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(N_Livestock.Waste_kg_Ag_2002Ws, N_Livestock.Waste_kg_Ag_2007Ws, N_Livestock.Waste_kg_Ag_2012Ws))
 
+# P livestock waste
 nutrMas$P_livestock_Waste_kg_Ag <- rowMeans(nutrMas[,c('P_livestock_Waste_kg_Ag_2002Ws', 'P_livestock_Waste_kg_Ag_2007Ws', 'P_livestock_Waste_kg_Ag_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(P_livestock_Waste_kg_Ag_2002Ws, P_livestock_Waste_kg_Ag_2007Ws, P_livestock_Waste_kg_Ag_2012Ws))
 
-nutrMas$P_livestock_Waste_kg_Ag <- rowMeans(nutrMas[,c('P_livestock_Waste_kg_Ag_2002Ws', 'P_livestock_Waste_kg_Ag_2007Ws', 'P_livestock_Waste_kg_Ag_2012Ws')], na.rm = TRUE)
+# P ag fertilizer
+nutrMas$P_f_fertilizer_kg_Ag <- rowMeans(nutrMas[,c('P_f_fertilizer_kg_Ag_2002Ws', 'P_f_fertilizer_kg_Ag_2007Ws', 'P_f_fertilizer_kg_Ag_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(P_f_fertilizer_kg_Ag_2002Ws, P_f_fertilizer_kg_Ag_2007Ws, P_f_fertilizer_kg_Ag_2012Ws))
 
+# N human waste
+nutrMas$N_Human_Waste_kg_Urb <- rowMeans(nutrMas[,c('N_Human_Waste_kg_Urb_2002Ws', 'N_Human_Waste_kg_Urb_2007Ws', 'N_Human_Waste_kg_Urb_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(N_Human_Waste_kg_Urb_2002Ws, N_Human_Waste_kg_Urb_2007Ws, N_Human_Waste_kg_Urb_2012Ws))
 
-nutrMas$P_f_fertilizer_kg_Ag <- rowMeans(nutrMas[, grepl('P_f_fertilizer_kg_Ag_20', names(nutrMas))], na.rm = TRUE)
+# P human waste
+nutrMas$P_Human_Waste_kg_Urb <- rowMeans(nutrMas[,c('P_human_waste_kg_Urb_2002Ws', 'P_human_waste_kg_Urb_2007Ws', 'P_human_waste_kg_Urb_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(P_human_waste_kg_Urb_2002Ws, P_human_waste_kg_Urb_2007Ws, P_human_waste_kg_Urb_2012Ws))
 
+# N urban fertilizer
+nutrMas$N_Fert_Urban_kg_Urb <- rowMeans(nutrMas[,c('N_Fert_Urban_kg_Urb_2002Ws', 'N_Fert_Urban_kg_Urb_2007Ws', 'N_Fert_Urban_kg_Urb_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(N_Fert_Urban_kg_Urb_2002Ws, N_Fert_Urban_kg_Urb_2007Ws, N_Fert_Urban_kg_Urb_2012Ws))
 
+# P not from fertilizer
+nutrMas$P_nf_fertilizer_kg_Urb <- rowMeans(nutrMas[,c('P_nf_fertilizer_kg_Urb_2002Ws', 'P_nf_fertilizer_kg_Urb_2007Ws', 'P_nf_fertilizer_kg_Urb_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(P_nf_fertilizer_kg_Urb_2002Ws, P_nf_fertilizer_kg_Urb_2007Ws, P_nf_fertilizer_kg_Urb_2012Ws))
 
+# rename CBNF variable
+names(nutrMas)[names(nutrMas) == 'N_CBNF_kg_Ag_2002Ws'] <- 'N_CBNF_kg_Ag'
 
+# check all column names
+colnames(nutrMas)
+
+# combine nutrient data with main predictor data set
+PredDataMas <- merge(PredDataMas, nutrMas, by = 'COMID')
