@@ -45,15 +45,15 @@ verify <- function(df){
 
 # Visually cleaner way to bind rows, more reproducible
 combines <- function(x, y, z){
-  x %>%
-    bind_rows(y) %>%
+  x |>
+    bind_rows(y) |>
     bind_rows(z)
 }
 
 # Aggregating and averaging data across binded data sets
 mean_group <- function(df){
-  df %>%
-    group_by(across(wbCOMID)) %>%
+  df |>
+    group_by(across(wbCOMID)) |>
     summarise(across(where(is.numeric), mean))
 }
 
@@ -81,7 +81,7 @@ verify(PredData2012)
 
 # Create the Master Dataset ------------------------------------------------
 
-PredDataMas <- PredData2007 %>%
+PredDataMas <- PredData2007 |>
   bind_rows(PredData2012)
 verify(PredDataMas)
 
@@ -209,7 +209,7 @@ PredDataMas$wet_ws <- PredDataMas$PCTWDWET2016WS + PredDataMas$PCTHBWET2016WS
 
 loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
 
-wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") %>%
+wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") |>
   st_transform(5072)
 
 wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
@@ -363,14 +363,14 @@ data_dir <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaH
 csv_files <- fs::dir_ls(data_dir)
 
 # compile files into a single data frame
-nutrMas <- csv_files %>%
+nutrMas <- csv_files |>
   map_dfr(read_csv)
 
 # ensure there's no repetition
 print(which(nutrMas$COMID == "487"))
 
 # remove unnecessary columns
-nutrMas <- nutrMas %>% dplyr::select(-contains(c('Cat')))
+nutrMas <- nutrMas |> dplyr::select(-contains(c('Cat')))
 
 # aggregate nutrients across years
 
@@ -387,7 +387,7 @@ nutrMas$P_f_fertilizer_kg_Ag <- rowMeans(nutrMas[,c('P_f_fertilizer_kg_Ag_2002Ws
 nutrMas <- subset(nutrMas, select = -c(P_f_fertilizer_kg_Ag_2002Ws, P_f_fertilizer_kg_Ag_2007Ws, P_f_fertilizer_kg_Ag_2012Ws))
 
 # N human waste
-nutrMas$N_Human_Waste_kg_Urb <- rowMeans(nutrMas[,c('N_Human_Waste_kg_Urb_2002Ws', 'N_Human_Waste_kg_Urb_2007Ws', 'N_Human_Waste_kg_Urb_2012Ws')], na.rm = TRUE)
+nutrMas$N_Human |> N_Human_Waste_kg_Urb <- rowMeans(nutrMas[,c('N_Human_Waste_kg_Urb_2002Ws', 'N_Human_Waste_kg_Urb_2007Ws', 'N_Human_Waste_kg_Urb_2012Ws')], na.rm = TRUE)
 nutrMas <- subset(nutrMas, select = -c(N_Human_Waste_kg_Urb_2002Ws, N_Human_Waste_kg_Urb_2007Ws, N_Human_Waste_kg_Urb_2012Ws))
 
 # P human waste
