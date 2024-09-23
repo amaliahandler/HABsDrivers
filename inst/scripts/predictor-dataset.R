@@ -131,8 +131,8 @@ PredDataMas <- merge(PredDataMas, eco3, by = 'COMID')
 # Renaming variables for the merge
 names(PredDataMas)[names(PredDataMas) == "BFIWs"] <- "BFIWs.Nutr" # BFIWs 2007-2012 data compiled
 
-# Remove excess column
-PredDataMas = subset(PredDataMas, select = -c(X))
+# Remove excess columns
+PredDataMas = subset(PredDataMas, select = -c(Shape_Leng, Shape_Area, X))
 
 colnames(PredDataMas)
 
@@ -214,6 +214,10 @@ wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") |>
 
 wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 
+# clean wbd_copy by removing excess variables
+wbd_copy <- subset(wbd_copy, select = c(COMID, ELEVATION, ONOFFNET, MeanDepth, LakeVolume, MaxDepth, LakeArea, Shape))
+
+PredDataMas <- merge(PredDataMas, wbd_copy, by = 'COMID')
 
 # Lake Area Creation -----------------------------------------------------------
 
@@ -317,8 +321,6 @@ lake_lm <- lapply(wbd_sm, lakeSurroundTopo, lake_elev)
 class(lake_elev)
 
 
-
-
 # morph_it <- function(df, z){
 #   lake_elev <- get_elev_raster(df, z = z, prj = st_crs(df), expand = 100)
 #   #lake_lm <- lakeSurroundTopo(df, lake_elev)
@@ -332,8 +334,6 @@ class(lake_elev)
 #   lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
 #   data.frame(COMID = depths$COMID, lake_maxdepth)
 # }
-
-
 
 # Lake Fetch -------------------------------------------------------------------
 
@@ -355,6 +355,14 @@ fetch_all <- do.call(rbind, mapply(wbd_copy$COMID, fetch_it, wbd_copy))
 PredDataMas <- subset(PredDataMas, select = -c(US_L4CODE, US_L4NAME, US_L3CODE, US_L3NAME, NA_L3CODE, NA_L3NAME,
                                                NA_L2CODE, NA_L2NAME, NA_L1CODE, NA_L1NAME, nla07_sf, nla12_sf, nla17_sf))
 
+# remove all varibales that contain Cat from Pred Data mas
+
+PredDataMas <- PredDataMas |> dplyr::select(-contains(c('Cat')))
+
+# remove excess land cover variables
+PredDataMas <- subset(PredDataMas, select = -c(PCTURBOP2016WS, PCTHBWET2016WS, PCTWDWET2016WS, PCTURBLO2016WS,
+                                               PCTURBMD2016WS, PCTMXFST2016WS, PCTHAY2016WS, PCTDECID2016WS,
+                                               PCTURBHI2016WS, PCTCONIF2016WS, PCTCROP2016WS))
 
 # Nutrient Data Compiling -----------------------------------------------------------
 
@@ -402,11 +410,39 @@ nutrMas <- subset(nutrMas, select = -c(N_Fert_Urban_kg_Urb_2002Ws, N_Fert_Urban_
 nutrMas$P_nf_fertilizer_kg_Urb <- rowMeans(nutrMas[,c('P_nf_fertilizer_kg_Urb_2002Ws', 'P_nf_fertilizer_kg_Urb_2007Ws', 'P_nf_fertilizer_kg_Urb_2012Ws')], na.rm = TRUE)
 nutrMas <- subset(nutrMas, select = -c(P_nf_fertilizer_kg_Urb_2002Ws, P_nf_fertilizer_kg_Urb_2007Ws, P_nf_fertilizer_kg_Urb_2012Ws))
 
-# rename CBNF variable
-names(nutrMas)[names(nutrMas) == 'N_CBNF_kg_Ag_2002Ws'] <- 'N_CBNF_kg_Ag'
-
 # check all column names
 colnames(nutrMas)
 
 # combine nutrient data with main predictor data set
 PredDataMas <- merge(PredDataMas, nutrMas, by = 'COMID')
+
+# check column names post-merge
+colnames(PredDataMas)
+
+# aggregate CBNF variable
+# I have no idea what the variable ...1 is so I'm removing it too
+PredDataMas$N_CBNF_kg_Ag <- (PredDataMas$N_CBNF_kg_Ag_2002Ws + PredDataMas$N_CBNF_2007) / 2
+PredDataMas <- subset(PredDataMas, select = -c(N_CBNF_2007, N_CBNF_kg_Ag_2002Ws, ...1))
+
+# remove WsAreaSqKm.y and rename WsAreaSqKm.x <- WsAreaSqKm
+
+PredDataMas <- subset(PredDataMas, select = -c(WsAreaSqKm.y))
+names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
