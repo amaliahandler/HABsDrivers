@@ -484,6 +484,24 @@ names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
 
 # Depth fr =====================================================================
 
+library(devtools)
+library(dplyr)
+library(stars)
+install.packages('nhdplusTools')
+library(nhdplusTools)
+library(tidyverse)
+library(tidyr)
+library(sf)
+library(ggplot2)
+install.packages('spmodel')
+library(spmodel)
+install.packages('elevatr')
+library(elevatr)
+install.packages('lakemorpho')
+library(lakemorpho)
+library(raster)
+install.packages("future.apply")
+library(future.apply)
 
 get_morpho_obj <- function(com, df){
   lake_com <- filter(df, COMID == com)
