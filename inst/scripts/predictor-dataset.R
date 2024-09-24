@@ -219,6 +219,134 @@ wbd_copy <- subset(wbd_copy, select = c(COMID, ELEVATION, ONOFFNET, MeanDepth, L
 
 PredDataMas <- merge(PredDataMas, wbd_copy, by = 'COMID')
 
+# Tidying ----------------------------------------------------------------------
+
+# remove unnecessary eco-regions data
+PredDataMas <- subset(PredDataMas, select = -c(US_L4CODE, US_L4NAME, US_L3CODE, US_L3NAME, NA_L3CODE, NA_L3NAME,
+                                               NA_L2CODE, NA_L2NAME, NA_L1CODE, NA_L1NAME, nla07_sf, nla12_sf, nla17_sf))
+
+# remove all varibales that contain Cat from Pred Data mas
+
+PredDataMas <- PredDataMas |> dplyr::select(-contains(c('Cat')))
+
+# remove excess land cover variables
+PredDataMas <- subset(PredDataMas, select = -c(PCTURBOP2016WS, PCTHBWET2016WS, PCTWDWET2016WS, PCTURBLO2016WS,
+                                               PCTURBMD2016WS, PCTMXFST2016WS, PCTHAY2016WS, PCTDECID2016WS,
+                                               PCTURBHI2016WS, PCTCONIF2016WS, PCTCROP2016WS))
+
+# Nutrient Data Compiling -----------------------------------------------------------
+
+# load files from folder
+data_dir <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/"
+csv_files <- fs::dir_ls(data_dir)
+
+# compile files into a single data frame
+nutrMas <- csv_files |>
+  map_dfr(read_csv)
+
+# ensure there's no repetition
+print(which(nutrMas$COMID == "487"))
+
+# remove unnecessary columns
+nutrMas <- nutrMas |> dplyr::select(-contains(c('Cat')))
+
+# aggregate nutrients across years
+
+# N livestock waste
+nutrMas$N_livestock.Waste_kg_Ag <- rowMeans(nutrMas[,c('N_Livestock.Waste_kg_Ag_2002Ws', 'N_Livestock.Waste_kg_Ag_2007Ws', 'N_Livestock.Waste_kg_Ag_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(N_Livestock.Waste_kg_Ag_2002Ws, N_Livestock.Waste_kg_Ag_2007Ws, N_Livestock.Waste_kg_Ag_2012Ws))
+
+# P livestock waste
+nutrMas$P_livestock_Waste_kg_Ag <- rowMeans(nutrMas[,c('P_livestock_Waste_kg_Ag_2002Ws', 'P_livestock_Waste_kg_Ag_2007Ws', 'P_livestock_Waste_kg_Ag_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(P_livestock_Waste_kg_Ag_2002Ws, P_livestock_Waste_kg_Ag_2007Ws, P_livestock_Waste_kg_Ag_2012Ws))
+
+# P ag fertilizer
+nutrMas$P_f_fertilizer_kg_Ag <- rowMeans(nutrMas[,c('P_f_fertilizer_kg_Ag_2002Ws', 'P_f_fertilizer_kg_Ag_2007Ws', 'P_f_fertilizer_kg_Ag_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(P_f_fertilizer_kg_Ag_2002Ws, P_f_fertilizer_kg_Ag_2007Ws, P_f_fertilizer_kg_Ag_2012Ws))
+
+# N human waste
+nutrMas$N_Human_Waste_kg_Urb <- rowMeans(nutrMas[,c('N_Human_Waste_kg_Urb_2002Ws', 'N_Human_Waste_kg_Urb_2007Ws', 'N_Human_Waste_kg_Urb_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(N_Human_Waste_kg_Urb_2002Ws, N_Human_Waste_kg_Urb_2007Ws, N_Human_Waste_kg_Urb_2012Ws))
+
+# P human waste
+nutrMas$P_Human_Waste_kg_Urb <- rowMeans(nutrMas[,c('P_human_waste_kg_Urb_2002Ws', 'P_human_waste_kg_Urb_2007Ws', 'P_human_waste_kg_Urb_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(P_human_waste_kg_Urb_2002Ws, P_human_waste_kg_Urb_2007Ws, P_human_waste_kg_Urb_2012Ws))
+
+# N urban fertilizer
+nutrMas$N_Fert_Urban_kg_Urb <- rowMeans(nutrMas[,c('N_Fert_Urban_kg_Urb_2002Ws', 'N_Fert_Urban_kg_Urb_2007Ws', 'N_Fert_Urban_kg_Urb_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(N_Fert_Urban_kg_Urb_2002Ws, N_Fert_Urban_kg_Urb_2007Ws, N_Fert_Urban_kg_Urb_2012Ws))
+
+# P not from fertilizer
+nutrMas$P_nf_fertilizer_kg_Urb <- rowMeans(nutrMas[,c('P_nf_fertilizer_kg_Urb_2002Ws', 'P_nf_fertilizer_kg_Urb_2007Ws', 'P_nf_fertilizer_kg_Urb_2012Ws')], na.rm = TRUE)
+nutrMas <- subset(nutrMas, select = -c(P_nf_fertilizer_kg_Urb_2002Ws, P_nf_fertilizer_kg_Urb_2007Ws, P_nf_fertilizer_kg_Urb_2012Ws))
+
+# check all column names
+colnames(nutrMas)
+
+# combine nutrient data with main predictor data set
+PredDataMas <- merge(PredDataMas, nutrMas, by = 'COMID')
+
+# check column names post-merge
+colnames(PredDataMas)
+
+# aggregate CBNF variable
+# I have no idea what the variable ...1 is so I'm removing it too
+PredDataMas$N_CBNF_kg_Ag <- (PredDataMas$N_CBNF_kg_Ag_2002Ws + PredDataMas$N_CBNF_2007) / 2
+PredDataMas <- subset(PredDataMas, select = -c(N_CBNF_2007, N_CBNF_kg_Ag_2002Ws, ...1))
+
+# remove WsAreaSqKm.y and rename WsAreaSqKm.x <- WsAreaSqKm
+
+PredDataMas <- subset(PredDataMas, select = -c(WsAreaSqKm.y))
+names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
+
+# Modeling ---------------------------------------------------------------------
+
+model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
+model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
+model_micx_lakes <- readRDS('./inst/model_objects/model_micx_withlakedata.rds')
+model_cyano_nolakes$formula
+model_micx_nolakes$formula
+
+predict(object = model_cyano_nolakes, newdata = PredDataMini)
+
+# log10(B_G_DENS + 1000) ~ BFIWs + Tmean8110Ws + Precip8110Ws +
+#   n_farm_inputs + n_dev_inputs + p_farm_inputs + lake_dep +
+#   lakemorpho_fetch
+
+# load into environment
+lake_met_df <- read_csv('C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_df.csv')
+met_comids <- lake_met_df$COMID
+
+PredDataMini <- merge(PredDataMas, lake_met_df, by = 'COMID')
+
+summary(PredDataMini$BFIWs.Nutr)
+
+PredDataMini <- subset(PredDataMini, select = -c(BFIWs.Str))
+names(PredDataMini)[names(PredDataMini) == 'BFIWs.Nutr'] <- 'BFIWs'
+names(PredDataMini)[names(PredDataMini) == 'ag_eco3'] <- 'AG_ECO3'
+names(PredDataMini)[names(PredDataMini) == 'MaxDepth'] <- 'MAXDEPTH'
+
+predict(model_MICX_nolakes, newdata = PredDataMini)
+
+
+PredDataMini <- PredDataMini %>%
+  rename(Tmean8110Ws = Tmean9120Ws,
+         Precip8110Ws = Precip9120Ws,
+         lake_dep = depth ,
+         lakemorpho_fetch = fetch)
+
+# n-farm-inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste
+# n-dev-inputs = N_Human_Waste + N_Fert_Urban
+# p farm inputs = P_f_fertilizer + P_livestock_Waste
+
+PredDataMini$n_farm_inputs <- PredDataMini$N_livestock.Waste_kg_Ag + PredDataMini$N_CBNF_kg_Ag + PredDataMini$N_Fert_Farm_2007
+PredDataMini$n_dev_inputs <- PredDataMini$N_Human_Waste_kg_Urb + PredDataMini$N_Fert_Urban_kg_Urb
+PredDataMini$p_farm_inputs <- PredDataMini$P_f_fertilizer_kg_Ag + PredDataMini$P_livestock_Waste_kg_Ag
+
+
+colnames(PredDataMini)
+# All the depth nonsense =======================================================
+
 # Lake Area Creation -----------------------------------------------------------
 
 for (Shape in 1:length(wbd_copy)) {
@@ -400,90 +528,9 @@ fetch_it <- function(com, df){
 
 fetch_all <- do.call(rbind, mapply(wbd_copy$COMID, fetch_it, wbd_copy))
 
-# Tidying ----------------------------------------------------------------------
-
-# remove unnecessary eco-regions data
-PredDataMas <- subset(PredDataMas, select = -c(US_L4CODE, US_L4NAME, US_L3CODE, US_L3NAME, NA_L3CODE, NA_L3NAME,
-                                               NA_L2CODE, NA_L2NAME, NA_L1CODE, NA_L1NAME, nla07_sf, nla12_sf, nla17_sf))
-
-# remove all varibales that contain Cat from Pred Data mas
-
-PredDataMas <- PredDataMas |> dplyr::select(-contains(c('Cat')))
-
-# remove excess land cover variables
-PredDataMas <- subset(PredDataMas, select = -c(PCTURBOP2016WS, PCTHBWET2016WS, PCTWDWET2016WS, PCTURBLO2016WS,
-                                               PCTURBMD2016WS, PCTMXFST2016WS, PCTHAY2016WS, PCTDECID2016WS,
-                                               PCTURBHI2016WS, PCTCONIF2016WS, PCTCROP2016WS))
-
-# Nutrient Data Compiling -----------------------------------------------------------
-
-# load files from folder
-data_dir <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/AmaliaHandler/Allocation_and_Accumulation/Final_LakeCat_OnNetwork/"
-csv_files <- fs::dir_ls(data_dir)
-
-# compile files into a single data frame
-nutrMas <- csv_files |>
-  map_dfr(read_csv)
-
-# ensure there's no repetition
-print(which(nutrMas$COMID == "487"))
-
-# remove unnecessary columns
-nutrMas <- nutrMas |> dplyr::select(-contains(c('Cat')))
-
-# aggregate nutrients across years
-
-# N livestock waste
-nutrMas$N_livestock.Waste_kg_Ag <- rowMeans(nutrMas[,c('N_Livestock.Waste_kg_Ag_2002Ws', 'N_Livestock.Waste_kg_Ag_2007Ws', 'N_Livestock.Waste_kg_Ag_2012Ws')], na.rm = TRUE)
-nutrMas <- subset(nutrMas, select = -c(N_Livestock.Waste_kg_Ag_2002Ws, N_Livestock.Waste_kg_Ag_2007Ws, N_Livestock.Waste_kg_Ag_2012Ws))
-
-# P livestock waste
-nutrMas$P_livestock_Waste_kg_Ag <- rowMeans(nutrMas[,c('P_livestock_Waste_kg_Ag_2002Ws', 'P_livestock_Waste_kg_Ag_2007Ws', 'P_livestock_Waste_kg_Ag_2012Ws')], na.rm = TRUE)
-nutrMas <- subset(nutrMas, select = -c(P_livestock_Waste_kg_Ag_2002Ws, P_livestock_Waste_kg_Ag_2007Ws, P_livestock_Waste_kg_Ag_2012Ws))
-
-# P ag fertilizer
-nutrMas$P_f_fertilizer_kg_Ag <- rowMeans(nutrMas[,c('P_f_fertilizer_kg_Ag_2002Ws', 'P_f_fertilizer_kg_Ag_2007Ws', 'P_f_fertilizer_kg_Ag_2012Ws')], na.rm = TRUE)
-nutrMas <- subset(nutrMas, select = -c(P_f_fertilizer_kg_Ag_2002Ws, P_f_fertilizer_kg_Ag_2007Ws, P_f_fertilizer_kg_Ag_2012Ws))
-
-# N human waste
-nutrMas$N_Human_Waste_kg_Urb <- rowMeans(nutrMas[,c('N_Human_Waste_kg_Urb_2002Ws', 'N_Human_Waste_kg_Urb_2007Ws', 'N_Human_Waste_kg_Urb_2012Ws')], na.rm = TRUE)
-nutrMas <- subset(nutrMas, select = -c(N_Human_Waste_kg_Urb_2002Ws, N_Human_Waste_kg_Urb_2007Ws, N_Human_Waste_kg_Urb_2012Ws))
-
-# P human waste
-nutrMas$P_Human_Waste_kg_Urb <- rowMeans(nutrMas[,c('P_human_waste_kg_Urb_2002Ws', 'P_human_waste_kg_Urb_2007Ws', 'P_human_waste_kg_Urb_2012Ws')], na.rm = TRUE)
-nutrMas <- subset(nutrMas, select = -c(P_human_waste_kg_Urb_2002Ws, P_human_waste_kg_Urb_2007Ws, P_human_waste_kg_Urb_2012Ws))
-
-# N urban fertilizer
-nutrMas$N_Fert_Urban_kg_Urb <- rowMeans(nutrMas[,c('N_Fert_Urban_kg_Urb_2002Ws', 'N_Fert_Urban_kg_Urb_2007Ws', 'N_Fert_Urban_kg_Urb_2012Ws')], na.rm = TRUE)
-nutrMas <- subset(nutrMas, select = -c(N_Fert_Urban_kg_Urb_2002Ws, N_Fert_Urban_kg_Urb_2007Ws, N_Fert_Urban_kg_Urb_2012Ws))
-
-# P not from fertilizer
-nutrMas$P_nf_fertilizer_kg_Urb <- rowMeans(nutrMas[,c('P_nf_fertilizer_kg_Urb_2002Ws', 'P_nf_fertilizer_kg_Urb_2007Ws', 'P_nf_fertilizer_kg_Urb_2012Ws')], na.rm = TRUE)
-nutrMas <- subset(nutrMas, select = -c(P_nf_fertilizer_kg_Urb_2002Ws, P_nf_fertilizer_kg_Urb_2007Ws, P_nf_fertilizer_kg_Urb_2012Ws))
-
-# check all column names
-colnames(nutrMas)
-
-# combine nutrient data with main predictor data set
-PredDataMas <- merge(PredDataMas, nutrMas, by = 'COMID')
-
-# check column names post-merge
-colnames(PredDataMas)
-
-# aggregate CBNF variable
-# I have no idea what the variable ...1 is so I'm removing it too
-PredDataMas$N_CBNF_kg_Ag <- (PredDataMas$N_CBNF_kg_Ag_2002Ws + PredDataMas$N_CBNF_2007) / 2
-PredDataMas <- subset(PredDataMas, select = -c(N_CBNF_2007, N_CBNF_kg_Ag_2002Ws, ...1))
-
-# remove WsAreaSqKm.y and rename WsAreaSqKm.x <- WsAreaSqKm
-
-PredDataMas <- subset(PredDataMas, select = -c(WsAreaSqKm.y))
-names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
-
 
 
 # Depth fr =====================================================================
-
 library(devtools)
 library(dplyr)
 library(stars)
@@ -502,6 +549,7 @@ library(lakemorpho)
 library(raster)
 install.packages("future.apply")
 library(future.apply)
+library(fs)
 
 missing_com <- missing_depth$COMID
 
@@ -512,11 +560,33 @@ get_morpho_obj <- function(com, df){
   saveRDS(lake_lm, file = paste0('./private/lake_morpho_objects/lake_morpho_', com, ".rds"))
 }
 
-depths <- lapply(missing_com, get_morpho_obj, missing_depth)
+
+
+depths <- future_lapply(missing_com, get_morpho_obj, missing_depth)
+
+lake_com <- filter(mrs_mini, COMID == 806369)
+lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(lake_com), expand = 100, override_size_check = TRUE)
+object.size(lake_elev)
+lake_com_sp <- sf:::as_Spatial(lake_com$Shape)
+lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+
+lake_theme = ggplot2::theme(axis.text = ggplot2::element_text(size=12),
+                            panel.background = ggplot2::element_rect(fill="white"),
+                            panel.grid = ggplot2::element_line(color="black"),
+                            axis.text.x = ggplot2::element_text(angle = 90))
+
+ggplot2::ggplot() +
+  ggplot2::geom_sf(data = lake_com) +
+  lake_theme
+
+plot(lake_elev)
+plot(lake_com)
+
+
 
 # load files from folder
 data_dir <- "./private/lake_morpho_objects/"
-lm_files <- fs::dir_ls(data_dir, regexp = "//.rds$")
+lm_files <- dir_ls(data_dir, regexp = "\\.rds$")
 
 # morph_it <- function(file_name){
 #   morpho_obj <- readRDS(file_name)
@@ -547,7 +617,7 @@ morph_it <- function(file_name) {
 lake_met <- lapply(lm_files, morph_it)
 
 met_dir <- "./private/metrics/"
-met_files <- fs::dir_ls(met_dir, regexp = "//.rds$")
+met_files <- fs::dir_ls(met_dir, regexp = "\\.rds$")
 
 # compile files into a single data frame
 lake_met_df <- met_files |>
@@ -574,6 +644,3 @@ mrs_mini <- mrs_depth[1:15,]
 com_mini <- mrs_mini$COMID
 
 rast_test <- lapply(mrs_mini, get_raster_obj(com_mini, mrs_mini))
-
-
-
