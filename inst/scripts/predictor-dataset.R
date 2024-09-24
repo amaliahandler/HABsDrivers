@@ -242,7 +242,7 @@ summary(wbd_copy$z)
 
 # missing depth data frame
 mrs_depth <- wbd_copy[is.na(wbd_copy$MaxDepth) | wbd_copy$MaxDepth < 0 | wbd_copy$MaxDepth == 0,]
-mrs_depth <- subset(mrs_depth, select = c(COMID, Shape, z))
+mrs_depth <- subset(mrs_depth, select = c(COMID, Shape))
 
 # save(mrs_depth, file="missing_depths.rdata")
 #
@@ -503,6 +503,8 @@ library(raster)
 install.packages("future.apply")
 library(future.apply)
 
+missing_com <- missing_depth$COMID
+
 get_morpho_obj <- function(com, df){
   lake_com <- filter(df, COMID == com)
   lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
@@ -510,32 +512,68 @@ get_morpho_obj <- function(com, df){
   saveRDS(lake_lm, file = paste0('./private/lake_morpho_objects/lake_morpho_', com, ".rds"))
 }
 
-depths <- lapply(mrs_com, get_morpho_obj, mrs_depth)
+depths <- lapply(missing_com, get_morpho_obj, missing_depth)
 
 # load files from folder
 data_dir <- "./private/lake_morpho_objects/"
-files <- fs::dir_ls(data_dir, regexp = "\\.rds$")
+lm_files <- fs::dir_ls(data_dir, regexp = "//.rds$")
 
-morph_it <- function(file_name){
+# morph_it <- function(file_name){
+#   morpho_obj <- readRDS(file_name)
+#   if file.info(morpho_obj)$size > null:
+#   max_depth <- lakeMaxDepth(morpho_obj, correctFactor = 0.6)
+#   lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
+#   COMID <- morpho_obj$lake$COMID
+#   output <- data.frame(COMID = COMID, depth = max_depth, fetch = lake_fetch)
+#   saveRDS(output, file = paste0('./private/metrics/lake_metric', COMID, ".rds"))
+# }
+
+morph_it <- function(file_name) {
   morpho_obj <- readRDS(file_name)
-  max_depth <- lakeMaxDepth(morpho_obj, correctFactor = 0.6)
-  lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
-  COMID <- morpho_obj$lake$COMID
-  output <- data.frame(COMID = COMID, depth = max_depth, fetch = lake_fetch)
-  saveRDS(output, file = paste0('./private/metrics/lake_metric', COMID, ".rds"))
+
+  if (class(morpho_obj) == 'lakeMorpho') {
+    max_depth <- lakeMaxDepth(morpho_obj, correctFactor = 0.6)
+    lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
+    COMID <- morpho_obj$lake$COMID
+
+    output <- data.frame(COMID = COMID, depth = max_depth, fetch = lake_fetch)
+    saveRDS(output, file = paste0('./private/metrics/lake_metric', COMID, ".rds"))
+  } else {
+    message("Skipping file: ", file_name)
+  }
 }
 
-lapply(files, morph_it)
+
+lake_met <- lapply(lm_files, morph_it)
+
+met_dir <- "./private/metrics/"
+met_files <- fs::dir_ls(met_dir, regexp = "//.rds$")
+
+# compile files into a single data frame
+lake_met_df <- met_files |>
+  map_dfr(readRDS)
+
+# save csv with exsiting lake metrics
+write.csv(lake_met_df, "./private/lake_met_df.csv")
+
+# load into environment
+lake_met_df <- read_csv('./private/lake_met_df.csv')
+met_comids <- lake_met_df$COMID
+
+# remove COMIDs with existing metrics from missing depths df
+missing_depth <- mrs_depth[!(mrs_depth$COMID %in% met_comids), ]
 
 
+# testing
+get_raster_obj <- function(com, df){
+  lake_com <- filter(df, COMID == com)
+  lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
+}
 
+mrs_mini <- mrs_depth[1:15,]
+com_mini <- mrs_mini$COMID
 
-
-
-
-
-
-
+rast_test <- lapply(mrs_mini, get_raster_obj(com_mini, mrs_mini))
 
 
 
