@@ -299,258 +299,62 @@ PredDataMas <- subset(PredDataMas, select = -c(N_CBNF_2007, N_CBNF_kg_Ag_2002Ws,
 PredDataMas <- subset(PredDataMas, select = -c(WsAreaSqKm.y))
 names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
 
-# Modeling ---------------------------------------------------------------------
-
-model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
-model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
-model_micx_lakes <- readRDS('./inst/model_objects/model_micx_withlakedata.rds')
-model_cyano_nolakes$formula
-model_micx_nolakes$formula
-
-predict(object = model_cyano_nolakes, newdata = PredDataMini)
-
-# log10(B_G_DENS + 1000) ~ BFIWs + Tmean8110Ws + Precip8110Ws +
-#   n_farm_inputs + n_dev_inputs + p_farm_inputs + lake_dep +
-#   lakemorpho_fetch
-
-# load into environment
-lake_met_df <- read_csv('C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_df.csv')
-met_comids <- lake_met_df$COMID
-
-PredDataMini <- merge(PredDataMas, lake_met_df, by = 'COMID')
-
-summary(PredDataMini$BFIWs.Nutr)
-
-PredDataMini <- subset(PredDataMini, select = -c(BFIWs.Str))
-names(PredDataMini)[names(PredDataMini) == 'BFIWs.Nutr'] <- 'BFIWs'
-names(PredDataMini)[names(PredDataMini) == 'ag_eco3'] <- 'AG_ECO3'
-names(PredDataMini)[names(PredDataMini) == 'MaxDepth'] <- 'MAXDEPTH'
-
-predict(model_MICX_nolakes, newdata = PredDataMini)
-
-
-PredDataMini <- PredDataMini %>%
-  rename(Tmean8110Ws = Tmean9120Ws,
-         Precip8110Ws = Precip9120Ws,
-         lake_dep = depth ,
-         lakemorpho_fetch = fetch)
-
-# n-farm-inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste
-# n-dev-inputs = N_Human_Waste + N_Fert_Urban
-# p farm inputs = P_f_fertilizer + P_livestock_Waste
-
-PredDataMini$n_farm_inputs <- PredDataMini$N_livestock.Waste_kg_Ag + PredDataMini$N_CBNF_kg_Ag + PredDataMini$N_Fert_Farm_2007
-PredDataMini$n_dev_inputs <- PredDataMini$N_Human_Waste_kg_Urb + PredDataMini$N_Fert_Urban_kg_Urb
-PredDataMini$p_farm_inputs <- PredDataMini$P_f_fertilizer_kg_Ag + PredDataMini$P_livestock_Waste_kg_Ag
-
-
-colnames(PredDataMini)
-# All the depth nonsense =======================================================
-
 # Lake Area Creation -----------------------------------------------------------
-
-for (Shape in 1:length(wbd_copy)) {
-  shapes <- wbd_copy$Shape
-  wbd_copy$custom_area <- st_area(shapes)
-}
-
-wbd_copy$custom_area <- drop_units(wbd_copy$custom_area)
-
-lakes_bin <- function(lake_area) {
-  if (lake_area > 400 & lake_area < 19990) {z <- 12}
-  else if (lake_area > 19991 & lake_area < 37901) {z <- 11}
-  else if (lake_area > 37901 & lake_area < 96911) {z <- 10}
-  else {z <- 9}
-  return(z)
-}
-
-COMID <- wbd_copy$COMID
-wbd_copy$z <- unlist(as.numeric(lapply(wbd_copy$custom_area, lakes_bin)))
-summary(wbd_copy$z)
+#
+# for (Shape in 1:length(wbd_copy)) {
+#   shapes <- wbd_copy$Shape
+#   wbd_copy$custom_area <- st_area(shapes)
+# }
+#
+# wbd_copy$custom_area <- drop_units(wbd_copy$custom_area)
+#
+# lakes_bin <- function(lake_area) {
+#   if (lake_area > 400 & lake_area < 19990) {z <- 12}
+#   else if (lake_area > 19991 & lake_area < 37901) {z <- 11}
+#   else if (lake_area > 37901 & lake_area < 96911) {z <- 10}
+#   else {z <- 9}
+#   return(z)
+# }
+#
+# COMID <- wbd_copy$COMID
+# wbd_copy$z <- unlist(as.numeric(lapply(wbd_copy$custom_area, lakes_bin)))
+# summary(wbd_copy$z)
 
 # missing depth data frame
 mrs_depth <- wbd_copy[is.na(wbd_copy$MaxDepth) | wbd_copy$MaxDepth < 0 | wbd_copy$MaxDepth == 0,]
 mrs_depth <- subset(mrs_depth, select = c(COMID, Shape))
 
-# save(mrs_depth, file="missing_depths.rdata")
-#
-# load("missing-depths.rdata")
-
-
-
-# Lake Depth Data --------------------------------------------------------------
-
-depth_it <- function(com, df){
-  lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(df), expand = 100, override_size_check = TRUE)
-  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
-  data.frame(com, lake_maxdepth)
-}
-
 mrs_com <- mrs_depth$COMID
 
-# ===== remote
+# Lake Depth and Fetch Data ----------------------------------------------------
 
-library(devtools)
-library(dplyr)
-library(stars)
-install.packages('nhdplusTools')
-library(nhdplusTools)
-library(tidyverse)
-library(tidyr)
-library(sf)
-library(ggplot2)
-install.packages('spmodel')
-library(spmodel)
-install.packages('elevatr')
-library(elevatr)
-install.packages('lakemorpho')
-library(lakemorpho)
-library(raster)
-install.packages("future.apply")
-library(future.apply)
+# packages for the remote enviroment
+# library(devtools)
+# library(dplyr)
+# library(stars)
+# install.packages('nhdplusTools')
+# library(nhdplusTools)
+# library(tidyverse)
+# library(tidyr)
+# library(sf)
+# library(ggplot2)
+# install.packages('spmodel')
+# library(spmodel)
+# install.packages('elevatr')
+# library(elevatr)
+# remotes::install_github("usepa/lakemorpho")
+# library(lakemorpho)
+# library(raster)
+# install.packages("future.apply")
+# library(future.apply)
+# library(fs)
 
+# load existing lake depth COMIDs into environment
+lake_met_new <- read_csv('./private/lake_met_df_9-25.csv')
+met_comids <- lake_met_new$COMID
 
-wbd_mini <- wbd_copy[1,]
-com_mini <- wbd_mini$COMID
-
-morph_it <- function(com, df){
-  lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
-  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-  lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
-  lake_max_len <- lakeMaxLength(lake_lm, pointDens = 50)
-  output <- data.frame(com, lake_depth = lake_maxdepth, lake_fetch = lake_max_len)
-  saveRDS(output, file = paste0('lake_metrics_', com, ".rds"))
-  return(output)
-}
-
-depth <- morph_it(com_mini, wbd_mini)
-
-##############
-
-morph_it <- function(com, df) {
-  for(i in seq_along(df)) {
-    lake_com <- filter(df, COMID == com)
-    lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(df), expand = 100, override_size_check = TRUE)
-    lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-    save(list = df[i], file = paste0(df[i], ".RData"))
-  }
-}
-
-morph_it <- function(com, df) {
-  for(i in seq_along(df)) {
-    lake_com <- filter(df, COMID == com)
-    lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(df), expand = 100, override_size_check = TRUE)
-    lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-    save(list = df[i], file = paste0(df[i], ".RData"))
-  }
-}
-
-
-
-flw <- vector("list", length(wbd_mini))
-
-morph_it <- function(com, df) {
-  for(i in seq_along(df)) {
-    lake_com <- filter(df, COMID == com)
-    lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(df), expand = 100, override_size_check = TRUE)
-    lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-  saveRDS(flw[[i]], file = paste0(df[i], "file.rds"))
-  cat("*")
-  }
-}
-
-depth <- do.call(rbind, lapply(com_mini, morph_it, wbd_mini))
-
-depth <- morph_it(com_mini, wbd_mini)
-
-##############
-
-
-lake_chunks <- split(mrs_depth$COMID, ceiling(seq_along(mrs_depthCOMID) / 1000))
-
-lake_elev <- do.call(rbind, future_lapply(mrs_com, morph_it, mrs_depth))
-
-lake_maxdepth <- lakeMaxDepth(lake_elev, correctFactor = 0.6)
-lake_maxlen <- lakeMaxLength(lake_elev, pointDens = 50)
-
-# ======
-
-elev_it <- function(com, df){
-  lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 12, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
-}
-lake_elev <- do.call(rbind, lapply(COMID, elev_it, mrs_depth))
-
-
-
-# THIS WORKED
-lake_elev <- do.call(rbind, lapply(COMID, elev_it, wbd_copy))
-
-# lake depth with dependent z variable
-
-wbd_sm <- wbd_copy[1:15,]
-sm_COMID <- wbd_sm$COMID
-
-lake_elev <- lapply(sm_COMID, elev_it, wbd_sm)
-
-lake_lm <- lapply(wbd_sm, lakeSurroundTopo, lake_elev)
-class(lake_elev)
-
-
-# morph_it <- function(df, z){
-#   lake_elev <- get_elev_raster(df, z = z, prj = st_crs(df), expand = 100)
-#   #lake_lm <- lakeSurroundTopo(df, lake_elev)
-#   #lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
-#   data.frame(COMID = df$COMID, lake_elev)
-# }
-#
-# for (row in 1:nrow(wbd_reduc)) {
-#   lake_elev <- get_elev_raster(wbd_reduc, z = wbd_reduc$z, prj = st_crs(wbd_copy), expand = 100)
-#   lake_lm <- lakeSurroundTopo(wbd_reduc, lake_elev)
-#   lake_maxdepth <- lakeMaxDepth(lake_lm, correctFactor = 0.6)
-#   data.frame(COMID = depths$COMID, lake_maxdepth)
-# }
-
-# Lake Fetch -------------------------------------------------------------------
-
-# function to determine longest distance across a lake
-
-fetch_it <- function(com, df){
-  lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 10, prj = st_crs(wbd), expand = 100, override_size_check = TRUE)
-  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-  lake_max_len <- lakeMaxLength(lake_lm, pointDens = 50)
-  data.frame(com, lake_max_len)
-}
-
-fetch_all <- do.call(rbind, mapply(wbd_copy$COMID, fetch_it, wbd_copy))
-
-
-
-# Depth fr =====================================================================
-library(devtools)
-library(dplyr)
-library(stars)
-install.packages('nhdplusTools')
-library(nhdplusTools)
-library(tidyverse)
-library(tidyr)
-library(sf)
-library(ggplot2)
-install.packages('spmodel')
-library(spmodel)
-install.packages('elevatr')
-library(elevatr)
-install.packages('lakemorpho')
-library(lakemorpho)
-library(raster)
-install.packages("future.apply")
-library(future.apply)
-library(fs)
-
+# remove COMIDs with existing metrics from missing depths df
+missing_depth <- mrs_depth[!(mrs_depth$COMID %in% met_comids), ]
 missing_com <- missing_depth$COMID
 
 get_morpho_obj <- function(com, df){
@@ -560,44 +364,14 @@ get_morpho_obj <- function(com, df){
   saveRDS(lake_lm, file = paste0('./private/lake_morpho_objects/lake_morpho_', com, ".rds"))
 }
 
-
-
+# run function to the missing depths COMIDs
 depths <- future_lapply(missing_com, get_morpho_obj, missing_depth)
 
-lake_com <- filter(mrs_mini, COMID == 806369)
-lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(lake_com), expand = 100, override_size_check = TRUE)
-object.size(lake_elev)
-lake_com_sp <- sf:::as_Spatial(lake_com$Shape)
-lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-
-lake_theme = ggplot2::theme(axis.text = ggplot2::element_text(size=12),
-                            panel.background = ggplot2::element_rect(fill="white"),
-                            panel.grid = ggplot2::element_line(color="black"),
-                            axis.text.x = ggplot2::element_text(angle = 90))
-
-ggplot2::ggplot() +
-  ggplot2::geom_sf(data = lake_com) +
-  lake_theme
-
-plot(lake_elev)
-plot(lake_com)
-
-
-
-# load files from folder
+# load lake morpho object files from folder
 data_dir <- "./private/lake_morpho_objects/"
 lm_files <- dir_ls(data_dir, regexp = "\\.rds$")
 
-# morph_it <- function(file_name){
-#   morpho_obj <- readRDS(file_name)
-#   if file.info(morpho_obj)$size > null:
-#   max_depth <- lakeMaxDepth(morpho_obj, correctFactor = 0.6)
-#   lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
-#   COMID <- morpho_obj$lake$COMID
-#   output <- data.frame(COMID = COMID, depth = max_depth, fetch = lake_fetch)
-#   saveRDS(output, file = paste0('./private/metrics/lake_metric', COMID, ".rds"))
-# }
-
+# function to pull files from lake morpho objects into metrics to compile into df
 morph_it <- function(file_name) {
   morpho_obj <- readRDS(file_name)
 
@@ -616,6 +390,7 @@ morph_it <- function(file_name) {
 
 lake_met <- lapply(lm_files, morph_it)
 
+#pull metrics data to create final df
 met_dir <- "./private/metrics/"
 met_files <- fs::dir_ls(met_dir, regexp = "\\.rds$")
 
@@ -624,23 +399,52 @@ lake_met_df <- met_files |>
   map_dfr(readRDS)
 
 # save csv with exsiting lake metrics
-write.csv(lake_met_df, "./private/lake_met_df.csv")
+write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
 
-# load into environment
-lake_met_df <- read_csv('./private/lake_met_df.csv')
+# Modeling ---------------------------------------------------------------------
+
+# load into environment updated lake depth metrics
+lake_met_df <- read_csv('C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_df_9-25.csv')
 met_comids <- lake_met_df$COMID
 
-# remove COMIDs with existing metrics from missing depths df
-missing_depth <- mrs_depth[!(mrs_depth$COMID %in% met_comids), ]
+PredDataMini <- merge(PredDataMas, lake_met_df, by = 'COMID')
+
+summary(PredDataMini$BFIWs.Nutr)
+
+PredDataMini <- subset(PredDataMini, select = -c(BFIWs.Str))
+names(PredDataMini)[names(PredDataMini) == 'BFIWs.Nutr'] <- 'BFIWs'
+names(PredDataMini)[names(PredDataMini) == 'ag_eco3'] <- 'AG_ECO3'
+names(PredDataMini)[names(PredDataMini) == 'lake_dep'] <- 'MAXDEPTH'
+
+PredDataMini <- PredDataMini %>%
+  rename(Tmean8110Ws = Tmean9120Ws,
+         Precip8110Ws = Precip9120Ws,
+         MAXDEPTH = depth ,
+         lakemorpho_fetch = fetch)
+
+# n-farm-inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste
+# n-dev-inputs = N_Human_Waste + N_Fert_Urban
+# p farm inputs = P_f_fertilizer + P_livestock_Waste
+
+PredDataMini$n_farm_inputs <- PredDataMini$N_livestock.Waste_kg_Ag + PredDataMini$N_CBNF_kg_Ag + PredDataMini$N_Fert_Farm_2007
+PredDataMini$n_dev_inputs <- PredDataMini$N_Human_Waste_kg_Urb + PredDataMini$N_Fert_Urban_kg_Urb
+PredDataMini$p_farm_inputs <- PredDataMini$P_f_fertilizer_kg_Ag + PredDataMini$P_livestock_Waste_kg_Ag
+PredDataMini$p_dev_inputs <- PredDataMini$P_Human_Waste_kg_Urb + PredDataMini$P_nf_fertilizer_kg_Urb
+
+colnames(PredDataMini)
+
+predict(model_MICX_nolakes, newdata = PredDataMini)
+
+augmod <- augment(model_cyano_nolakes, newdata = PredDataMini, type = "response")
+
+model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
+model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
+model_micx_lakes <- readRDS('./inst/model_objects/model_micx_withlakedata.rds')
+model_cyano_nolakes$formula
+model_micx_nolakes$formula
+
+predict(object = model_cyano_nolakes, newdata = PredDataMini)
+# log10(B_G_DENS + 1000) ~ n_farm_inputs + p_dev_inputs + fst_ws +
+#   Precip8110Ws + Tmean8110Ws + BFIWs + MAXDEPTH + lakemorpho_fetch
 
 
-# testing
-get_raster_obj <- function(com, df){
-  lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
-}
-
-mrs_mini <- mrs_depth[1:15,]
-com_mini <- mrs_mini$COMID
-
-rast_test <- lapply(mrs_mini, get_raster_obj(com_mini, mrs_mini))
