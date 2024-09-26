@@ -300,14 +300,14 @@ PredDataMas <- subset(PredDataMas, select = -c(WsAreaSqKm.y))
 names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
 
 # Lake Area Creation -----------------------------------------------------------
-#
-# for (Shape in 1:length(wbd_copy)) {
-#   shapes <- wbd_copy$Shape
-#   wbd_copy$custom_area <- st_area(shapes)
-# }
-#
-# wbd_copy$custom_area <- drop_units(wbd_copy$custom_area)
-#
+
+for (Shape in 1:length(mrs_depth)) {
+  shapes <- mrs_depth$Shape
+  mrs_depth$custom_area <- st_area(shapes)
+}
+
+mrs_depth$custom_area <- drop_units(mrs_depth$custom_area)
+
 # lakes_bin <- function(lake_area) {
 #   if (lake_area > 400 & lake_area < 19990) {z <- 12}
 #   else if (lake_area > 19991 & lake_area < 37901) {z <- 11}
@@ -315,10 +315,22 @@ names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
 #   else {z <- 9}
 #   return(z)
 # }
-#
-# COMID <- wbd_copy$COMID
-# wbd_copy$z <- unlist(as.numeric(lapply(wbd_copy$custom_area, lakes_bin)))
-# summary(wbd_copy$z)
+
+lake_size <- function(lake_area) {
+  if (lake_area < 10000) {target_pop <- 0}
+  else if (lake_area > 10000) {target_pop <- 1}
+}
+
+mrs_depth$target_pop <- unlist(as.numeric(lapply(mrs_depth$custom_area, lake_size)))
+summary(mrs_depth)
+sum(mrs_depth$target_pop)
+wbd_copy$target_pop <- unlist(as.numeric(lapply(wbd_copy$custom_area, lake_size)))
+
+COMID <- wbd_copy$COMID
+wbd_copy$z <- unlist(as.numeric(lapply(wbd_copy$custom_area, lakes_bin)))
+summary(wbd_copy$z)
+
+summary(lake_met_df)
 
 # missing depth data frame
 mrs_depth <- wbd_copy[is.na(wbd_copy$MaxDepth) | wbd_copy$MaxDepth < 0 | wbd_copy$MaxDepth == 0,]
@@ -441,7 +453,11 @@ model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds'
 model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
 model_micx_lakes <- readRDS('./inst/model_objects/model_micx_withlakedata.rds')
 model_cyano_nolakes$formula
-model_micx_nolakes$formula
+model_micx_nolakes$
+
+year <- 2017
+PredDataMini$DSGN_CYCLE <- 2017
+colnames(PredDataMini)
 
 predict(object = model_cyano_nolakes, newdata = PredDataMini)
 # log10(B_G_DENS + 1000) ~ n_farm_inputs + p_dev_inputs + fst_ws +
