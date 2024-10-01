@@ -729,7 +729,10 @@ cy_res_table <- glances(m6_sp, m9_sp, m10_sp) |>
 
 Sys.time()
 
-# Conclusion: m9 model is probably the best fit with an interaction between the p_farm_inputs and the lake depth. It was in the top 4 models based on AUC comparisison with independent models and had the lowest RMSPE when run with spatial correlation. Model m10 had the highest AUC, but also have slightly higher RMSPE. In reality, these models are all pretty close to each other in terms of performance. Mike recommends picking the one with the highest AUC since that is what folks tend to care about the model
+# Conclusion: m9 model is probably the best fit with an interaction between the p_farm_inputs and the lake depth. It was in the top 4 models based on AUC comparison with independent models and had the lowest RMSPE when run with spatial correlation. Model m10 had the highest AUC, but also have slightly higher RMSPE. In reality, these models are all pretty close to each other in terms of performance. Mike recommends picking the one with the highest AUC since that is what folks tend to care about the model
+
+# Save the best performing micx model so far
+saveRDS(m9_sp, "./inst/model_objects/model_micx_nolakedata.rds")
 
 # The models do run when replace with the log-transformed N inputs. Guessing that the extreme values make the model difficult to fit.
 
@@ -865,31 +868,47 @@ pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
 
 micx_loocv <- loocv(micx11, cv_predict = T)
 
-# Save the best performing micx model so far
-# saveRDS(micx47, "./inst/model_objects/model_micx_nolakedata.rds")
+
 
 # Boxplot of estimated probability
 vis_fit(dep_var, micx47, file_name = "Model Fit_Micx_Det.jpg")
 
-# Maps for ASLO presentation
+# Get the area for the PNW
+pnw <- AOI::aoi_get(state = c("OR", "WA", "ID"))
+
+# Filter data to just the PWN
+pnw_micx <- m9_sp |>
+  augment(type.predict = "response") |>
+  st_transform(st_crs(pnw)) |>
+  st_intersection(pnw) |>
+  arrange(.fitted)
+
+# Map of the PNW
 ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
-  geom_sf(data = aug_micx, aes(fill = .fitted), pch = 21) +
+  geom_sf(data = pnw, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = pnw_micx, aes(fill = .fitted), pch = 21, size = 3) +
   scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
                        name = "Estimated \nProbability", 
-                       breaks = c(0.25,0.5,0.75,1)) +
+                       breaks = c(0.2, 0.4, 0.6)) +
   theme_void() +
   ggtitle("Fitted Probability of Microcystin Detection")+
   theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
-ggsave("./figures/FittedProbMap_Micx.png", width = 6, height = 3.5, units = "in", dpi = 600)
+ggsave("./figures/FittedProbMap_Micx_PNW.png", width = 5, height = 3.5, units = "in", dpi = 600)
+
+# Interactive map version
+mapview::mapview(pnw_micx, z = ".fitted")
+
+# Map of all NHD lakes >1 ha in area in the PNW
+ggplot() + 
+  geom_sf(data = pnw, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = pnw_lk_pts, pch = 21, fill = "blue", alpha = 0.5, size = 1) +
+  theme_void()
 
 ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
-  geom_sf(data = arrange(aug_micx, MICX_DET), aes(fill = MICX_DET), pch = 21) +
+  geom_sf(data = pnw, fill = "#e2e2e2", color = "white", size = 0.5) +
+  geom_sf(data = arrange(augment(m9_sp), .fitted), aes(fill = .fitted), pch = 21) +
   scale_fill_manual(values = c('#ffeda0','#bd0026'), #'#fee0b6','#d8daeb','#b2abd2','#8073ac'
-                       name = "Microcystin \nDetected", 
-                       breaks = levels(aug_micx$MICX_DET),
-                    labels = c("Below Detection", "Detected")) +
+                       name = "Microcystin \nDetected") +
   theme_void() +
   ggtitle("Observed Microcystin Detection")+
   theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
