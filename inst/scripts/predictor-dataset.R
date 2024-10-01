@@ -301,12 +301,10 @@ names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
 
 # Lake Area Creation -----------------------------------------------------------
 
-for (Shape in 1:length(mrs_depth)) {
-  shapes <- mrs_depth$Shape
-  mrs_depth$custom_area <- st_area(shapes)
-}
-
-mrs_depth$custom_area <- drop_units(mrs_depth$custom_area)
+# missing depth data frame
+mrs_depth <- wbd_copy[is.na(wbd_copy$MaxDepth) | wbd_copy$MaxDepth < 0 | wbd_copy$MaxDepth == 0,]
+mrs_depth <- subset(mrs_depth, select = c(COMID, Shape))
+mrs_com <- mrs_depth$COMID
 
 # lakes_bin <- function(lake_area) {
 #   if (lake_area > 400 & lake_area < 19990) {z <- 12}
@@ -316,6 +314,13 @@ mrs_depth$custom_area <- drop_units(mrs_depth$custom_area)
 #   return(z)
 # }
 
+for (Shape in 1:length(mrs_depth)) {
+  shapes <- mrs_depth$Shape
+  mrs_depth$custom_area <- st_area(shapes)
+}
+
+mrs_depth$custom_area <- drop_units(mrs_depth$custom_area)
+
 lake_size <- function(lake_area) {
   if (lake_area < 10000) {target_pop <- 0}
   else if (lake_area > 10000) {target_pop <- 1}
@@ -324,19 +329,12 @@ lake_size <- function(lake_area) {
 mrs_depth$target_pop <- unlist(as.numeric(lapply(mrs_depth$custom_area, lake_size)))
 summary(mrs_depth)
 sum(mrs_depth$target_pop)
-wbd_copy$target_pop <- unlist(as.numeric(lapply(wbd_copy$custom_area, lake_size)))
 
-COMID <- wbd_copy$COMID
-wbd_copy$z <- unlist(as.numeric(lapply(wbd_copy$custom_area, lakes_bin)))
-summary(wbd_copy$z)
+within_pop <- subset(mrs_depth, target_pop == 1)
 
-summary(lake_met_df)
-
-# missing depth data frame
-mrs_depth <- wbd_copy[is.na(wbd_copy$MaxDepth) | wbd_copy$MaxDepth < 0 | wbd_copy$MaxDepth == 0,]
-mrs_depth <- subset(mrs_depth, select = c(COMID, Shape))
-
-mrs_com <- mrs_depth$COMID
+# COMID <- wbd_copy$COMID
+# wbd_copy$z <- unlist(as.numeric(lapply(wbd_copy$custom_area, lakes_bin)))
+# summary(wbd_copy$z)
 
 # Lake Depth and Fetch Data ----------------------------------------------------
 
@@ -361,12 +359,22 @@ mrs_com <- mrs_depth$COMID
 # library(future.apply)
 # library(fs)
 
-# load existing lake depth COMIDs into environment
-lake_met_new <- read_csv('./private/lake_met_df_9-25.csv')
-met_comids <- lake_met_new$COMID
+lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_dir"
+lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "\\.csv$")
+
+# compile files into a single data frame
+lake_met_df <- lake_met_files |>
+  map_dfr(read.csv)
+
+met_comids <- lake_met_df$COMID
+
+lake_met_df |>
+  group_by(across(COMID)) |>
+  summarise(across(where(is.numeric), mean))
+
 
 # remove COMIDs with existing metrics from missing depths df
-missing_depth <- mrs_depth[!(mrs_depth$COMID %in% met_comids), ]
+missing_depth <- within_pop[!(within_pop$COMID %in% met_comids), ]
 missing_com <- missing_depth$COMID
 
 get_morpho_obj <- function(com, df){
@@ -415,9 +423,25 @@ write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
 
 # Modeling ---------------------------------------------------------------------
 
-# load into environment updated lake depth metrics
-lake_met_df <- read_csv('C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_df_9-25.csv')
+model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
+model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
+model_micx_lakes <- readRDS('./inst/model_objects/model_micx_withlakedata.rds')
+model_cyano_nolakes$formula
+model_micx_nolakes$formula
+
+lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_dir"
+lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "\\.csv$")
+
+# compile files into a single data frame
+lake_met_df <- lake_met_files |>
+  map_dfr(read.csv)
+
 met_comids <- lake_met_df$COMID
+
+lake_met_df <- lake_met_df |>
+  group_by(across(COMID)) |>
+  summarise(across(where(is.numeric), mean))
+
 
 PredDataMini <- merge(PredDataMas, lake_met_df, by = 'COMID')
 
@@ -442,25 +466,49 @@ PredDataMini$n_farm_inputs <- PredDataMini$N_livestock.Waste_kg_Ag + PredDataMin
 PredDataMini$n_dev_inputs <- PredDataMini$N_Human_Waste_kg_Urb + PredDataMini$N_Fert_Urban_kg_Urb
 PredDataMini$p_farm_inputs <- PredDataMini$P_f_fertilizer_kg_Ag + PredDataMini$P_livestock_Waste_kg_Ag
 PredDataMini$p_dev_inputs <- PredDataMini$P_Human_Waste_kg_Urb + PredDataMini$P_nf_fertilizer_kg_Urb
+PredDataMini$DSGN_CYCLE <- 2017
+PredDataMini <- mutate(PredDataMini, DSGN_CYCLE = factor(DSGN_CYCLE))
+
 
 colnames(PredDataMini)
 
-predict(model_MICX_nolakes, newdata = PredDataMini)
+unique_ids <- read_csv('C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/NLA071217-COMID_crosswalk(in).csv')
+
+PredDataMini <- left_join(PredDataMini, unique_ids, by = 'COMID')
+PredDataMini$UNIQUE_ID[is.na(PredDataMini$UNIQUE_ID)] <- 0
+
+PredDataMini <- PredDataMini |>
+  group_by(across(COMID)) |>
+  summarise(across(where(is.numeric), mean))
+
+summary(PredDataMini$MAXDEPTH)
+summary(PredDataMas$LAGOSLakeDepth)
+
+PredDataMini <- subset(PredDataMini, select = -c(...1))
+predict(model_cyano_nolakes, newdata = PredDataMini)
 
 augmod <- augment(model_cyano_nolakes, newdata = PredDataMini, type = "response")
 
-model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
-model_micx_nolakes <- readRDS('./inst/model_objects/model_micx_nolakedata.rds')
-model_micx_lakes <- readRDS('./inst/model_objects/model_micx_withlakedata.rds')
-model_cyano_nolakes$formula
-model_micx_nolakes$
-
-year <- 2017
-PredDataMini$DSGN_CYCLE <- 2017
-colnames(PredDataMini)
-
-predict(object = model_cyano_nolakes, newdata = PredDataMini)
+predict(object = model_cyano_nolakes, newdata = na.omit(PredDataMini))
 # log10(B_G_DENS + 1000) ~ n_farm_inputs + p_dev_inputs + fst_ws +
 #   Precip8110Ws + Tmean8110Ws + BFIWs + MAXDEPTH + lakemorpho_fetch
 
+length(na.omit(PredDataMini$UNIQUE_ID))
+length(na.omit(PredDataMini$Tmean8110Ws))
+PredDataMini$BFIWs[is.na(PredDataMini$BFIWs)] <- 0
 
+PredDataMini$New_Lakes <- PredDataMini$UNIQUE_ID == 0
+
+assign <- function(column) {
+  if (column == 0) {New_Lakes <- 0}
+  else if (column != 0) {New_Lakes <- 1}
+}
+
+PredDataMini$New_Lakes <- assign(PredDataMini$UNIQUE_ID)
+
+# Lake Analyzer test
+
+install.packages('LakeAnalyzer')
+library(LakeAnalyzer)
+
+library(installr)
