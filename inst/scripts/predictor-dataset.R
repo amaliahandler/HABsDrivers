@@ -421,6 +421,19 @@ lake_met_df <- met_files |>
 # save csv with exsiting lake metrics
 write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
 
+
+PredDataMas$LAGOSLakeDepth <- replace(PredDataMas$LAGOSLakeDepth, which(PredDataMas$LAGOSLakeDepth <= 0), NA)
+PredDataMas$NHDLakeDepth <- replace(PredDataMas$NHDLakeDepth, which(PredDataMas$NHDLakeDepth <= 0), NA)
+PredDataMas$MaxDepth <- replace(PredDataMas$MaxDepth, which(PredDataMas$MaxDepth <= 0), NA)
+
+PredDataMas$lake_m_depth <- PredDataMas$LAGOSLakeDepth
+
+PredDataMas$lake_m_depth <- coalesce(PredDataMas$lake_m_depth, PredDataMas$NHDLakeDepth)
+PredDataMas$lake_m_depth <- coalesce(PredDataMas$lake_m_depth, lake_met_df$depth)
+
+
+summary(PredDataMas$lake_m_depth)
+
 # Modeling ---------------------------------------------------------------------
 
 model_cyano_nolakes <- readRDS('./inst/model_objects/model_cyano_nolakedata.rds')
@@ -508,7 +521,20 @@ PredDataMini$New_Lakes <- assign(PredDataMini$UNIQUE_ID)
 
 # Lake Analyzer test
 
-install.packages('LakeAnalyzer')
-library(LakeAnalyzer)
+devtools::install_github("GLEON/rLakeAnalyzer")
+library(rLakeAnalyzer)
 
-library(installr)
+lake_poly <- PredDataMas[PredDataMas$COMID == 4362552, ]
+
+for (Shape in 1:length(lake_poly)) {
+  shapes <- lake_poly$Shape
+  lake_poly$custom_area <- st_area(shapes)
+}
+
+lake_poly$custom_area <- drop_units(lake_poly$custom_area)
+
+
+lake_bath <- approx.bathy(lake_poly$MaxDepth, lake_poly$custom_area, lake_poly$MeanDepth, method = "voldev", zinterval = 3)
+plot(lake_bath$depths ~ lake_bath$Area.at.z, xlab = "Area (m^3)", ylab = "Depth (m)")
+
+comid_cheque <- subset(PredDataMas, select = c(COMID, MaxDepth, MeanDepth, Shape))
