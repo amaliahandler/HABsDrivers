@@ -1057,7 +1057,7 @@ micx_sp_modcomp <- micx_sp_loocv |>
          AUC = micx_sp_auc,
          distinct_vars = dif_vars,
          common_vars = paste(com_vars, collapse = ", ")) |>
-  arrange(AUC) |>
+  arrange(desc(AUC)) |>
   tibble()
 
 # The final model is model m3_sp due to the highest AUC and lowest MSPE.
@@ -1085,45 +1085,27 @@ Sys.time()
 # Save the best performing micx model so far
 # saveRDS(micx_sp_final_nolake, "./inst/model_objects/model_micx_nolakedata.rds")
 
+# Visualize the results
+# Boxplot of probabilities
+micx_sp_nolake_aug <- augment(micx_sp_final_nolake, type.predict = "response")
+levels(micx_sp_nolake_aug$MICX_DET) <- c("Below Detection", "Above Detection")
 
-# Variables common to all models
-com_vars <- c("fst_ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
+ggplot(data = micx_sp_nolake_aug, aes(x = MICX_DET, y = .fitted)) + 
+      geom_boxplot(color = "#2A6BA6", alpha=0.3) + 
+      xlab("Observed") +
+      ylab("Fitted Probability") 
+ggsave("./inst/figures/micx_sp_final_fitted_probs.png", height = 3, width = 3)
 
-# Get the fixed effects that are different between the models
-dif_vars <- sapply(m_list, function(mod){
-  coef_names <- names(mod$coefficients$fixed)
-  coef_names <- coef_names[!coef_names %in% c("(Intercept)", com_vars)]
-  paste(coef_names, collapse = ", ")
-})
+# Map of fitted probabilities
 
-# Augment the data to get fitted values. Note that in the bionomial case, fitted values include fixed and random effects as well as spatial correlation
-mods_auc <- sapply(m_list, function(mod){
-  aug_mod <- augment(mod)
-  pROC::auc(aug_mod$MICX_DET, aug_mod$.fitted)
-})
-
-# Run loocv to get the bias and 
-micx_loocv <- do.call(rbind, lapply(m_list, loocv))
-
-# Put it all together into a table
-cy_res_table <- glances(m6_sp, m9_sp, m10_sp) |>
-  mutate(model = factor(model, levels = c("m6_sp", "m9_sp", "m10_sp"))) |>
-  arrange(model) |>
-  cbind(micx_loocv) |>
-  select(model, n, p, npar, bias, MSPE, RMSPE, deviance) |> 
-  mutate(AUC = mods_auc) |>
-  # mutate(distinct_vars = dif_vars,
-  #        common_vars = paste(com_vars, collapse = ", ")) |>
-  arrange(AUC) |>
-  tibble()
-
-Sys.time()
-
-# Conclusion: m9 model is probably the best fit with an interaction between the p_farm_inputs and the lake depth. It was in the top 4 models based on AUC comparison with independent models and had the lowest RMSPE when run with spatial correlation. Model m10 had the highest AUC, but also have slightly higher RMSPE. In reality, these models are all pretty close to each other in terms of performance. Mike recommends picking the one with the highest AUC since that is what folks tend to care about the model
-
-# Save the best performing micx model so far
-saveRDS(m9_sp, "./inst/model_objects/model_micx_nolakedata.rds")
-
+conus <- st_transform(AOI::aoi_get(state = "conus"), 5072)
+ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = micx_sp_nolake_aug, aes(fill = .fitted), pch = 21, size = 2) +
+  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
+                       name = "Fitted \nProbability") +
+  theme_void()
+ggsave("./inst/figures/micx_sp_final_fitted_probs_map.png", width = 5, height = 3.5, units = "in", dpi = 600)
 
 ```
 
