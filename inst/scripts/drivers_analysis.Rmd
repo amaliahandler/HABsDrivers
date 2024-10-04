@@ -743,137 +743,6 @@ saveRDS(m9_sp, "./inst/model_objects/model_micx_nolakedata.rds")
 # What happens when we replace ag cover with ag N inputs of excess ag inputs?
 micx13 <- run_micx(mod_vars = c("NTL", "PH", "n_farm_inputs", "n_dev_inputs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
 
-# Just run with the nutrient inventory inputs. Only P farm inputs important. N farm inputs and P developed inputs may be important. When both N and P farm inputs are included, P is more important than N. 
-# Adding an interaction between N farm inputs and ecoregion revealed a potential effect of N in the eastern highlands, but nowhere else.
-# Adding an interaction between P farm inputs and ecoregion suggests that P farm inputs is only related to MICX detection in the eastern highlands ecoregion.
-# Adding two interaction terms helped nothing
-# Lake depth does interact with P farm inputs
-micx20 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "n_dev_inputs", "p_dev_inputs"))
-micx20 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs"))
-micx20 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "AG_ECO3"), int = "n_farm_inputs * AG_ECO3")
-micx20 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-micx20 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3 + n_farm_inputs * AG_ECO3")
-micx20 <- run_micx(mod_vars = c("p_farm_inputs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-micx20 <- run_micx(mod_vars = c("p_farm_inputs", "AG_ECO3", "lake_dep"), int = "p_farm_inputs * lake_dep")
-
-# Switching the order of the categorical variables
-habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
-habs <- mutate(habs, lake_dep = factor(lake_dep, levels = c("shallow", "deep")))
-
-# Switched the ordering of the lake depths. Indicated that shallow lakes have a positive relationship with N inputs. Deep lakes may also have a positive relationship, but not substantially different from shallow lakes.
-micx21 <- run_micx(mod_vars = c("p_farm_inputs", "AG_ECO3", "lake_dep"), int = "p_farm_inputs * lake_dep")
-micx21 <- run_micx(mod_vars = c("p_farm_inputs", "AG_ECO3", "MAXDEPTH"), int = "p_farm_inputs * MAXDEPTH")
-
-# What about other inventory variables? N surplus is positively related. N total inputs was not related. P accumulated agricultural inputs does not fit better/with P farm inputs
-# P farm inputs and ecoregion interact in the presence of N surplus
-micx22 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus"))
-micx22 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "P_Accumulated_ag_inputs"))
-micx22 <- run_micx(mod_vars = c("N_Surplus", "P_Accumulated_ag_inputs"))
-micx22 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus"), int = "p_farm_inputs * AG_ECO3")
-micx22 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus"), int = "N_Surplus * AG_ECO3")
-
-# Adding climate info, the monthly means. Temperature important, but not precip
-micx21 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "precip_mean_month", "temp_mean_month", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-
-# Trying the climate normals. Both temp and precip important
-micx22 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-micx22 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "AG_ECO3"))
-
-# Add the lake depth. Is the continuous or categorical lake depth a better predictor? Both very important.
-micx23 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "AG_ECO3", "MAXDEPTH"), int = "p_farm_inputs * AG_ECO3")
-
-micx24 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "AG_ECO3", "lake_dep"), int = "p_farm_inputs * AG_ECO3")
-
-# Add other variables
-# Baseflow index is related
-micx25 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "AG_ECO3", "lake_dep", "BFIWs"), int = "p_farm_inputs * AG_ECO3")
-
-# Lake fetch is related
-micx26 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-
-# Soil erosion not important. Total or agricultural specific.
-micx27 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "lake_dep", "lakemorpho_fetch", "BFIWs", "AgKffactWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-
-# Try other land cover types. Developed area important, forested area probably important, but not significantly so.
-micx28 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "dev_ws", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-
-# N developed inputs are related. P developed input also may be important. Likely variables are highly collinear.
-micx29 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-micx30 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "n_dev_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-micx31 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-
-# Add in forested land cover. Removed temperature. Added precip minus ET (integrated measure of both precipitation and temperature) which seems to be more related.
-micx32 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-micx33 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "n_dev_inputs", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-micx34 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "n_dev_inputs", "fst_ws", "Precip_Minus_EVTWs", "RunoffWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-
-# Remove N farm inputs
-micx34 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-
-micx35 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * lake_dep + n_dev_inputs * AG_ECO3")
-
-micx35 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * lake_dep + n_dev_inputs * AG_ECO3")
-
-# Getting close, but need to play around with the final set of interactions
-micx36 <- run_micx(mod_vars = c("p_farm_inputs", "n_farm_inputs", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-
-micx37 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-
-# N surplus is related
-micx37 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-
-# Does N surplus interact? Interaction between N_surplus and lake depth has a negative relationship with shallow lakes and a positive relationship with deep lakes. Does that make sense? This model has slightly lower AIC than a model that does not have an interaction between N_suplus and lake depth.
-micx38 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3 + N_Surplus * lake_dep")
-
-# Running with random effect of lake unique ID
-micx40 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3 + N_Surplus * lake_dep")
-
-# The interaction exists for the categorical lake depth, but not the continuous variable
-micx39 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3 + N_Surplus * MAXDEPTH")
-
-# Best fit so far?
-micx38 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3 + N_Surplus * lake_dep")
-
-# Remove an interaction
-micx39 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-micx40 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "N_Surplus * lake_dep")
-
-# Remove all interactions
-micx41 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
-
-# Remove the ecoregions
-micx42 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs"), int = NULL)
-
-# Try continuous depth, this fits better
-micx43 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
-
-# Try climate normals for temp and precip rather than precip-EVT
-micx44 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Tmean8110Ws", "Precip8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
-
-# What about other N input types?
-micx45 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
-micx46 <- run_micx(mod_vars = c("p_farm_inputs", "N_Total_Deposition", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
-micx47 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
-micx48 <- run_micx(mod_vars = c("p_farm_inputs", "p_dev_inputs", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
-
-# Add an interaction back in
-micx49 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "Precip_Minus_EVTWs", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-
-glances(micx38, micx39, micx40, micx41, micx42)
-
-# mixc47 maybe most reasonable fit
-summary(micx47)
-beepr::beep()
-
-aug_micx <- augment(micx47)
-pROC::auc(aug_micx$MICX_DET, aug_micx$.fitted)
-
-micx_loocv <- loocv(micx11, cv_predict = T)
-
-
-
-# Boxplot of estimated probability
-vis_fit(dep_var, micx47, file_name = "Model Fit_Micx_Det.jpg")
 
 # Get the area for the PNW
 pnw <- AOI::aoi_get(state = c("OR", "WA", "ID"))
@@ -917,6 +786,15 @@ ggplot() +
 ggsave("./figures/ObservedMap_Micx.png", width = 6, height = 3.5, units = "in", dpi = 600)
 
 ```
+
+## Microcystin Models
+
+### Microcystin, With Lake Data
+
+```{r}
+
+```
+
 
 ### Microcystin, No Lake Data
 
