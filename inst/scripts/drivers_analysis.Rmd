@@ -573,225 +573,192 @@ ggsave("./figures/NLA071217Lakes.png", width = 6, height = 3.5, units = "in", dp
 
 ```
 
+## Microcystin Detection Models
 
-Models for microcystin detection (presence/absence)
-
+### Microcystin, With Lake Data
 
 ```{r}
-# Use binary microcystin variable
-dep_var  <- "MICX_DET"
 
-# When running model comparison with an independent error model (no spatial covariance), setting the spcov_type = "none" will only reproduce the results of glm() when the nugget is set to near zero.
+# Set the dependent variable
+dep <- "MICX_DET"
 
-spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
+# First conduct model comparison with independent error models. We do this because fitting spatial models is computationally expensive to do so in a way that models can be compared.
 
-run_micx <- function(mod_vars, int = NULL){
-  spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
-                family = "binomial",
-                # Edited to use same set of observations for model comparison
-                data = habs_mod, # drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                spcov_type = "exponential",
-        estmethod = "reml",
-                # spcov_initial = spcov_init,
-                random = ~ DSGN_CYCLE + UNIQUE_ID,
-                local = T)
-}
-
-# Lessons learned
-# These models take substantially longer to run than the linear models and the estimated covariates are most unstable when run using approximation methods (local = T).
-
-# The temperature and precip data never seem to be important to this model.
-
-# Soil erodibility (Kf) is inversely associated with microcystin detection?
-
-# These were all run with local = T
-micx1 <- run_micx(mod_vars = c("NTL","PTL", "DOC", "PH", "dev_ws", "agr_ws", "KffactWs", "precip_mean_month", "TEMPERATURE", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
-
-micx2 <- run_micx(mod_vars = c("NTL","PTL", "DOC", "PH", "dev_ws", "agr_ws", "wet_ws", "KffactWs", "precip_mean_month", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"), int = "PTL*AG_ECO3")
-
-micx3 <- run_micx(mod_vars = c("NTL","PTL", "DOC", "PH", "dev_ws", "agr_ws", "KffactWs", "precip_mean_month", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"), int = "NTL*AG_ECO3")
-
-micx4 <- run_micx(mod_vars = c("NTL", "DOC", "PH", "dev_ws", "agr_ws", "KffactWs", "precip_mean_month", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
-
-micx5 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
-
-# Set local = F here since it seems like the estimates are changing quite a bit between estimated runs
-micx6 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
-
-# Back to local = T
-micx7 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "RunoffWs", "AG_ECO3"))
-
-# Best fit so far? Hard to know when running models using approximation methods.
-micx8 <- run_micx(mod_vars = c("NTL", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
-
-# Try with dissolved N species
-micx9 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "AMMONIA_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
-
-# Try running with fixed range
-micx9a <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "AMMONIA_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
-
-# Try with no spatial covariation
-micx10 <- run_micx(mod_vars = c("NTL","NITRATE_DET","NITRATE_N", "PH", "dev_ws", "agr_ws", "KffactWs", "temp_mean_month", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
-
-# Take out developed area and monthly temperature 
-micx11 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "dev_ws", "KffactWs", "BFIWs", "temp_mean_month", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
-
-# What happens when we replace ag cover with ag N inputs of excess ag inputs?
-micx12 <- run_micx(mod_vars = c("NTL", "PH", "p_dev_inputs", "KffactWs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
-
-# Best fit model so far with NLA water data
-micx11 <- run_micx(mod_vars = c("NTL", "PH", "agr_ws", "dev_ws", "KffactWs", "BFIWs", "temp_mean_month", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
-
-# Save this model
-# saveRDS(micx11, "./inst/model_objects/model_micx_withlakedata.rds")
-
-
-
-### Microcystin models without NLA lake data ###
-
-# Filter to the same set of observations for model comparison
-habs_mod <- habs |>
-  select(MICX_DET, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, n_dev_inputs, N_Total_Deposition, N_Surplus, p_farm_inputs, n_farm_inputs, fst_ws, wet_ws, KffactWs, RunoffWs, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
+# Comparing AIC/BIC between models requires the same set of observations be used for all models. Trim the dataset to include just the variables that will be investigated as potential fixed effects in the model.
+dat_micx_lake <- habs |>
+  select(# Dependent variable and random effects
+         MICX_DET, UNIQUE_ID, DSGN_CYCLE, 
+         # Climate fixed effects
+         Precip8110Ws, Tmean8110Ws, precip_mean_month, 
+         # Setting fixed effects
+         AG_ECO3, 
+         # Lake morphology fixed effects
+         MAXDEPTH, lakemorpho_fetch, 
+         # Nutrient input fixed effects
+         p_farm_inputs, 
+         # Lake water fixed effects
+         NTL, NITRATE_DET, NITRATE_N, DOC, TEMPERATURE, EVAP_INFL) |> 
+  mutate(AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH"))) |>
   drop_na()
 
-# Based on discussions with Mike, we decided that I would do an initial fixed effects model selection using glm() to compare model AUC/BIC. Then I would take the final set of 3-ish models and run with spatial covariance (est_method = "reml") and choose the final model based on AUC and RMSPE. 
+# Function to run independent error models
 
-# Initial model
-m3 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+# Set the initial covariance to be small. This produces results identifcal to glm()
+spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
 
-# Does N inputs fit better?
-m2 <- run_micx(mod_vars = c("n_farm_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+run_micx_ie <- function(mod_vars, int = NULL){
+  spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
+        family = "binomial",
+        data = dat_micx_lake,
+        estmethod = "ml",
+        spcov_initial = spcov_init,
+        random = ~ DSGN_CYCLE + UNIQUE_ID,
+        local = T)
+}
 
-# Which climate data?
-m4 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "precip_mean_month", "temp_mean_month", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+# Run a few candidate models. Tried to choose a few combinations of fixed effects from the four categories: Nutrient inputs, climate, setting, and lake morphology
 
-# Runoff or baseflow index?
-m5 <- run_micx(mod_vars = c("p_farm_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "RunoffWs", "AG_ECO3"), int = NULL)
+# An initial model
+mx1 <-run_micx_ie(mod_vars = c("NTL", "DOC", "precip_mean_month", "TEMPERATURE", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
-# Will another inventory variable fit in the model?
-m6 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+# Do the 30 year climate normal for precipitation fit better?
+mx2 <-run_micx_ie(mod_vars = c("NTL", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
-m7 <- run_micx(mod_vars = c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+# Do dissolved N species improve model fit?
+mx3 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
-m8 <- run_micx(mod_vars = c("p_farm_inputs", "N_Total_Deposition", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+# What about additional watershed metrics?
+mx4 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
-# Interactions
-m9 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * MAXDEPTH")
+# What about ecoregion?
+mx5 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
 
-m10 <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
+# What is there an interaction?
+mx6 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
 
-# Conclusion: Take m6, m10, and m9 to run as spatial models
-glances(m2, m3, m4, m5, m6, m7, m8, m9, m10)
-AUROC(m10)
-AUROC(m9)
-AUROC(m6)
+# Review model AIC/BIC
+glances(mx1, mx2, mx3, mx4, mx5, mx6)
 
+# Make a list of the independent error models to compare
+mx_ie_mods <- list(mx1, mx2, mx3, mx4, mx5, mx6)
 
-# Run with spatial covariance
-m6_sp <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
-
-m9_sp <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * MAXDEPTH")
-
-m10_sp <- run_micx(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
-
-# Which models are included in the table?
-m_list <- list(m6_sp, m9_sp, m10_sp)
-# m_list <- list(m6, m9, m10)
+# Review model AUC
+mx_ie_auc <- sapply(micx_ie_mods, AUROC)
 
 # Variables common to all models
-com_vars <- c("fst_ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
+com_vars <- c("NTL", "DOC", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
 
 # Get the fixed effects that are different between the models
-dif_vars <- sapply(m_list, function(mod){
+dif_vars <- sapply(mx_ie_mods, function(mod){
   coef_names <- names(mod$coefficients$fixed)
   coef_names <- coef_names[!coef_names %in% c("(Intercept)", com_vars)]
   paste(coef_names, collapse = ", ")
 })
 
-# Augment the data to get fitted values. Note that in the bionomial case, fitted values include fixed and random effects as well as spatial correlation
-mods_auc <- sapply(m_list, function(mod){
-  aug_mod <- augment(mod)
-  pROC::auc(aug_mod$MICX_DET, aug_mod$.fitted)
+# Get any interaction terms
+
+# Put it all together into a table, note that the table is organized by BIC
+mx_ie_modcomp <- glances(mx1, mx2, mx3, mx4, mx5, mx6) |>
+  arrange(model) |>
+  select(-npar, -value, -AICc, -logLik, -pseudo.r.squared) |> 
+  mutate(AUC = mx_ie_auc,
+         distinct_vars = dif_vars,
+         common_vars = paste(com_vars, collapse = ", ")) |>
+  arrange(BIC)
+
+# Based on the above analysis, models m4, m5, and m6 have the lower AIC/BIC and will be run with spatial covariance for final model selection
+
+# Function to run spatial models
+run_micx_sp <- function(mod_vars, int = NULL){
+  spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
+        family = "binomial",
+        data = dat_micx_lake,
+        spcov_type = "exponential",
+        estmethod = "reml",
+        random = ~ DSGN_CYCLE + UNIQUE_ID,
+        local = T)
+}
+
+# Running with spatial covariance
+mx4_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
+
+mx5_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
+
+mx6_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
+
+# Make a list of the models to compare
+mx_lake_sp_mods <- list(mx4_sp, mx5_sp, mx6_sp)
+
+# Review model AUC
+mx_lake_sp_auc <- sapply(mx_lake_sp_mods, AUROC)
+
+# Run leave one out cross validation
+mx_lake_sp_loocv <- do.call(rbind, lapply(mx_lake_sp_mods, loocv))
+
+# Variables common to all models
+com_vars <- c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
+
+# Get the fixed effects that are different between the models
+dif_vars <- sapply(mx_lake_sp_mods, function(mod){
+  coef_names <- names(mod$coefficients$fixed)
+  coef_names <- coef_names[!coef_names %in% c("(Intercept)", com_vars)]
+  paste(coef_names, collapse = ", ")
 })
 
-# Run loocv to get the bias and 
-micx_loocv <- do.call(rbind, lapply(m_list, loocv))
-
 # Put it all together into a table
-cy_res_table <- glances(m6_sp, m9_sp, m10_sp) |>
-  mutate(model = factor(model, levels = c("m6_sp", "m9_sp", "m10_sp"))) |>
-  arrange(model) |>
-  cbind(micx_loocv) |>
-  select(model, n, p, npar, bias, MSPE, RMSPE, deviance) |> 
-  mutate(AUC = mods_auc) |>
-  # mutate(distinct_vars = dif_vars,
-  #        common_vars = paste(com_vars, collapse = ", ")) |>
-  arrange(AUC) |>
-  tibble()
+mx_lake_sp_modcomp <- mx_lake_sp_loocv |>
+  mutate(model = c("mx4_sp", "mx5_sp", "mx6_sp"),
+         AUC = mx_lake_sp_auc,
+         distinct_vars = dif_vars,
+         common_vars = paste(com_vars, collapse = ", ")) |>
+  arrange(desc(AUC))
+
+# The final model is model mx5_sp due to the highest AUC and lowest MSPE, though mx4_sp performs virtually identically
+# The final model should be run using all available observations and with local = F
+mod_vars <- c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
+int <- NULL
+Sys.time()
+micx_sp_final_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
+                                family = "binomial",
+                                data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
+                                spcov_type = "exponential",
+                                estmethod = "reml",
+                                random = ~ DSGN_CYCLE + UNIQUE_ID,
+                                local = F)
+Sys.time()
+
+# Get AUC of final model
+micx_sp_final_nolake_auc <- AUROC(micx_sp_final_withlake)
+
+# Get bias, MSPE
+micx_sp_final_nolake_loocv <- loocv(micx_sp_final_withlake)
 
 Sys.time()
 
-# Conclusion: m9 model is probably the best fit with an interaction between the p_farm_inputs and the lake depth. It was in the top 4 models based on AUC comparison with independent models and had the lowest RMSPE when run with spatial correlation. Model m10 had the highest AUC, but also have slightly higher RMSPE. In reality, these models are all pretty close to each other in terms of performance. Mike recommends picking the one with the highest AUC since that is what folks tend to care about the model
-
 # Save the best performing micx model so far
-saveRDS(m9_sp, "./inst/model_objects/model_micx_nolakedata.rds")
+# saveRDS(micx_sp_final_withlake, "./inst/model_objects/model_micx_withlakedata.rds")
 
-# The models do run when replace with the log-transformed N inputs. Guessing that the extreme values make the model difficult to fit.
+# Visualize the results
+# Boxplot of probabilities
+micx_sp_withlake_aug <- augment(micx_sp_final_withlake, type.predict = "response")
+levels(micx_sp_withlake_aug$MICX_DET) <- c("Below Detection", "Above Detection")
 
-# Turns out I was working with nutrient inventory numbers that weren't normalized to the watershed area. As a result, there were some extremely high numbers in the data.
+ggplot(data = micx_sp_withlake_aug, aes(x = MICX_DET, y = .fitted)) + 
+      geom_boxplot(color = "#2A6BA6", alpha=0.3) + 
+      xlab("Observed") +
+      ylab("Fitted Probability") 
+ggsave("./inst/figures/micx_sp_final_withlake_fitted_probs.png", height = 3, width = 3)
 
-# What happens when we replace ag cover with ag N inputs of excess ag inputs?
-micx13 <- run_micx(mod_vars = c("NTL", "PH", "n_farm_inputs", "n_dev_inputs", "BFIWs", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch", "AG_ECO3"))
+# Map of fitted probabilities
 
-
-# Get the area for the PNW
-pnw <- AOI::aoi_get(state = c("OR", "WA", "ID"))
-
-# Filter data to just the PWN
-pnw_micx <- m9_sp |>
-  augment(type.predict = "response") |>
-  st_transform(st_crs(pnw)) |>
-  st_intersection(pnw) |>
-  arrange(.fitted)
-
-# Map of the PNW
+conus <- st_transform(AOI::aoi_get(state = "conus"), 5072)
 ggplot() + 
-  geom_sf(data = pnw, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = pnw_micx, aes(fill = .fitted), pch = 21, size = 3) +
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = arrange(micx_sp_withlake_aug, .fitted), aes(fill = .fitted), pch = 21, size = 2) +
   scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
-                       name = "Estimated \nProbability", 
-                       breaks = c(0.2, 0.4, 0.6)) +
-  theme_void() +
-  ggtitle("Fitted Probability of Microcystin Detection")+
-  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
-ggsave("./figures/FittedProbMap_Micx_PNW.png", width = 5, height = 3.5, units = "in", dpi = 600)
-
-# Interactive map version
-mapview::mapview(pnw_micx, z = ".fitted")
-
-# Map of all NHD lakes >1 ha in area in the PNW
-ggplot() + 
-  geom_sf(data = pnw, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = pnw_lk_pts, pch = 21, fill = "blue", alpha = 0.5, size = 1) +
+                       name = "Fitted \nProbability") +
   theme_void()
-
-ggplot() + 
-  geom_sf(data = pnw, fill = "#e2e2e2", color = "white", size = 0.5) +
-  geom_sf(data = arrange(augment(m9_sp), .fitted), aes(fill = .fitted), pch = 21) +
-  scale_fill_manual(values = c('#ffeda0','#bd0026'), #'#fee0b6','#d8daeb','#b2abd2','#8073ac'
-                       name = "Microcystin \nDetected") +
-  theme_void() +
-  ggtitle("Observed Microcystin Detection")+
-  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
-ggsave("./figures/ObservedMap_Micx.png", width = 6, height = 3.5, units = "in", dpi = 600)
-
-```
-
-## Microcystin Models
-
-### Microcystin, With Lake Data
-
-```{r}
+ggsave("./inst/figures/micx_sp_final_withlake_fitted_probs_map.png", width = 5, height = 3.5, units = "in", dpi = 600)
 
 ```
 
@@ -908,7 +875,7 @@ m4_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Pr
 
 m5_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
 
-# Make a list of the independent error models to compare
+# Make a list of the models to compare
 micx_sp_mods <- list(m3_sp, m4_sp, m5_sp)
 
 # Review model AUC
@@ -986,6 +953,42 @@ ggplot() +
 ggsave("./inst/figures/micx_sp_final_fitted_probs_map.png", width = 5, height = 3.5, units = "in", dpi = 600)
 
 ```
+
+Visuals for Merkley visit
+
+```{r}
+# Get the area for the PNW
+pnw <- AOI::aoi_get(state = c("OR", "WA", "ID"))
+
+# Filter data to just the PWN
+pnw_micx <- micx_sp_final_nolake |>
+  augment(type.predict = "response") |>
+  st_transform(st_crs(pnw)) |>
+  st_intersection(pnw) |>
+  arrange(.fitted)
+
+# Map of the PNW
+ggplot() + 
+  geom_sf(data = pnw, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = pnw_micx, aes(fill = .fitted), pch = 21, size = 3) +
+  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
+                       name = "Estimated \nProbability") +
+  theme_void() +
+  ggtitle("Fitted Probability of Microcystin Detection")+
+  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
+ggsave("./figures/FittedProbMap_Micx_PNW.png", width = 5, height = 3.5, units = "in", dpi = 600)
+
+# Interactive map version
+mapview::mapview(pnw_micx, z = ".fitted")
+
+# Map of all NHD lakes >1 ha in area in the PNW
+ggplot() + 
+  geom_sf(data = pnw, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = pnw_lk_pts, pch = 21, fill = "blue", alpha = 0.5, size = 1) +
+  theme_void()
+
+```
+
 
 
 Models for microcystin concentration, when present
