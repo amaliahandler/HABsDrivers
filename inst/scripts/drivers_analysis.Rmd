@@ -41,14 +41,10 @@ habs <- mutate(habs, NITRATE_DET = ifelse(is.na(NITRATE_N), 0, 1), .after = NITR
 habs <- mutate(habs, NITRATE_N = ifelse(is.na(NITRATE_N), 0, NITRATE_N))
 
 habs <- habs |>
-  # Robert suggested using agricultural inputs rather than land cover
   mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
          n_dev_inputs = N_Human_Waste + N_Fert_Urban,
          p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
-         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer) |> # ,
-         # nfarm_inputs_pres = ifelse(n_farm_inputs == 0, 0, 1),
-  # Creating a categorical variable for lake depth
-  mutate(lake_dep = ifelse(MAXDEPTH <= 10, "shallow", "deep"))
+         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer)
 
 # Create a categorical variable for microcystin detection
 habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
@@ -69,12 +65,6 @@ habs <- habs|>
 
 
 Examine the predictor data for colinear variables
-- TN and DOC
-- Precip8110Ws and Precip_Minus_EVTWs and RunoffWs
-- nondev_ws and agr_ws
-- SlopeWs and ElevWs
-- N_Total_Inputs, N_Surplus, P_Surplus (r > 0.90)
-
 
 ```{r}
 cormat_pred <- cor(st_drop_geometry(select(habs, TEMPERATURE:P_Surplus)), use = "pairwise.complete.obs")
@@ -167,91 +157,8 @@ do.call(rbind, lapply(c("MICX", "B_G_DENS", "CHLA_RESULT", "CHLA_CYANO"), functi
 
 ```
 
-Model setup
 
-```{r model setup}
-# Create variable groups
-all_vars     <- colnames(habs)[match("TEMPERATURE", colnames(habs)):match("P_nf_fertilizer", colnames(habs))]
-# Add in ecoregion
-all_vars     <- c(all_vars, "AG_ECO3", "AG_ECO9_NM")
-dep_vars     <- c("B_G_DENS", "MICX", "CYLSPER", "CHLA_RESULT", "CHLA_CYANO", "BG_BIOVOL", "PHYT_BIOVOL")
-all_ind_vars <- all_vars[!all_vars %in% dep_vars]
-
-# Dropping non-developed area of the watershed due to issues of colinearity with developed area. Also dropping nitrate data since it is missing for a large number of observations.
-# all_ind_vars <- all_ind_vars[!all_ind_vars %in% c("nondev_ws", "NITRATE_N")]
-# Dropping non-developed area of the watershed due to issues of colinearity with developed area.
-all_ind_vars <- all_ind_vars[!all_ind_vars == "nondev_ws"]
-
-# NLA water variables
-nla_ind_vars <- c("TEMPERATURE", "MAXDEPTH", "STRATIFIED", "AMMONIA_N", "DO_SURF", "DOC", "NTL", "PTL", "TURB", "NITRATE_N", "NITRATE_DET", "PH", "EVAP_INFL", "D_EXCESS")
-  
-# All non-NLA variables
-non_nla_vars <- all_ind_vars[!all_ind_vars %in% nla_ind_vars]
-
-# All nutrient inventory variables
-nni_vars <- colnames(habs)[match("N_CBNF", colnames(habs)):match("P_nf_fertilizer", colnames(habs))]
-
-```
-
-Helper to visualize fitted versus observed values from the model results
-
-```{r}
-vis_fit <- function(dep_var, splm_obj, file_name = NULL, width = 5, height = 4, dpi = 400){
-  
-  # Augment the splm object with the .fitted data
-  aug <- augment(splm_obj) |>
-    rename(obs = 1)
-  
-  # Title the figure according to response variable modeled
-  name <- "Log10(Cyanobacteria + 1)"
-  
-  if(dep_var == "MICX_DET"){name = "Probability Microcystin Presence/Absence"}
-  if(dep_var == "MICX"){name = "Log10(Microcystin Concentration)"}
-  
-  fig <- NULL
-  
-  # Construct the figure, continuous case
-  if(dep_var == "MICX" | dep_var == "B_G_DENS"){
-    
-    # Max values for the axes
-    max_val <- max(pull(aug, obs), pull(aug, .fitted))
-    
-    fig <- ggplot(data = aug, aes(x = obs, y = .fitted)) + 
-      geom_point(color = "blue", alpha=0.3) + 
-      xlim(0, max_val) + ylim(0, max_val) +
-      xlab("Observed") +
-      ylab("Fitted") +
-      ggtitle(name)
-  }
-  
-  # Binary case
-  if(dep_var == "MICX_DET"){
-    levels(aug$obs) <- c("Absent", "Present")
-    
-    fig <- ggplot(data = aug, aes(x = obs, y = .fitted)) + 
-      geom_boxplot(color = "#2A6BA6", alpha=0.3) + 
-      xlab("Observed") +
-      ylab("Fitted") +
-      ggtitle(name)
-  }
-  
-  # Save the figure
-  if(is.null(file_name) == FALSE){ggsave(paste0("./figures/", file_name), height = height, width = width, dpi = dpi, units = "in")}
-  
-  # Print a correlation test
-  fit_test <- NULL
-  if(dep_var == "MICX_DET"){fit_test = pROC::auc(aug$obs, aug$.fitted)}
-  if((dep_var == "MICX" | dep_var == "B_G_DENS")){fit_test = cor.test(pull(aug, obs), pull(aug, .fitted))}
-  
-  print(fit_test)
-  
-  return(fig)
-}
-
-```
-
-
-Experiment with some spatial models
+Find the constant to add to the cyanobacteria cell count. Since this variable should be log-transformed and there are zeros in the data that are real.
 
 
 ```{r cyano models}
@@ -286,132 +193,17 @@ dat <- st_drop_geometry(drop_na(select(habs, B_G_DENS, NTL, NITRATE_N, NITRATE_D
 
 # finds the c for log(y + c) (note that y should be on the original scale for
 # the purposes of this function, as I take the log inside)
-out <- optim(0, fn = find_c, formula = B_G_DENS ~ NTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3 + MAXDEPTH * NTL, data = dat, method = "Brent", lower = -10, upper = 10)
+out <- optim(0, 
+             fn = find_c, 
+             # formula = y ~ x,
+             formula = B_G_DENS ~ NTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3 + MAXDEPTH * NTL, 
+             data = dat, 
+             method = "Brent", 
+             lower = -10, upper = 10)
 c_value <- exp(out$par)
 print(c_value)
 
-# 2024-01-24 Models on cyanobacteria cell counts using all available explanatory variables
 
-# Lessons learned: 
-
-# There is a lot of missing biovolume data. Enough that I switched back to cyano count data. Will need to check with Karen about why so much data is missing for this parameter.
-
-# TP isn't important unless TN is removed from the model. These two variables are likely highly colinear. Both TN and TP come out as important in the model if one of them has an interaction with three aggregated ecoregions. With TN*AG_ECO3, both the plains and western mountains come out as important plus the interaction between the plains and TN. With TP*AG_ECO3, the plains are important alone and there is an interaction between the plains and the western mountains and TP. When the interaction term is present between TN and the ecoregions, the effect of precipitation 30 yr normals and EVAP/INFL is lessened. However, the model with the lowest AIC lacks the interaction term. 
-
-# Watershed mean slope and elevation were coming out as highly related to cyanos, but the effect diminished with the addition of the ecoregional data as a categorical variable. It's likely that slope and elevation were acting as proxies for the western mountain and xeric ecoregions that have much lower cyanos compared to other regions. Therefore, decided to include just the three aggregated ecoregions. 
-
-# Also, the ecoregions are included as a fixed rather than a random effect now since the effect seems to be important and not an artifact of the NLA design. 
-
-# Might consider playing around with having an ecoregional interaction term with some of the variables. This seemed promising when there was an interaction between ecoregion and TN, but not with any other variables (tried temp and agriculture). 
-
-# The 30-year climate normals for temp and precip always outperformed the monthly means in which the sample was collected and the water temperature at the time of sampling. This is likely at least in part to the inclusion of a survey year random effect, but when survey year is removed and monthly means included, the model performs substantially worse.
-
-# Note that in some preliminary tests the spatial regression models are explianing ~40-55% of the variation cyano count data while the random forest model explains ~28%.
-
-# Experimenting with including nitrate in the models. Nitrate detection and concentration are negatively associated with cyanobacteria. TN, nitrate detected, and nitrate concentration can all be included in the same model. These three variables can also be included with TP and it comes out as important, though negatively correlated with cyanos which is confusing. Note that the addition of nitrate and ammonium variables increases the AIC relative to a model that only includes TN.
-
-# Switched out E/I for d-excess following a conversation with Renee Brooks. D-excess is a measure of how much how evaporated the water is. When water is still, there is a higher evaporation rate. So d-excess can be thought of as a proxy for how long water has been sitting around evaporating. When d-excess is low, the water is more evaporated. It seems to have a stronger relationship with cyanos.
-
-# Tried running the model as both Poisson and negative bionomial. Fits did not meaningfully change and interpretation is much more challenging. Decided to stick with a linear model for the time-being.
-
-# Ran the code from Mike to identify an appropriate value of a constant to add to the cyano data in order to log transform. The constan
-
-# Now that I am adding an optimized constant (1000) to the model, the effect of the ecoregion has disappeared. Now, when both TN and TP are in the model, they can both be important; although TP is less important than TN.
-
-# Playing around with interactions between the ecoregions and TN, TP, and DOC and finding that generally the interaction has a negative coefficient value. I think that means that within a given ecoregion, increases in TN or TP or DOC are associated with a decrease in cyanos. Not sure how to square that with the overall positive realtionship with TN and TP. When there's an interaction between DOC and ecoregion, the direction of the overall relationship switches from negative to positive and then the interaction coefficients are negative.
-
-# When total agricultural N inputs or excess agricultural N inputs are substituted in instead of agricultural cover, there variable is not significantly related and was negatively related to cyanos, which doesn't make sense. 
-
-# Try an interactions between shallow and deep lakes per Jim Carleton's suggestion. Finding that both MAXDEPTH and depth as a categorical variable is important.
-
-# Construct the model
-dep_var  <- "B_G_DENS"
-const <- 1000
-
-# Function to run the cyano models by only supplying the model vars and the interaction term
-run_cyano <- function(mod_vars, interact){
-  splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
-              # Edited to run for a unified set of observations for the purposes of model comparison
-              data = filter(drop_na(habs, all_of(dep_var), all_of(mod_vars))),
-              spcov_type = "exponential",
-              random = ~ DSGN_CYCLE + UNIQUE_ID,
-              estmethod = "ml",
-              local = T)
-}
-
-# Model comparison
-
-# Set the western mountains to the base group
-habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
-
-# Filter to the same set of observations for model comparison
-habs_mod <- habs |>
-  select(B_G_DENS, NTL, PTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
-  drop_na()
-
-# Does TN or TP fit better?
-cy1 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
-
-cy2 <- run_cyano(mod_vars = c("PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
-
-# Monthly mean temperature and precipitation or climate normals?
-cy3 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "precip_mean_month", "temp_mean_month", "EVAP_INFL", "MAXDEPTH"), interact = NULL)
-
-# Are there ecoregional differences?
-cy4 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
-
-# Do interactions improve the model?
-cy5 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = "MAXDEPTH * NTL")
-
-cy6 <- run_cyano(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * NTL")
-
-# Make a table of the model comparison
-
-# Variables common to all models
-com_vars <- c("NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch")
-
-# Which models are included in the table?
-cy_list <- list(cy1, cy2, cy3, cy4, cy5, cy6)
-
-# Get the fixed effects that are different between the models
-dif_vars <- sapply(cy_list, function(mod){
-  coef_names <- names(mod$coefficients$fixed)
-  coef_names <- coef_names[!coef_names %in% c("(Intercept)", com_vars)]
-  paste(coef_names, collapse = ", ")
-})
-
-# Get the loocv to get the R^2 between observed and fit
-mods_loocv <- do.call(rbind, lapply(cy_list, loocv))
-
-# Put it all together into a table
-cy_res_table <- glances(cy1, cy2, cy3, cy4, cy5, cy6) |>
-  arrange(model) |>
-  select(model, n, p, npar, AIC, AICc, BIC) |>
-  cbind(mods_loocv) |>
-  mutate(distinct_vars = dif_vars,
-         common_vars = paste(com_vars, collapse = ", ")) |>
-  arrange(BIC) |>
-  tibble()
-  
-# Evaluate fit of best model
-cyano_pred       <- habs_mod
-cyano_loocv      <- loocv(cy5, cv_predict = TRUE)
-cyano_pred$preds <- cyano_loocv$cv_predict
-
-max_val <- max(log10(cyano_pred$B_G_DENS + const), cyano_pred$preds)
-name    <- paste0("Log10(Cyanobacteria + ", const,")")
-
-fig <- ggplot(data = cyano_pred, aes(x = preds, y = log10(B_G_DENS + const))) +
-  geom_hex(bins = 60) +
-  scale_fill_continuous(type = "viridis") +
-  xlim(2.8, max_val) + ylim(2.8, max_val) +
-  ylab("Observed") +
-  xlab("Fitted") +
-  ggtitle(name)
-ggsave(paste0("./figures/", "Model Fit_Cyano_With NLA.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
-
-# Save the model
-# saveRDS(cy5, "./inst/model_objects/model_cyano_withlakedata.rds")
 
 ### Cyanobacteria models without NLA covariates ###
 
@@ -572,6 +364,147 @@ ggsave("./figures/NLA071217Lakes.png", width = 6, height = 3.5, units = "in", dp
 
 
 ```
+
+### Cyanobacteria, With Lake Data
+
+```{r}
+# 2024-01-24 Models on cyanobacteria cell counts using all available explanatory variables
+
+# Lessons learned: 
+
+# There is a lot of missing biovolume data. Enough that I switched back to cyano count data. Will need to check with Karen about why so much data is missing for this parameter.
+
+# TP isn't important unless TN is removed from the model. These two variables are likely highly colinear. Both TN and TP come out as important in the model if one of them has an interaction with three aggregated ecoregions. With TN*AG_ECO3, both the plains and western mountains come out as important plus the interaction between the plains and TN. With TP*AG_ECO3, the plains are important alone and there is an interaction between the plains and the western mountains and TP. When the interaction term is present between TN and the ecoregions, the effect of precipitation 30 yr normals and EVAP/INFL is lessened. However, the model with the lowest AIC lacks the interaction term. 
+
+# Watershed mean slope and elevation were coming out as highly related to cyanos, but the effect diminished with the addition of the ecoregional data as a categorical variable. It's likely that slope and elevation were acting as proxies for the western mountain and xeric ecoregions that have much lower cyanos compared to other regions. Therefore, decided to include just the three aggregated ecoregions. 
+
+# Also, the ecoregions are included as a fixed rather than a random effect now since the effect seems to be important and not an artifact of the NLA design. 
+
+# Might consider playing around with having an ecoregional interaction term with some of the variables. This seemed promising when there was an interaction between ecoregion and TN, but not with any other variables (tried temp and agriculture). 
+
+# The 30-year climate normals for temp and precip always outperformed the monthly means in which the sample was collected and the water temperature at the time of sampling. This is likely at least in part to the inclusion of a survey year random effect, but when survey year is removed and monthly means included, the model performs substantially worse.
+
+# Note that in some preliminary tests the spatial regression models are explianing ~40-55% of the variation cyano count data while the random forest model explains ~28%.
+
+# Experimenting with including nitrate in the models. Nitrate detection and concentration are negatively associated with cyanobacteria. TN, nitrate detected, and nitrate concentration can all be included in the same model. These three variables can also be included with TP and it comes out as important, though negatively correlated with cyanos which is confusing. Note that the addition of nitrate and ammonium variables increases the AIC relative to a model that only includes TN.
+
+# Switched out E/I for d-excess following a conversation with Renee Brooks. D-excess is a measure of how much how evaporated the water is. When water is still, there is a higher evaporation rate. So d-excess can be thought of as a proxy for how long water has been sitting around evaporating. When d-excess is low, the water is more evaporated. It seems to have a stronger relationship with cyanos.
+
+# Tried running the model as both Poisson and negative bionomial. Fits did not meaningfully change and interpretation is much more challenging. Decided to stick with a linear model for the time-being.
+
+# Ran the code from Mike to identify an appropriate value of a constant to add to the cyano data in order to log transform. The constan
+
+# Now that I am adding an optimized constant (1000) to the model, the effect of the ecoregion has disappeared. Now, when both TN and TP are in the model, they can both be important; although TP is less important than TN.
+
+# Playing around with interactions between the ecoregions and TN, TP, and DOC and finding that generally the interaction has a negative coefficient value. I think that means that within a given ecoregion, increases in TN or TP or DOC are associated with a decrease in cyanos. Not sure how to square that with the overall positive realtionship with TN and TP. When there's an interaction between DOC and ecoregion, the direction of the overall relationship switches from negative to positive and then the interaction coefficients are negative.
+
+# When total agricultural N inputs or excess agricultural N inputs are substituted in instead of agricultural cover, there variable is not significantly related and was negatively related to cyanos, which doesn't make sense. 
+
+# Try an interactions between shallow and deep lakes per Jim Carleton's suggestion. Finding that both MAXDEPTH and depth as a categorical variable is important.
+
+# Construct the model
+dep_var  <- "B_G_DENS"
+const    <- 1000
+
+# Set the western mountains to the base group
+habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
+
+# Filter to the same set of observations for model comparison
+habs_mod <- habs |>
+  select(B_G_DENS, NTL, PTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
+  drop_na()
+
+# Function to run the cyano models for model comparison.
+run_cyano_ml <- function(mod_vars, interact){
+  splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
+              data = habs_mod,
+              spcov_type = "exponential",
+              random = ~ DSGN_CYCLE + UNIQUE_ID,
+              estmethod = "ml",
+              local = T)
+}
+
+# Model comparison
+
+# Does TN or TP fit better?
+cy1 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+cy2 <- run_cyano_ml(mod_vars = c("PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+# Monthly mean temperature and precipitation or climate normals?
+cy3 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "precip_mean_month", "temp_mean_month", "EVAP_INFL", "MAXDEPTH"), interact = NULL)
+
+# Are there ecoregional differences?
+cy4 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+
+# Do interactions improve the model?
+cy5 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = "MAXDEPTH * NTL")
+
+cy6 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * NTL")
+
+# Make a table of the model comparison
+
+# Variables common to all models
+com_vars <- c("NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch")
+
+# Which models are included in the table?
+cy_list <- list(cy1, cy2, cy3, cy4, cy5, cy6)
+
+# Get the fixed effects that are different between the models
+dif_vars <- sapply(cy_list, function(mod){
+  coef_names <- names(mod$coefficients$fixed)
+  coef_names <- coef_names[!coef_names %in% c("(Intercept)", com_vars)]
+  paste(coef_names, collapse = ", ")
+})
+
+# Get the loocv to get the R^2 between observed and fit
+cymods_ml_loocv <- do.call(rbind, lapply(cy_list, loocv))
+
+# Put it all together into a table
+cy_res_table <- glances(cy1, cy2, cy3, cy4, cy5, cy6) |>
+  arrange(model) |>
+  select(model, n, p, npar, AIC, AICc, BIC) |>
+  cbind(cymods_ml_loocv) |>
+  mutate(distinct_vars = dif_vars,
+         common_vars = paste(com_vars, collapse = ", ")) |>
+  arrange(BIC) |>
+  tibble()
+
+# Run the best fit model, cy5
+mod_vars <- c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
+
+interact <- "MAXDEPTH * NTL"
+
+cymod_final_dat <- drop_na(habs, all_of(dep_var), all_of(mod_vars))
+
+cymod_final_withlake <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
+                             data = cymod_final_dat,
+                             spcov_type = "exponential",
+                             random = ~ DSGN_CYCLE + UNIQUE_ID,
+                             local = F)
+  
+# Evaluate fit of best model
+cyano_withlake_loocv <- loocv(cymod_final_withlake, cv_predict = TRUE)
+
+cymod_final_dat$preds <- cyano_withlake_loocv$cv_predict
+
+max_val <- max(log10(cymod_final_dat$B_G_DENS + const), cymod_final_dat$preds)
+
+fig <- ggplot(data = cymod_final_dat, aes(x = preds, y = log10(B_G_DENS + const))) +
+  geom_hex(bins = 60) +
+  scale_fill_continuous(type = "viridis") +
+  xlim(2.8, max_val) + ylim(2.8, max_val) +
+  ylab("Observed") +
+  xlab("Fitted") +
+  ggtitle(paste0("Log10(Cyanobacteria + ", const,")"))
+ggsave(paste0("./figures/", "Model Fit_Cyano_With NLA.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
+
+# Save the model
+# saveRDS(cy5, "./inst/model_objects/model_cyano_withlakedata.rds")
+```
+
+
+### Cyanobacteria, No Lake Data
 
 ## Microcystin Detection Models
 
