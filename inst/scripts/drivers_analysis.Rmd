@@ -368,39 +368,6 @@ ggsave("./figures/NLA071217Lakes.png", width = 6, height = 3.5, units = "in", dp
 ### Cyanobacteria, With Lake Data
 
 ```{r}
-# 2024-01-24 Models on cyanobacteria cell counts using all available explanatory variables
-
-# Lessons learned: 
-
-# There is a lot of missing biovolume data. Enough that I switched back to cyano count data. Will need to check with Karen about why so much data is missing for this parameter.
-
-# TP isn't important unless TN is removed from the model. These two variables are likely highly colinear. Both TN and TP come out as important in the model if one of them has an interaction with three aggregated ecoregions. With TN*AG_ECO3, both the plains and western mountains come out as important plus the interaction between the plains and TN. With TP*AG_ECO3, the plains are important alone and there is an interaction between the plains and the western mountains and TP. When the interaction term is present between TN and the ecoregions, the effect of precipitation 30 yr normals and EVAP/INFL is lessened. However, the model with the lowest AIC lacks the interaction term. 
-
-# Watershed mean slope and elevation were coming out as highly related to cyanos, but the effect diminished with the addition of the ecoregional data as a categorical variable. It's likely that slope and elevation were acting as proxies for the western mountain and xeric ecoregions that have much lower cyanos compared to other regions. Therefore, decided to include just the three aggregated ecoregions. 
-
-# Also, the ecoregions are included as a fixed rather than a random effect now since the effect seems to be important and not an artifact of the NLA design. 
-
-# Might consider playing around with having an ecoregional interaction term with some of the variables. This seemed promising when there was an interaction between ecoregion and TN, but not with any other variables (tried temp and agriculture). 
-
-# The 30-year climate normals for temp and precip always outperformed the monthly means in which the sample was collected and the water temperature at the time of sampling. This is likely at least in part to the inclusion of a survey year random effect, but when survey year is removed and monthly means included, the model performs substantially worse.
-
-# Note that in some preliminary tests the spatial regression models are explianing ~40-55% of the variation cyano count data while the random forest model explains ~28%.
-
-# Experimenting with including nitrate in the models. Nitrate detection and concentration are negatively associated with cyanobacteria. TN, nitrate detected, and nitrate concentration can all be included in the same model. These three variables can also be included with TP and it comes out as important, though negatively correlated with cyanos which is confusing. Note that the addition of nitrate and ammonium variables increases the AIC relative to a model that only includes TN.
-
-# Switched out E/I for d-excess following a conversation with Renee Brooks. D-excess is a measure of how much how evaporated the water is. When water is still, there is a higher evaporation rate. So d-excess can be thought of as a proxy for how long water has been sitting around evaporating. When d-excess is low, the water is more evaporated. It seems to have a stronger relationship with cyanos.
-
-# Tried running the model as both Poisson and negative bionomial. Fits did not meaningfully change and interpretation is much more challenging. Decided to stick with a linear model for the time-being.
-
-# Ran the code from Mike to identify an appropriate value of a constant to add to the cyano data in order to log transform. The constan
-
-# Now that I am adding an optimized constant (1000) to the model, the effect of the ecoregion has disappeared. Now, when both TN and TP are in the model, they can both be important; although TP is less important than TN.
-
-# Playing around with interactions between the ecoregions and TN, TP, and DOC and finding that generally the interaction has a negative coefficient value. I think that means that within a given ecoregion, increases in TN or TP or DOC are associated with a decrease in cyanos. Not sure how to square that with the overall positive realtionship with TN and TP. When there's an interaction between DOC and ecoregion, the direction of the overall relationship switches from negative to positive and then the interaction coefficients are negative.
-
-# When total agricultural N inputs or excess agricultural N inputs are substituted in instead of agricultural cover, there variable is not significantly related and was negatively related to cyanos, which doesn't make sense. 
-
-# Try an interactions between shallow and deep lakes per Jim Carleton's suggestion. Finding that both MAXDEPTH and depth as a categorical variable is important.
 
 # Construct the model
 dep_var  <- "B_G_DENS"
