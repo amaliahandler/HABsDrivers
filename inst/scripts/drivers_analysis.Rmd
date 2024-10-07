@@ -314,28 +314,6 @@ ggsave(paste0("./figures/", "Model Fit_Cyano_With NLA.jpg"), fig, height = 4, wi
 ### Cyanobacteria, No Lake Data
 
 ```{r}
-### Cyanobacteria models without NLA covariates ###
-
-# *** Turns out I was using mass of N and P inputs rather than area-normalized inputs. This has been updated in the input data. Now N and P inputs are on a per hectare basis and the numbers are more reasonable and not in the billions/millions. ***
-
-# Individual N and P inputs were not really related to cyanos. Only N_CBNF was significantly related to cyanos, but the relationship was negative. Sometimes P_livestock_waste was related and was positive. Total_N_Inputs was negatively related to cyanos. 
-
-# Summarizing N and P inputs into farm and development categories did not result in any of the variables being significantly related to the cyanobacteria counts.
-
-# Piling in non-inventory watershed variables improves the amount of variation explained, but not by much. Agriculture and developed land cover in the watershed is more associated with cyanobacteria that any of the nutrient inventory variables. 
-
-# There are a few extremely high observations of N farm inputs. Perhaps try log-transforming this covariate? Then there are >800 observations with no N farm inputs. So created a variable for the presence/absence of farm inputs. Even still, these variables almost never come out as important.
-
-# On recommendation from Ryan, I tried removing the random effect for the lake ID. It appears that the variation assigned to the lake ID gets reallocated to the spatially dependent error term. 
-
-# There are still a bunch of extreme values for the N and P inputs. Even when these extreme values are removed, it doesn't result in covariates having stronger relationships with the response.
-
-# Baseflow index is more strongly related than runoff.
-
-# Adding N_Rock and N_Total_Dep were related when included together, but N_Rock was negatively related. N_Total_Dep was positively related.
-
-
-
 # Construct the model
 dep_var  <- "B_G_DENS"
 const    <- 1000
@@ -432,73 +410,19 @@ fig <- ggplot(data = cmod_final_dat, aes(x = preds, y = log10(B_G_DENS + const))
 ggsave(paste0("./figures/", "Model Fit_Cyano_No NLA.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
 # Save the model
-# saveRDS(c4, "./inst/model_objects/model_cyano_nolakedata.rds")
+# saveRDS(c2, "./inst/model_objects/model_cyano_withlakedata.rds")
 
-# Static map
-conus <- st_transform(AOI::aoi_get(state = "conus"), 5070)
-aug_bins <- c4 |>
-  augment() |>
-  mutate(bin = case_when(.std.resid < -2 ~ "c1",
-                         .std.resid > -2 & .std.resid <= -1 ~ "c2",
-                         .std.resid > -1 & .std.resid <= 0 ~ "c3",
-                         .std.resid > 0 & .std.resid <= 1 ~ "c4",
-                         .std.resid > 1 & .std.resid <= 2 ~ "c5",
-                         .std.resid > 2 & .std.resid <= 3 ~ "c6",
-                         .std.resid > 3 ~ "c7")) |>
-  arrange(abs(.std.resid))
-  
+# Map of fitted probabilities
+
+conus <- st_transform(AOI::aoi_get(state = "conus"), 5072)
 ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
-  geom_sf(data = aug_bins, aes(fill = bin), pch = 21) +
-  scale_fill_manual(values = c('#7f3b08','#e08214','#fee0b6','#d8daeb','#b2abd2','#8073ac','#2d004b'),
-                    name = " ", 
-                    breaks = c(paste0("c", 1:7)),
-                    labels = (c("< -2", "-2 - -1","-1 - 0","0 - 1","1 - 2","2 - 3", "> 3"))) +
-  theme_void() +
-  ggtitle("Cyanobacteria: Standardized Residuals") +
-  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
-ggsave("./figures/Cyano_StdResidMap.png", width = 6, height = 3.5, units = "in", dpi = 600)
-
-# Map of fitted probability
-# Side-by-side of observed and fitted values
-mapper <- aug_bins |>
-  rename(Observed = `log10(B_G_DENS + 1000)`,
-         Estimated = .fitted) |>
-  pivot_longer(cols = c(Observed, Estimated), names_to = "type", values_to = "value")
-
-ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
-  geom_sf(data = arrange(mapper, value), aes(fill = value), pch = 21) +
-  facet_wrap(~type) +
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = arrange(cmod_final_dat, preds), 
+          aes(fill = preds), pch = 21, size = 2) +
   scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
-                       name = "Cyanobacteria \n (cells/mL)", 
-                       breaks = c(log10(0+1000),log10(10000+1000),log10(10^5+1000), log10(10^6+1000), log10(10^7+1000)),
-                       labels = c("0", "10,000", "100,000", "1,000,000", "10,000,000")) +
-  theme_void() +
-  ggtitle("Cyanobacteria Abundance")+
-  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
-ggsave("./figures/Map_Cyano_EstimatedObserved.png", width = 8, height = 4, units = "in", dpi = 600)
-
-# Map of observed cyanobacteria
-ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
-  geom_sf(data = arrange(aug_bins, `log10(B_G_DENS + 1000)`), aes(fill = `log10(B_G_DENS + 1000)`), pch = 21) +
-  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
-                       name = "Cyanobacteria \n (cells/mL)", 
-                       breaks = c(log10(0+1000),log10(10000+1000),log10(10^5+1000), log10(10^6+1000), log10(10^7+1000)),
-                       labels = c("0", "10,000", "100,000", "1,000,000", "10,000,000")) +
-  theme_void() +
-  ggtitle("Observed Cyanobacteria Abundance")+
-  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
-ggsave("./figures/ObservedMap_Cyano.png", width = 6, height = 3.5, units = "in", dpi = 600)
-
-# NLA lake locations for ASLO presentation
-ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
-  geom_sf(data = habs, aes(shape = DSGN_CYCLE), color = "blue", bg = "black", alpha = 0.5) +
-  scale_shape(name = "Survey Year") +
-  theme_void() 
-ggsave("./figures/NLA071217Lakes.png", width = 6, height = 3.5, units = "in", dpi = 600)
+                       name = "Log10(Cyanobacteria + 1000)") +
+  theme_void()
+ggsave("./inst/figures/cyano_sp_final_cyano_preds_map.png", width = 6, height = 3.5, units = "in", dpi = 600)
 
 ```
 
