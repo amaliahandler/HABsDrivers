@@ -432,8 +432,8 @@ PredDataMas$MaxDepth <- replace(PredDataMas$MaxDepth, which(PredDataMas$MaxDepth
 PredDataMas$lake_m_depth <- PredDataMas$LAGOSLakeDepth
 
 PredDataMas$lake_m_depth <- coalesce(PredDataMas$lake_m_depth, PredDataMas$NHDLakeDepth)
-PredDataMas$lake_m_depth <- coalesce(PredDataMas$lake_m_depth, lake_met_df$depth)
-
+PredDataMas <- left_join(PredDataMas, lake_met_df, by = 'COMID')
+PredDataMas$lake_m_depth <- coalesce(PredDataMas$lake_m_depth, PredDataMas$depth)
 
 summary(PredDataMas$lake_m_depth)
 
@@ -453,7 +453,8 @@ lake_met_df <- lake_met_df |>
   summarise(across(where(is.numeric), mean))
 
 
-PredDataMini <- merge(PredDataMas, lake_met_df, by = 'COMID')
+PredDataMini <- PredDataMas[!is.na(PredDataMas$lake_m_depth) | PredDataMas$lake_m_depth > 0,]
+summary(PredDataMini)
 
 summary(PredDataMini$BFIWs.Nutr)
 
@@ -465,7 +466,7 @@ names(PredDataMini)[names(PredDataMini) == 'lake_dep'] <- 'MAXDEPTH'
 PredDataMini <- PredDataMini %>%
   rename(Tmean8110Ws = Tmean9120Ws,
          Precip8110Ws = Precip9120Ws,
-         MAXDEPTH = depth ,
+         MAXDEPTH = lake_m_depth,
          lakemorpho_fetch = fetch)
 
 # n-farm-inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste
@@ -542,7 +543,7 @@ assign <- function(column) {
 
 PredDataMini$New_Lakes <- assign(PredDataMini$UNIQUE_ID)
 
-# Lake Analyzer test
+# Lake Analyzer test -----------------------------------------------------------
 
 devtools::install_github("GLEON/rLakeAnalyzer")
 library(rLakeAnalyzer)
@@ -639,11 +640,21 @@ morph_it <- function(file_name) {
   }
 }
 
-Sys.time()
+
+COMID_bad <- 22220649
+summary(lake_morpho_2445)
+summary(lake_morpho_22220649)
+
+
+lm_coms <- str_extract(lm_files, "\\d+")
+metric_coms <- str_extract(met_files, "\\d+")
+
+missing_depth <- within_pop[!(within_pop$COMID %in% lm_coms), ]
+
 lake_met <- lapply(lm_files, morph_it)
-Sys.time()
+
 #pull metrics data to create final df
-met_dir <- "./private/new_metrics/"
+met_dir <- "./private/metrics/"
 met_files <- fs::dir_ls(met_dir, regexp = "\\.rds$")
 
 # compile files into a single data frame
@@ -652,3 +663,56 @@ lake_met_df <- met_files |>
 
 # save csv with exsiting lake metrics
 write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
+
+
+# ------------------------------------------------------------------------------
+var <- test_df[1:15,]
+shapes <- test_df$Shape[1:15,]
+shapes <- st_as_sf(shapes)
+
+max_distance <- function(df){
+  df %>%
+    st_cast("POINT") %>% # turn polygon into points
+    st_distance() %>% # calculate distance matrix
+    max()
+}
+
+fetchs <- lapply(shapes, max_distance)
+
+shapes %>%
+  st_cast("POINT") %>% # turn polygon into points
+  st_distance() %>% # calculate distance matrix
+  max()
+
+for (Shape in 1:length(lake_poly)) {
+  shapes <- lake_poly$Shape
+  lake_poly$custom_area <- st_area(shapes)
+}
+
+for (shapes in 1:length(var)) {
+  shapes <- var$Shape
+  var$max_dist <- shapes %>%
+    st_cast("POINT") %>% # turn polygon into points
+    st_distance() %>% # calculate distance matrix
+    max()
+}
+
+test_df <- PredDataMas[!is.na(PredDataMas$lake_m_depth) & !is.na(PredDataMas$fetch),]
+
+# test 1:
+# lakemorpho fetch: 174 m
+# st_distance fetch: 184 m
+
+# test 2:
+# lakemorpho fetch: 105.9 m
+# st_distance fetch: 110.862 m
+
+# test 3:
+# lakemorpho fetch: 428.89 m
+# st_distance fetch: 435.61 m
+
+# test 4:
+# lakemorpho fetch: 88.22 m
+# st_distance fetch: 90.39 m
+
+
