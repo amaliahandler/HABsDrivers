@@ -373,6 +373,8 @@ lake_met_df |>
   summarise(across(where(is.numeric), mean))
 
 
+
+
 # remove COMIDs with existing metrics from missing depths df
 missing_depth <- within_pop[!(within_pop$COMID %in% met_comids), ]
 missing_com <- missing_depth$COMID
@@ -437,6 +439,14 @@ PredDataMas$lake_m_depth <- coalesce(PredDataMas$lake_m_depth, PredDataMas$depth
 
 summary(PredDataMas$lake_m_depth)
 
+length(unique(PredDataMas$COMID))
+length(PredDataMas$COMID)
+
+PredDataMas <- PredDataMas %>%
+  distinct(COMID, .keep_all = TRUE)
+
+
+
 # Modeling ---------------------------------------------------------------------
 
 lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_dir"
@@ -446,11 +456,8 @@ lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "\\.csv$")
 lake_met_df <- lake_met_files |>
   map_dfr(read.csv)
 
-met_comids <- lake_met_df$COMID
-
-lake_met_df <- lake_met_df |>
-  group_by(across(COMID)) |>
-  summarise(across(where(is.numeric), mean))
+lake_met_df <- lake_met_df %>%
+  distinct(COMID, .keep_all = TRUE)
 
 
 PredDataMini <- PredDataMas[!is.na(PredDataMas$lake_m_depth) | PredDataMas$lake_m_depth > 0,]
@@ -664,42 +671,75 @@ lake_met_df <- met_files |>
 # save csv with exsiting lake metrics
 write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
 
-
+length(unique(PredDataMas$COMID))
+length(PredDataMas$COMID)
 # ------------------------------------------------------------------------------
-var <- test_df[1:15,]
-shapes <- test_df$Shape[1:15,]
-shapes <- st_as_sf(shapes)
-
-max_distance <- function(df){
-  df %>%
-    st_cast("POINT") %>% # turn polygon into points
-    st_distance() %>% # calculate distance matrix
-    max()
-}
-
-fetchs <- lapply(shapes, max_distance)
-
-shapes %>%
-  st_cast("POINT") %>% # turn polygon into points
-  st_distance() %>% # calculate distance matrix
-  max()
-
-for (Shape in 1:length(lake_poly)) {
-  shapes <- lake_poly$Shape
-  lake_poly$custom_area <- st_area(shapes)
-}
-
-for (shapes in 1:length(var)) {
-  shapes <- var$Shape
-  var$max_dist <- shapes %>%
-    st_cast("POINT") %>% # turn polygon into points
-    st_distance() %>% # calculate distance matrix
-    max()
-}
 
 test_df <- PredDataMas[!is.na(PredDataMas$lake_m_depth) & !is.na(PredDataMas$fetch),]
+length(unique(test_df$COMID))
 
-# test 1:
+var <- test_df[1:100,]
+shapes <- test_df$Shape[1:100,]
+shapes <- st_as_sf(shapes)
+
+test_df <- test_df %>%
+  st_as_sf() %>%
+  dplyr::select(COMID, Shape)
+
+df_list <- split(test_df, seq(nrow(test_df)))
+
+# shapes %>%
+#   st_cast("POINT") %>% # turn polygon into points
+#   st_distance() %>% # calculate distance matrix
+#   max()
+
+plot(shapes)
+
+max_dist <- function(df) {
+  #shape <- df$Shape
+  df_s <- st_cast(df, "POINT")
+  dists <- st_distance(df_s)
+  max_leng <- max(dists)
+  distance_df <- data.frame(COMID = df$COMID, max_length = max_leng)
+  return(distance_df)
+}
+
+distance_df <- lapply(df_list, max_dist)
+distance_df <- data.frame(distance_df)
+
+df <- bind_rows(distance_df)
+df$max_length <- drop_units(df$max_length)
+
+test_df <- test_df %>%
+  dplyr::select(COMID, fetch)
+
+df <- left_join(df, test_df, by = 'COMID')
+
+plot(df)
+
+shape_list[[51]]
+shape_list[[52]]
+
+summary(df$fetch)
+
+ggplot(df, aes(x = fetch, y = max_length)) +
+  geom_point(aes(fill = "lake morpho fetch"))  +
+  geom_abline(slope = 1, linetype = "dashed", color = "red") +
+  xlim(50, 1500) +
+  ylim(50, 1500) +
+  labs(y = "calcuated max length (m)", x = "lake morpho fetch", fill = "Legend",
+       title = "lake morpho vs calculated lake lengths")
+
+cor(df$max_length, df$fetch, method = "spearman")
+
+model <- lm(fetch ~ max_length, data = df)
+
+options(scipen = 999)  # This sets the penalty for scientific notation to a high value
+summary(model)
+
+
+
+# test 1:# test 1:# test 1:
 # lakemorpho fetch: 174 m
 # st_distance fetch: 184 m
 
