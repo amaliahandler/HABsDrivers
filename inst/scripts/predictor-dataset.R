@@ -214,6 +214,8 @@ wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") |>
 
 wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 
+rm(df_list)
+
 # clean wbd_copy by removing excess variables
 wbd_copy <- subset(wbd_copy, select = c(COMID, ELEVATION, ONOFFNET, MeanDepth, LakeVolume, MaxDepth, LakeArea, Shape))
 
@@ -462,6 +464,7 @@ lake_met_df <- lake_met_df %>%
 
 PredDataMini <- PredDataMas[!is.na(PredDataMas$lake_m_depth) | PredDataMas$lake_m_depth > 0,]
 summary(PredDataMini)
+PredDataMini <- merge
 
 summary(PredDataMini$BFIWs.Nutr)
 
@@ -495,9 +498,9 @@ unique_ids <- read_csv('C:/Users/mreyno04/OneDrive - Environmental Protection Ag
 PredDataMini <- left_join(PredDataMini, unique_ids, by = 'COMID')
 PredDataMini$UNIQUE_ID[is.na(PredDataMini$UNIQUE_ID)] <- 0
 
-PredDataMini <- PredDataMini |>
-  group_by(across(COMID)) |>
-  summarise(across(where(is.numeric), mean))
+PredDataMini <- PredDataMini %>%
+  distinct(COMID, .keep_all = TRUE)
+
 
 summary(PredDataMini$MAXDEPTH)
 summary(PredDataMas$LAGOSLakeDepth)
@@ -673,16 +676,13 @@ write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
 
 length(unique(PredDataMas$COMID))
 length(PredDataMas$COMID)
+
 # ------------------------------------------------------------------------------
 
-test_df <- PredDataMas[!is.na(PredDataMas$lake_m_depth) & !is.na(PredDataMas$fetch),]
-length(unique(test_df$COMID))
+wbd_copy <- wbd_copy %>%
+  distinct(COMID, .keep_all = TRUE)
 
-var <- test_df[1:100,]
-shapes <- test_df$Shape[1:100,]
-shapes <- st_as_sf(shapes)
-
-test_df <- test_df %>%
+test_df <- wbd_copy %>%
   st_as_sf() %>%
   dplyr::select(COMID, Shape)
 
@@ -704,23 +704,9 @@ max_dist <- function(df) {
   return(distance_df)
 }
 
-distance_df <- lapply(df_list, max_dist)
-distance_df <- data.frame(distance_df)
+df <- bind_rows(lapply(df_list, max_dist))
+df$max_length <- drop_units(df$p_max_length)
 
-df <- bind_rows(distance_df)
-df$max_length <- drop_units(df$max_length)
-
-test_df <- test_df %>%
-  dplyr::select(COMID, fetch)
-
-df <- left_join(df, test_df, by = 'COMID')
-
-plot(df)
-
-shape_list[[51]]
-shape_list[[52]]
-
-summary(df$fetch)
 
 ggplot(df, aes(x = fetch, y = max_length)) +
   geom_point(aes(fill = "lake morpho fetch"))  +
@@ -734,7 +720,7 @@ cor(df$max_length, df$fetch, method = "spearman")
 
 model <- lm(fetch ~ max_length, data = df)
 
-options(scipen = 999)  # This sets the penalty for scientific notation to a high value
+options(scipen = 999)
 summary(model)
 
 
@@ -754,5 +740,18 @@ summary(model)
 # test 4:
 # lakemorpho fetch: 88.22 m
 # st_distance fetch: 90.39 m
+
+library(sf)
+
+
+
+# Assuming "my_polygon" is a polygon geometry
+
+point_count <- length(st_cast(shapes[[1]], "MULTIPOINT"))
+
+
+
+# "point_count" will now contain the total number of points that make up the polygon
+
 
 
