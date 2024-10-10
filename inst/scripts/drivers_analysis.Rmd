@@ -326,14 +326,14 @@ habs_mod <- habs |>
   select(B_G_DENS, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, p_farm_inputs, n_farm_inputs, fst_ws, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
   drop_na()
 
-# Function to run the cyano models for model comparison.
+# Function to run the cyano models for model comparison. Figured out that these models should be run with local = F for more stable AIC/BIC comparison. These don't take much longer to run than local = T models.
 run_cyano_ml <- function(mod_vars, interact){
   splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
               data = habs_mod,
               spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
               estmethod = "ml",
-              local = T)
+              local = F)
 }
 
 
@@ -358,7 +358,7 @@ c6 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Prec
 com_vars <- c("n_farm_inputs", "p_dev_inputs", "BFIWs", "MAXDEPTH", "lakemorpho_fetch")
 
 # Which models are included in the table?
-cc_list <- list(c1, c2, c3, c4, c5, c6)
+cy_list <- list(c1, c2, c3, c4, c5, c6)
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(cy_list, function(mod){
@@ -380,49 +380,50 @@ cmods_ml_nolake <- glances(c1, c2, c3, c4, c5, c6) |>
   arrange(BIC) |>
   tibble()
   
-# Run the best fit model, cy5
-mod_vars <- c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch")
-
+# Run the best fit model, cy4, without spatial correlation for comparison
+mod_vars <- c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
 interact <- NULL
 
-cmod_final_dat <- drop_na(habs, all_of(dep_var), all_of(mod_vars))
+# Set the initial covariance to be small. This produces results identical to glm()
+spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
 
-cmod_final_nolake <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
-                          data = cmod_final_dat,
-                          spcov_type = "exponential",
-                          random = ~ DSGN_CYCLE + UNIQUE_ID,
-                          local = F)
+cmod_final_nolake_nsp <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
+                              data = habs_mod,
+                              random = ~ DSGN_CYCLE + UNIQUE_ID,
+                              spcov_initial = spcov_init,
+                              local = F)
   
-# Evaluate fit of best model
-cyano_nolake_loocv <- loocv(cmod_final_nolake, cv_predict = TRUE)
+# Evaluate fit of non-spatial model
+cyano_nolake_nsp_loocv <- loocv(cmod_final_nolake)
 
-cmod_final_dat$preds <- cyano_nolake_loocv$cv_predict
+# Visual the fit of the final model
+cyano_nolake_sp_loocv <- loocv(c4, cv_predict = TRUE)
+habs_mod$preds        <- cyano_nolake_sp_loocv$cv_predict
 
-max_val <- max(log10(cmod_final_dat$B_G_DENS + const), cmod_final_dat$preds)
+max_val <- max(log10(habs_mod$B_G_DENS + const), habs_mod$preds)
 
-fig <- ggplot(data = cmod_final_dat, aes(x = preds, y = log10(B_G_DENS + const))) +
+fig <- ggplot(data = habs_mod, aes(x = preds, y = log10(B_G_DENS + const))) +
   geom_hex(bins = 60) +
   scale_fill_continuous(type = "viridis") +
   xlim(2.8, max_val) + ylim(2.8, max_val) +
   ylab("Observed") +
   xlab("Fitted") +
   ggtitle(paste0("Log10(Cyanobacteria + ", const,")"))
-ggsave(paste0("./figures/", "Model Fit_Cyano_No NLA.jpg"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
+ggsave(paste0("./inst/figures/cyano_sp_final_fitted_preds.png"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
 # Save the model
-# saveRDS(c2, "./inst/model_objects/model_cyano_withlakedata.rds")
+# saveRDS(c4, "./inst/model_objects/model_cyano_nolakedata.rds")
 
-# Map of fitted probabilities
-
+# Map of fitted values
 conus <- st_transform(AOI::aoi_get(state = "conus"), 5072)
 ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = arrange(cmod_final_dat, preds), 
+  geom_sf(data = arrange(habs_mod, preds), 
           aes(fill = preds), pch = 21, size = 2) +
   scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
                        name = "Log10(Cyanobacteria + 1000)") +
   theme_void()
-ggsave("./inst/figures/cyano_sp_final_cyano_preds_map.png", width = 6, height = 3.5, units = "in", dpi = 600)
+ggsave("./inst/figures/cyano_sp_final_fitted_preds_map.png", width = 7, height = 3.5, units = "in", dpi = 600)
 
 ```
 
@@ -457,7 +458,7 @@ dat_micx_lake <- habs |>
 
 # Function to run independent error models
 
-# Set the initial covariance to be small. This produces results identifcal to glm()
+# Set the initial covariance to be small. This produces results identical to glm()
 spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
 
 run_micx_ie <- function(mod_vars, int = NULL){
@@ -796,7 +797,6 @@ ggplot(data = micx_sp_nolake_aug, aes(x = MICX_DET, y = .fitted)) +
 ggsave("./inst/figures/micx_sp_final_fitted_probs.png", height = 3, width = 3)
 
 # Map of fitted probabilities
-
 conus <- st_transform(AOI::aoi_get(state = "conus"), 5072)
 ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
@@ -814,6 +814,9 @@ Visuals for Merkley visit
 # Get the area for the PNW
 pnw <- AOI::aoi_get(state = c("OR", "WA", "ID"))
 
+# Retrieve model
+micx_sp_final_nolake <- readRDS("./inst/model_objects/model_micx_nolakedata.rds")
+
 # Filter data to just the PWN
 pnw_micx <- micx_sp_final_nolake |>
   augment(type.predict = "response") |>
@@ -823,23 +826,17 @@ pnw_micx <- micx_sp_final_nolake |>
 
 # Map of the PNW
 ggplot() + 
-  geom_sf(data = pnw, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = pnw_micx, aes(fill = .fitted), pch = 21, size = 3) +
+  geom_sf(data = pnw, fill = "#e2e2e2", color = "black", lwd = 1) +
+  geom_sf(data = pnw_micx, aes(fill = .fitted), pch = 21, size = 2) +
   scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
                        name = "Estimated \nProbability") +
-  theme_void() +
+  # theme_void() +
   ggtitle("Fitted Probability of Microcystin Detection")+
   theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
 ggsave("./figures/FittedProbMap_Micx_PNW.png", width = 5, height = 3.5, units = "in", dpi = 600)
 
 # Interactive map version
 mapview::mapview(pnw_micx, z = ".fitted")
-
-# Map of all NHD lakes >1 ha in area in the PNW
-ggplot() + 
-  geom_sf(data = pnw, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = pnw_lk_pts, pch = 21, fill = "blue", alpha = 0.5, size = 1) +
-  theme_void()
 
 ```
 
