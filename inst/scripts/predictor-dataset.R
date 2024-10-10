@@ -373,6 +373,8 @@ lake_met_df |>
   summarise(across(where(is.numeric), mean))
 
 
+
+
 # remove COMIDs with existing metrics from missing depths df
 missing_depth <- within_pop[!(within_pop$COMID %in% met_comids), ]
 missing_com <- missing_depth$COMID
@@ -432,10 +434,18 @@ PredDataMas$MaxDepth <- replace(PredDataMas$MaxDepth, which(PredDataMas$MaxDepth
 PredDataMas$lake_m_depth <- PredDataMas$LAGOSLakeDepth
 
 PredDataMas$lake_m_depth <- coalesce(PredDataMas$lake_m_depth, PredDataMas$NHDLakeDepth)
-PredDataMas$lake_m_depth <- coalesce(PredDataMas$lake_m_depth, lake_met_df$depth)
-
+PredDataMas <- left_join(PredDataMas, lake_met_df, by = 'COMID')
+PredDataMas$lake_m_depth <- coalesce(PredDataMas$lake_m_depth, PredDataMas$depth)
 
 summary(PredDataMas$lake_m_depth)
+
+length(unique(PredDataMas$COMID))
+length(PredDataMas$COMID)
+
+PredDataMas <- PredDataMas %>%
+  distinct(COMID, .keep_all = TRUE)
+
+
 
 # Modeling ---------------------------------------------------------------------
 
@@ -446,14 +456,12 @@ lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "\\.csv$")
 lake_met_df <- lake_met_files |>
   map_dfr(read.csv)
 
-met_comids <- lake_met_df$COMID
-
-lake_met_df <- lake_met_df |>
-  group_by(across(COMID)) |>
-  summarise(across(where(is.numeric), mean))
+lake_met_df <- lake_met_df %>%
+  distinct(COMID, .keep_all = TRUE)
 
 
-PredDataMini <- merge(PredDataMas, lake_met_df, by = 'COMID')
+PredDataMini <- PredDataMas[!is.na(PredDataMas$lake_m_depth) | PredDataMas$lake_m_depth > 0,]
+summary(PredDataMini)
 
 summary(PredDataMini$BFIWs.Nutr)
 
@@ -465,7 +473,7 @@ names(PredDataMini)[names(PredDataMini) == 'lake_dep'] <- 'MAXDEPTH'
 PredDataMini <- PredDataMini %>%
   rename(Tmean8110Ws = Tmean9120Ws,
          Precip8110Ws = Precip9120Ws,
-         MAXDEPTH = depth ,
+         MAXDEPTH = lake_m_depth,
          lakemorpho_fetch = fetch)
 
 # n-farm-inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste
@@ -542,7 +550,7 @@ assign <- function(column) {
 
 PredDataMini$New_Lakes <- assign(PredDataMini$UNIQUE_ID)
 
-# Lake Analyzer test
+# Lake Analyzer test -----------------------------------------------------------
 
 devtools::install_github("GLEON/rLakeAnalyzer")
 library(rLakeAnalyzer)
@@ -639,11 +647,21 @@ morph_it <- function(file_name) {
   }
 }
 
-Sys.time()
+
+COMID_bad <- 22220649
+summary(lake_morpho_2445)
+summary(lake_morpho_22220649)
+
+
+lm_coms <- str_extract(lm_files, "\\d+")
+metric_coms <- str_extract(met_files, "\\d+")
+
+missing_depth <- within_pop[!(within_pop$COMID %in% lm_coms), ]
+
 lake_met <- lapply(lm_files, morph_it)
-Sys.time()
+
 #pull metrics data to create final df
-met_dir <- "./private/new_metrics/"
+met_dir <- "./private/metrics/"
 met_files <- fs::dir_ls(met_dir, regexp = "\\.rds$")
 
 # compile files into a single data frame
@@ -652,3 +670,89 @@ lake_met_df <- met_files |>
 
 # save csv with exsiting lake metrics
 write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
+
+length(unique(PredDataMas$COMID))
+length(PredDataMas$COMID)
+# ------------------------------------------------------------------------------
+
+test_df <- PredDataMas[!is.na(PredDataMas$lake_m_depth) & !is.na(PredDataMas$fetch),]
+length(unique(test_df$COMID))
+
+var <- test_df[1:100,]
+shapes <- test_df$Shape[1:100,]
+shapes <- st_as_sf(shapes)
+
+test_df <- test_df %>%
+  st_as_sf() %>%
+  dplyr::select(COMID, Shape)
+
+df_list <- split(test_df, seq(nrow(test_df)))
+
+# shapes %>%
+#   st_cast("POINT") %>% # turn polygon into points
+#   st_distance() %>% # calculate distance matrix
+#   max()
+
+plot(shapes)
+
+max_dist <- function(df) {
+  #shape <- df$Shape
+  df_s <- st_cast(df, "POINT")
+  dists <- st_distance(df_s)
+  max_leng <- max(dists)
+  distance_df <- data.frame(COMID = df$COMID, max_length = max_leng)
+  return(distance_df)
+}
+
+distance_df <- lapply(df_list, max_dist)
+distance_df <- data.frame(distance_df)
+
+df <- bind_rows(distance_df)
+df$max_length <- drop_units(df$max_length)
+
+test_df <- test_df %>%
+  dplyr::select(COMID, fetch)
+
+df <- left_join(df, test_df, by = 'COMID')
+
+plot(df)
+
+shape_list[[51]]
+shape_list[[52]]
+
+summary(df$fetch)
+
+ggplot(df, aes(x = fetch, y = max_length)) +
+  geom_point(aes(fill = "lake morpho fetch"))  +
+  geom_abline(slope = 1, linetype = "dashed", color = "red") +
+  xlim(50, 1500) +
+  ylim(50, 1500) +
+  labs(y = "calcuated max length (m)", x = "lake morpho fetch", fill = "Legend",
+       title = "lake morpho vs calculated lake lengths")
+
+cor(df$max_length, df$fetch, method = "spearman")
+
+model <- lm(fetch ~ max_length, data = df)
+
+options(scipen = 999)  # This sets the penalty for scientific notation to a high value
+summary(model)
+
+
+
+# test 1:# test 1:# test 1:
+# lakemorpho fetch: 174 m
+# st_distance fetch: 184 m
+
+# test 2:
+# lakemorpho fetch: 105.9 m
+# st_distance fetch: 110.862 m
+
+# test 3:
+# lakemorpho fetch: 428.89 m
+# st_distance fetch: 435.61 m
+
+# test 4:
+# lakemorpho fetch: 88.22 m
+# st_distance fetch: 90.39 m
+
+
