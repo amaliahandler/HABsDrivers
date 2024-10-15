@@ -316,23 +316,23 @@ mrs_com <- mrs_depth$COMID
 #   return(z)
 # }
 
-for (Shape in 1:length(mrs_depth)) {
-  shapes <- mrs_depth$Shape
-  mrs_depth$custom_area <- st_area(shapes)
-}
-
-mrs_depth$custom_area <- drop_units(mrs_depth$custom_area)
-
-lake_size <- function(lake_area) {
-  if (lake_area < 10000) {target_pop <- 0}
-  else if (lake_area > 10000) {target_pop <- 1}
-}
-
-mrs_depth$target_pop <- unlist(as.numeric(lapply(mrs_depth$custom_area, lake_size)))
-summary(mrs_depth)
-sum(mrs_depth$target_pop)
-
-within_pop <- subset(mrs_depth, target_pop == 1)
+# for (Shape in 1:length(mrs_depth)) {
+#   shapes <- mrs_depth$Shape
+#   mrs_depth$custom_area <- st_area(shapes)
+# }
+#
+# mrs_depth$custom_area <- drop_units(mrs_depth$custom_area)
+#
+# lake_size <- function(lake_area) {
+#   if (lake_area < 10000) {target_pop <- 0}
+#   else if (lake_area > 10000) {target_pop <- 1}
+# }
+#
+# mrs_depth$target_pop <- unlist(as.numeric(lapply(mrs_depth$custom_area, lake_size)))
+# summary(mrs_depth)
+# sum(mrs_depth$target_pop)
+#
+# within_pop <- subset(mrs_depth, target_pop == 1)
 
 # COMID <- wbd_copy$COMID
 # wbd_copy$z <- unlist(as.numeric(lapply(wbd_copy$custom_area, lakes_bin)))
@@ -374,9 +374,6 @@ lake_met_df |>
   group_by(across(COMID)) |>
   summarise(across(where(is.numeric), mean))
 
-
-
-
 # remove COMIDs with existing metrics from missing depths df
 missing_depth <- within_pop[!(within_pop$COMID %in% met_comids), ]
 missing_com <- missing_depth$COMID
@@ -410,10 +407,6 @@ morph_it <- function(file_name) {
     message("Skipping file: ", file_name)
   }
 }
-
-select(PredDataMini$COMID == 21542826)
-
-ick <- PredDataMini[PredDataMini$COMID == '21542826', ]
 
 lake_met <- lapply(lm_files, morph_it)
 
@@ -553,30 +546,6 @@ assign <- function(column) {
 
 PredDataMini$New_Lakes <- assign(PredDataMini$UNIQUE_ID)
 
-# Lake Analyzer test -----------------------------------------------------------
-
-devtools::install_github("GLEON/rLakeAnalyzer")
-library(rLakeAnalyzer)
-
-lake_poly <- PredDataMas[PredDataMas$COMID == 4362552, ]
-
-for (Shape in 1:length(lake_poly)) {
-  shapes <- lake_poly$Shape
-  lake_poly$custom_area <- st_area(shapes)
-}
-
-lake_poly$custom_area <- drop_units(lake_poly$custom_area)
-
-
-lake_bath <- approx.bathy(lake_poly$MaxDepth, lake_poly$custom_area, lake_poly$MeanDepth, method = "voldev", zinterval = 3)
-plot(lake_bath$depths ~ lake_bath$Area.at.z, xlab = "Area (m^3)", ylab = "Depth (m)")
-
-comid_cheque <- subset(PredDataMas, select = c(COMID, MaxDepth, MeanDepth, Shape))
-
-
-remotes::install_github('usgs-r/glmtools')
-
-
 # lake depths 10/3 -------------------------------------------------------------
 
 # packages for the remote enviroment
@@ -679,14 +648,32 @@ length(PredDataMas$COMID)
 
 # ------------------------------------------------------------------------------
 
+library(devtools)
+library(dplyr)
+library(stars)
+library(nhdplusTools)
+library(tidyverse)
+library(tidyr)
+library(sf)
+library(ggplot2)
+library(spmodel)
+library(elevatr)
+library(lakemorpho)
+library(raster)
+library(future.apply)
+library(fs)
+library(units)
+
 wbd_copy <- wbd_copy %>%
   distinct(COMID, .keep_all = TRUE)
 
-test_df <- wbd_copy %>%
+na_coms <- test_df3$COMID
+
+test_df5 <- wbd_copy[85001:100000,] %>%
   st_as_sf() %>%
   dplyr::select(COMID, Shape)
 
-df_list <- split(test_df, seq(nrow(test_df)))
+df_list5 <- split(test_df5, seq(nrow(test_df5)))
 
 # shapes %>%
 #   st_cast("POINT") %>% # turn polygon into points
@@ -704,9 +691,21 @@ max_dist <- function(df) {
   return(distance_df)
 }
 
-df <- bind_rows(lapply(df_list, max_dist))
+Sys.time()
+df5 <- bind_rows(lapply(df_list5, max_dist))
+Sys.time()
 df$max_length <- drop_units(df$p_max_length)
 
+# df <- 1:25,000
+# df2 <- 25,000:50,000
+# df4 <- 75,001:85,000
+# df5 <- 85:001 : 100,000
+
+fetch_df <- bind_rows(df,
+                      df2,
+                      df4)
+
+write.csv(fetch_df,"./private/fetch_df.csv")
 
 ggplot(df, aes(x = fetch, y = max_length)) +
   geom_point(aes(fill = "lake morpho fetch"))  +
@@ -722,36 +721,4 @@ model <- lm(fetch ~ max_length, data = df)
 
 options(scipen = 999)
 summary(model)
-
-
-
-# test 1:# test 1:# test 1:
-# lakemorpho fetch: 174 m
-# st_distance fetch: 184 m
-
-# test 2:
-# lakemorpho fetch: 105.9 m
-# st_distance fetch: 110.862 m
-
-# test 3:
-# lakemorpho fetch: 428.89 m
-# st_distance fetch: 435.61 m
-
-# test 4:
-# lakemorpho fetch: 88.22 m
-# st_distance fetch: 90.39 m
-
-library(sf)
-
-
-
-# Assuming "my_polygon" is a polygon geometry
-
-point_count <- length(st_cast(shapes[[1]], "MULTIPOINT"))
-
-
-
-# "point_count" will now contain the total number of points that make up the polygon
-
-
 
