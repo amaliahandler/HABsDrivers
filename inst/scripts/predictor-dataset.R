@@ -370,9 +370,9 @@ lake_met_df <- lake_met_files |>
 
 met_comids <- lake_met_df$COMID
 
-lake_met_df |>
-  group_by(across(COMID)) |>
-  summarise(across(where(is.numeric), mean))
+lake_met_df <- lake_met_df |>
+  distinct(COMID, .keep_all = TRUE)
+
 
 # remove COMIDs with existing metrics from missing depths df
 missing_depth <- within_pop[!(within_pop$COMID %in% met_comids), ]
@@ -440,12 +440,23 @@ length(PredDataMas$COMID)
 PredDataMas <- PredDataMas %>%
   distinct(COMID, .keep_all = TRUE)
 
+# fetch data
 
+fetchs <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/fetch_df.csv")
+
+DataMas <- left_join(PredDataMas, fetchs, by = 'COMID')
+
+DataMas$fetch <- replace(DataMas$fetch, which(DataMas$fetch <= 0), NA)
+DataMas$fetch <- coalesce(DataMas$fetch, DataMas$max_length)
+
+summary(DataMas$fetch)
+
+colnames(DataMas)
 
 # Modeling ---------------------------------------------------------------------
 
 lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_dir"
-lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "\\.csv$")
+lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "//.csv$")
 
 # compile files into a single data frame
 lake_met_df <- lake_met_files |>
@@ -455,9 +466,11 @@ lake_met_df <- lake_met_df %>%
   distinct(COMID, .keep_all = TRUE)
 
 
-PredDataMini <- PredDataMas[!is.na(PredDataMas$lake_m_depth) | PredDataMas$lake_m_depth > 0,]
-summary(PredDataMini)
-PredDataMini <- merge
+DataMas <- DataMas[!is.na(DataMas$lake_m_depth),]
+DataMas <- DataMas[!is.na(DataMas$fetch),]
+
+PredDataMini <- DataMas
+
 
 summary(PredDataMini$BFIWs.Nutr)
 
@@ -499,15 +512,9 @@ summary(PredDataMini$MAXDEPTH)
 summary(PredDataMas$LAGOSLakeDepth)
 
 PredDataMini <- subset(PredDataMini, select = -c(...1))
-predict(model_cyano_nolakes, newdata = PredDataMini)
 
-augmod <- augment(model_cyano_nolakes, newdata = PredDataMini, type = "response")
-
-model <- apply(PredDataMini, augment, model_cyano_nolakes, PredDataMini)
-model <- lapply(PredDataMini, predict(model_cyano_nolakes, PredDataMini))
-
-variables <- c(names(model_cyano_nolakes$coefficients$fixed), 'DSGN_CYCLE', 'UNIQUE_ID', 'COMID')
-variables <- variables[!variables %in% c('(Intercept)')]
+variables <- c(names(model_cyano_nolakes$coefficients$fixed), 'DSGN_CYCLE', 'UNIQUE_ID', 'COMID', 'AG_ECO3')
+variables <- variables[!variables %in% c('(Intercept)', 'AG_ECO3PLNLOW', 'AG_ECO3EHIGH')]
 
 PredDataVar <- subset(PredDataMini, select = c(variables))
 
@@ -518,7 +525,7 @@ wbd_pred <- wbd_copy %>%
   dplyr::select(-COMID) %>%
   drop_na()
 
-
+colnames(PredDataMini)
 Sys.time()
 Pred <- predict(object = model_cyano_nolakes, newdata = wbd_pred,
                 local = list(method = 'all', parallel = TRUE, ncores = 6))
@@ -529,22 +536,16 @@ pred_df <- wbd_pred %>%
          cyano_transform = 10^Pred - 1000)
 
 ggplot(pred_df, aes(color = pred_cyano)) +
-  geom_sf() +
-  scale_color_viridis_c(limits = c(4, 50)) +
-  theme_gray(base_size = 14)
+  geom_sf(size = 0.5) +
+  scale_color_viridis_c(limits = c(0, 50)) +
+  theme_gray(base_size = 18)
 
-length(na.omit(PredDataMini$UNIQUE_ID))
-length(na.omit(PredDataMini$Tmean8110Ws))
-PredDataMini$BFIWs[is.na(PredDataMini$BFIWs)] <- 0
-
-PredDataMini$New_Lakes <- PredDataMini$UNIQUE_ID == 0
-
-assign <- function(column) {
-  if (column == 0) {New_Lakes <- 0}
-  else if (column != 0) {New_Lakes <- 1}
-}
-
-PredDataMini$New_Lakes <- assign(PredDataMini$UNIQUE_ID)
+# assign <- function(column) {
+#   if (column == 0) {New_Lakes <- 0}
+#   else if (column != 0) {New_Lakes <- 1}
+# }
+#
+# PredDataMini$New_Lakes <- assign(PredDataMini$UNIQUE_ID)
 
 # lake depths 10/3 -------------------------------------------------------------
 
@@ -572,7 +573,7 @@ library(future.apply)
 library(fs)
 
 lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_dir"
-lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "\\.csv$")
+lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "//.csv$")
 
 # compile files into a single data frame
 lake_met_df <- lake_met_files |>
@@ -682,14 +683,24 @@ df_list5 <- split(test_df5, seq(nrow(test_df5)))
 
 plot(shapes)
 
+big_lake <- max(wbd_copy$LakeArea[85000:100000],na.rm = TRUE)
+df_test <- dplyr::filter(wbd_copy, LakeArea == big_lake)
+df <- df_test
+
 max_dist <- function(df) {
   #shape <- df$Shape
-  df_s <- st_cast(df, "POINT")
+  df_s <- st_coordinates(sf::st_sample(st_cast(df, "MULTILINESTRING"), 50, type = "regular"))
+  # RETURN TO SF OBJECT ^^
+  st_as_sf(df_s)
   dists <- st_distance(df_s)
   max_leng <- max(dists)
   distance_df <- data.frame(COMID = df$COMID, max_length = max_leng)
   return(distance_df)
 }
+
+# meck_cnty <- st_polygon(x = list(coords[, 1:2])) %>%  # just X and Y please
+#   st_sfc() %>%  # from sfg to sfc
+#   st_sf() # from sfc to sf
 
 Sys.time()
 df5 <- bind_rows(lapply(df_list5, max_dist))
@@ -698,6 +709,7 @@ df$max_length <- drop_units(df$p_max_length)
 
 # df <- 1:25,000
 # df2 <- 25,000:50,000
+#df3 <- 50,000 : 75,000
 # df4 <- 75,001:85,000
 # df5 <- 85:001 : 100,000
 
@@ -721,4 +733,3 @@ model <- lm(fetch ~ max_length, data = df)
 
 options(scipen = 999)
 summary(model)
-
