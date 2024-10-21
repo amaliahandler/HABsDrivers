@@ -442,16 +442,17 @@ PredDataMas <- PredDataMas %>%
 
 # fetch data
 
-fetchs <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/fetch_df.csv")
+fetch <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/fetch_df_21.csv")
 
-DataMas <- left_join(PredDataMas, fetchs, by = 'COMID')
 
-DataMas$fetch <- replace(DataMas$fetch, which(DataMas$fetch <= 0), NA)
-DataMas$fetch <- coalesce(DataMas$fetch, DataMas$max_length)
+PredDataMas <- left_join(PredDataMas, fetch, by = 'COMID')
 
-summary(DataMas$fetch)
+PredDataMas$fetch <- replace(PredDataMas$fetch, which(PredDataMas$fetch <= 0), NA)
+PredDataMas$fetch <- coalesce(DataMas$fetch, DataMas$max_length)
 
-colnames(DataMas)
+summary(PredDataMas$max_length.x)
+
+colnames(DataMas)colmax_length.ynames(DataMas)
 
 # Modeling ---------------------------------------------------------------------
 
@@ -466,10 +467,9 @@ lake_met_df <- lake_met_df %>%
   distinct(COMID, .keep_all = TRUE)
 
 
-DataMas <- DataMas[!is.na(DataMas$lake_m_depth),]
-DataMas <- DataMas[!is.na(DataMas$fetch),]
+PredDataMas <- PredDataMas[!is.na(PredDataMas$lake_m_depth),]
 
-PredDataMini <- DataMas
+PredDataMini <- PredDataMas
 
 
 summary(PredDataMini$BFIWs.Nutr)
@@ -483,7 +483,7 @@ PredDataMini <- PredDataMini %>%
   rename(Tmean8110Ws = Tmean9120Ws,
          Precip8110Ws = Precip9120Ws,
          MAXDEPTH = lake_m_depth,
-         lakemorpho_fetch = fetch)
+         lakemorpho_fetch = max_length.y)
 
 # n-farm-inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste
 # n-dev-inputs = N_Human_Waste + N_Fert_Urban
@@ -517,6 +517,8 @@ variables <- c(names(model_cyano_nolakes$coefficients$fixed), 'DSGN_CYCLE', 'UNI
 variables <- variables[!variables %in% c('(Intercept)', 'AG_ECO3PLNLOW', 'AG_ECO3EHIGH')]
 
 PredDataVar <- subset(PredDataMini, select = c(variables))
+
+summary(PredDataVar$lakemorpho_fetch)
 
 wbd_pred <- wbd_copy %>%
   st_point_on_surface() %>%
@@ -651,30 +653,21 @@ length(PredDataMas$COMID)
 
 library(devtools)
 library(dplyr)
-library(stars)
-library(nhdplusTools)
 library(tidyverse)
 library(tidyr)
 library(sf)
 library(ggplot2)
-library(spmodel)
-library(elevatr)
-library(lakemorpho)
-library(raster)
-library(future.apply)
 library(fs)
 library(units)
 
 wbd_copy <- wbd_copy %>%
   distinct(COMID, .keep_all = TRUE)
 
-na_coms <- test_df3$COMID
-
-test_df5 <- wbd_copy[85001:100000,] %>%
+test_df1 <- wbd_copy %>%
   st_as_sf() %>%
   dplyr::select(COMID, Shape)
 
-df_list5 <- split(test_df5, seq(nrow(test_df5)))
+df_list1 <- split(test_df1, seq(nrow(test_df1)))
 
 # shapes %>%
 #   st_cast("POINT") %>% # turn polygon into points
@@ -689,13 +682,53 @@ df <- df_test
 
 max_dist <- function(df) {
   #shape <- df$Shape
-  df_s <- st_coordinates(sf::st_sample(st_cast(df, "MULTILINESTRING"), 50, type = "regular"))
-  # RETURN TO SF OBJECT ^^
-  st_as_sf(df_s)
+  df_s <- data.frame(st_coordinates(sf::st_sample(st_cast(df, "MULTILINESTRING"), 100, type = "regular")))
+  df_s <- st_as_sf(df_s, coords = c('X', 'Y'), crs = 5072)
   dists <- st_distance(df_s)
   max_leng <- max(dists)
   distance_df <- data.frame(COMID = df$COMID, max_length = max_leng)
   return(distance_df)
+}
+
+Sys.time()
+df1 <- bind_rows(lapply(df_list1, max_dist))
+Sys.time()
+df1$max_length <- drop_units(df1$max_length)
+
+summary(df)
+
+# df <- 1:25,000
+# df2 <- 25,000:50,000
+#df3 <- 50,000 : 75,000
+# df4 <- 75,001:85,000
+# df5 <- 85:001 : 100,000
+
+fetch_df <- bind_rows(df,
+                      df2,
+                      df4)
+
+write.csv(df1,"./private/fetch_df_21.csv")
+
+ggplot(df, aes(x = fetch, y = max_length)) +
+  geom_point(aes(fill = "lake morpho fetch"))  +
+  geom_abline(slope = 1, linetype = "dashed", color = "red") +
+  xlim(50, 1500) +
+  ylim(50, 1500) +
+  labs(y = "calcuated max length (m)", x = "lake morpho fetch", fill = "Legend",
+       title = "lake morpho vs calculated lake lengths")
+
+cor(df$max_length, df$fetch, method = "spearman")
+
+model <- lm(fetch ~ max_length, data = df)
+
+options(scipen = 999)
+summary(model)
+
+st_as_sf(df_s)
+dists <- st_distance(df_s)
+max_leng <- max(dists)
+distance_df <- data.frame(COMID = df$COMID, max_length = max_leng)
+return(distance_df)
 }
 
 # meck_cnty <- st_polygon(x = list(coords[, 1:2])) %>%  # just X and Y please
