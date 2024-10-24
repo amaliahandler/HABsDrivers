@@ -496,6 +496,13 @@ PredDataMini$p_dev_inputs <- PredDataMini$P_Human_Waste_kg_Urb + PredDataMini$P_
 PredDataMini$DSGN_CYCLE <- 2017
 PredDataMini <- mutate(PredDataMini, DSGN_CYCLE = factor(DSGN_CYCLE))
 
+# Normalize by the watershed area
+# left_join(areas, by = "UNIQUE_ID") |>
+#   mutate(mean_kg_ha = mean020712 / WSAREA_HA) |>
+#   pivot_wider(id_cols = UNIQUE_ID,
+#               names_from = c(nutrient, type),
+#               values_from = mean_kg_ha)
+#
 
 colnames(PredDataMini)
 
@@ -533,17 +540,24 @@ Pred <- predict(object = model_cyano_nolakes, newdata = wbd_pred,
                 local = list(method = 'all', parallel = TRUE, ncores = 6))
 Sys.time()
 
+shapes <- select(PredDataMini, subset = c(lakemorpho_fetch, Shape))
+pred <- left_join(pred_df, shapes, by = 'lakemorpho_fetch')
+
 pred_df <- wbd_pred %>%
   mutate(pred_cyano = Pred,
          cyano_transform = 10^Pred - 1000)
+
+pred_df <- read_csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/pred_df.csv", col_names = TRUE)
 
 ggplot(pred_df, aes(color = pred_cyano)) +
   geom_sf(size = 0.5) +
   scale_color_viridis_c(limits = c(0, 50)) +
   theme_gray(base_size = 18)
 
+pred_df$Shape <- st_as_sf(pred_df$Shape)
+
 # assign <- function(column) {
-#   if (column == 0) {New_Lakes <- 0}
+#   if (column == 0) {New_Lakes <- 0}ls
 #   else if (column != 0) {New_Lakes <- 1}
 # }
 #
@@ -598,6 +612,13 @@ get_morpho_obj <- function(com, df){
   lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
   saveRDS(lake_lm, file = paste0('./private/lake_morpho_objects/lake_morpho_', com, ".rds"))
 }
+
+
+max_n <- PredDataVar[PredDataVar$COMID == "116812",]
+
+
+which(PredDataVar$n_farm_inputs == "4449295.0")
+plot(max_n)
 
 # run function to the missing depths COMIDs
 depths <- lapply(missing_com, get_morpho_obj, missing_depth)
@@ -766,3 +787,101 @@ model <- lm(fetch ~ max_length, data = df)
 
 options(scipen = 999)
 summary(model)
+
+--------------------------------------------------------------------------------
+library(devtools)
+library(dplyr)
+library(tidyverse)
+library(tidyr)
+library(sf)
+library(ggplot2)
+library(fs)
+library(units)
+remotes::install_github("usepa/lakemorpho")
+library(lakemorpho)
+
+# load lake morpho object files from folder
+data_dir <- "./private/lake_morpho_objects/"
+lm_files <- dir_ls(data_dir, regexp = "\\.rds$")
+
+#remove comids that have already been processed
+
+#select comids with metrics already
+data_dir <- "./private/metrics3/"
+com_files <- dir_ls(data_dir, regexp = "\\.rds$")
+
+# create df with file name list
+lm_files_copy <- read.table(text=lm_files,col.names=c('ID'))
+com_files_copy <- read.table(text=com_files,col.names=c('ID'))
+
+# remove all non-digits
+lm_coms <- gsub("\\D+", ",", lm_files_copy)
+rm_coms <- gsub("\\D+", ",", com_files_copy)
+
+# coherse into df
+s2 <- data.frame(strsplit(lm_coms, ","))
+s1 <- data.frame(strsplit(rm_coms, ","))
+
+colnames(s2) <- 'COMID'
+colnames(s1) <- 'COMID'
+
+# remove exsiting comids from yet to be processed comids
+comids <- s2[!(s2$COMID %in% s1$COMID),]
+
+all_lms <- list.files("./private/lake_morpho_objects", full.names= TRUE)
+
+run_files <- paste0('./private/lake_morpho_objects/lake_morpho_', comids, ".rds")
+
+length(run_files[!run_files %in% all_lms])
+
+# function to pull files from lake morpho objects into metrics to compile into df
+morph_it <- function(file_name) {
+  morpho_obj <- readRDS(file_name)
+
+  if (class(morpho_obj) == 'lakeMorpho') {
+    max_depth <- lakemorpho::lakeMaxDepth(morpho_obj, correctFactor = 0.6)
+    #lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
+    COMID <- morpho_obj$lake$COMID
+
+    output <- data.frame(COMID = COMID, depth = max_depth)
+    saveRDS(output, file = paste0('./private/metrics3/lake_metric', COMID, ".rds"))
+  } else {
+    message("Skipping file: ", file_name)
+  }
+}
+
+lake_met <- lapply(run_files, morph_it)
+
+
+data_dir <- "./private/metrics3/"
+met_files <- dir_ls(data_dir, regexp = "\\.rds$")
+
+# compile files into a single data frame
+lake_met_df <- met_files |>
+  map_dfr(readRDS)
+
+# save csv with exsiting lake metrics
+write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
+
+
+# modeling ---------------------------------------------------------------------
+install.packages('spmodel')
+library(spmodel)
+
+Sys.time()
+Pred <- predict(object = model_cyano_nolakes, newdata = wbd_pred,
+                local = list(method = 'all', parallel = TRUE, ncores = 48))
+Sys.time()
+
+pred_df <- wbd_pred %>%
+  mutate(pred_cyano = Pred,
+         cyano_transform = 10^Pred - 1000)
+
+ggplot(pred_df, aes(color = pred_cyano)) +
+  geom_sf(size = 0.5) +
+  scale_color_viridis_c(limits = c(0, 100)) +
+  theme_gray(base_size = 18)
+
+variables
+summary(model_cyano_nolakes$obdata$n_farm_inputs)
+summary(PredDataVar$n_farm_inputs)
