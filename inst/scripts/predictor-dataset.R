@@ -477,7 +477,7 @@ pred_df <- wbd_pred %>%
 
 ggplot(pred_df, aes(color = pred_cyano), order=orderrank) +
   geom_sf(size = 0.5) +
-  scale_color_viridis_c(limits = c(0, 10)) +
+  scale_color_viridis_c(limits = c(0, 8)) +
   theme_gray(base_size = 18)
 
 # microcystin ------------------------------------------------------------------
@@ -503,32 +503,23 @@ micx_pred_df <- micx_pred %>%
   mutate(pred_micx = Pred,
          micx_transform = 10^Pred - 1000)
 
-boot::inv.logit(micx_pred_df$pred_micx)
+micx_pred_df$pred_micx <- boot::inv.logit(micx_pred_df$pred_micx)
+
+remotes::install_github("mikejohnson51/AOI")
+library(AOI)
+conus <- AOI::aoi_get(state = "conus")
+conus <- st_transform(conus, 5072)
+
+install.packages("cowplot")
+library(cowplot)
 
 ggplot(micx_pred_df, aes(color = pred_micx)) +
   geom_sf(size = 0.3) +
   scale_color_viridis_c(limits = c(0, 1)) +
-  theme_gray(base_size = 18)
+  geom_sf(data = conus, fill = NA, color = "black", lwd = 0.2) +
+  labs(title = "Microcystin Detection at or above 0.1 ug/L",
+       subtitle = "Probability of detecting microcystin presence equal to or greater than 0.1 micrograms per litre.",
+       color = 'Probability (%)') +
+  theme(plot.subtitle = element_text(size = 8)) +
+  theme_minimal_grid(12)
 
-
-# modeling DMAP ----------------------------------------------------------------
-install.packages('spmodel')
-library(spmodel)
-
-Sys.time()
-Pred <- predict(object = model_cyano_nolakes, newdata = wbd_pred,
-                local = list(method = 'all', parallel = TRUE, ncores = 48))
-Sys.time()
-
-pred_df <- wbd_pred %>%
-  mutate(pred_cyano = Pred,
-         cyano_transform = 10^Pred - 1000)
-
-ggplot(pred_df, aes(color = pred_cyano)) +
-  geom_sf(size = 0.5) +
-  scale_color_viridis_c(limits = c(0, 100)) +
-  theme_gray(base_size = 18)
-
-variables
-summary(model_cyano_nolakes$obdata$n_farm_inputs)
-summary(PredDataVar$n_farm_inputs)
