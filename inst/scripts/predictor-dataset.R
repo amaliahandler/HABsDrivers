@@ -301,65 +301,7 @@ PredDataMas <- subset(PredDataMas, select = -c(N_CBNF_2007, N_CBNF_kg_Ag_2002Ws,
 PredDataMas <- subset(PredDataMas, select = -c(WsAreaSqKm.y))
 names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
 
-# Lake Area Creation -----------------------------------------------------------
-
-# missing depth data frame
-mrs_depth <- wbd_copy[is.na(wbd_copy$MaxDepth) | wbd_copy$MaxDepth < 0 | wbd_copy$MaxDepth == 0,]
-mrs_depth <- subset(mrs_depth, select = c(COMID, Shape))
-mrs_com <- mrs_depth$COMID
-
-# lakes_bin <- function(lake_area) {
-#   if (lake_area > 400 & lake_area < 19990) {z <- 12}
-#   else if (lake_area > 19991 & lake_area < 37901) {z <- 11}
-#   else if (lake_area > 37901 & lake_area < 96911) {z <- 10}
-#   else {z <- 9}
-#   return(z)
-# }
-
-# for (Shape in 1:length(mrs_depth)) {
-#   shapes <- mrs_depth$Shape
-#   mrs_depth$custom_area <- st_area(shapes)
-# }
-#
-# mrs_depth$custom_area <- drop_units(mrs_depth$custom_area)
-#
-# lake_size <- function(lake_area) {
-#   if (lake_area < 10000) {target_pop <- 0}
-#   else if (lake_area > 10000) {target_pop <- 1}
-# }
-#
-# mrs_depth$target_pop <- unlist(as.numeric(lapply(mrs_depth$custom_area, lake_size)))
-# summary(mrs_depth)
-# sum(mrs_depth$target_pop)
-#
-# within_pop <- subset(mrs_depth, target_pop == 1)
-
-# COMID <- wbd_copy$COMID
-# wbd_copy$z <- unlist(as.numeric(lapply(wbd_copy$custom_area, lakes_bin)))
-# summary(wbd_copy$z)
-
-# Lake Depth and Fetch Data ----------------------------------------------------
-
-# packages for the remote enviroment
-# library(devtools)
-# library(dplyr)
-# library(stars)
-# install.packages('nhdplusTools')
-# library(nhdplusTools)
-# library(tidyverse)
-# library(tidyr)
-# library(sf)
-# library(ggplot2)
-# install.packages('spmodel')
-# library(spmodel)
-# install.packages('elevatr')
-# library(elevatr)
-# remotes::install_github("usepa/lakemorpho")
-# library(lakemorpho)
-# library(raster)
-# install.packages("future.apply")
-# library(future.apply)
-# library(fs)
+# Lake Depth Creation -----------------------------------------------------------
 
 lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_dir"
 lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "\\.csv$")
@@ -373,54 +315,51 @@ met_comids <- lake_met_df$COMID
 lake_met_df <- lake_met_df |>
   distinct(COMID, .keep_all = TRUE)
 
+# get_morpho_obj <- function(com, df){
+#   lake_com <- filter(df, COMID == com)
+#   lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
+#   lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+#   saveRDS(lake_lm, file = paste0('./private/lake_morpho_objects/lake_morpho_', com, ".rds"))
+# }
+#
+# # run function to the missing depths COMIDs
+# depths <- future_lapply(missing_com, get_morpho_obj, missing_depth)
+#
+# # load lake morpho object files from folder
+# data_dir <- "./private/lake_morpho_objects/"
+# lm_files <- dir_ls(data_dir, regexp = "\\.rds$")
+#
+# # function to pull files from lake morpho objects into metrics to compile into df
+# morph_it <- function(file_name) {
+#   morpho_obj <- readRDS(file_name)
+#
+#   if (class(morpho_obj) == 'lakeMorpho') {
+#     max_depth <- lakemorpho::lakeMaxDepth(morpho_obj, correctFactor = 0.6)
+#     #lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
+#     COMID <- morpho_obj$lake$COMID
+#
+#     output <- data.frame(COMID = COMID, depth = max_depth)
+#     saveRDS(output, file = paste0('./private/friday_metrics/lake_metric', COMID, ".rds"))
+#   } else {
+#     message("Skipping file: ", file_name)
+#   }
+# }
+#
+# lake_met <- lapply(lm_files, morph_it)
+#
+# #pull metrics data to create final df
+# met_dir <- "./private/metrics/"
+# met_files <- fs::dir_ls(met_dir, regexp = "\\.rds$")
+#
+# # compile files into a single data frame
+# lake_met_df <- met_files |>
+#   map_dfr(readRDS)
+#
+# # save csv with exsiting lake metrics
+# write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
 
-# remove COMIDs with existing metrics from missing depths df
-missing_depth <- within_pop[!(within_pop$COMID %in% met_comids), ]
-missing_com <- missing_depth$COMID
-
-get_morpho_obj <- function(com, df){
-  lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
-  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-  saveRDS(lake_lm, file = paste0('./private/lake_morpho_objects/lake_morpho_', com, ".rds"))
-}
-
-# run function to the missing depths COMIDs
-depths <- future_lapply(missing_com, get_morpho_obj, missing_depth)
-
-# load lake morpho object files from folder
-data_dir <- "./private/lake_morpho_objects/"
-lm_files <- dir_ls(data_dir, regexp = "\\.rds$")
-
-# function to pull files from lake morpho objects into metrics to compile into df
-morph_it <- function(file_name) {
-  morpho_obj <- readRDS(file_name)
-
-  if (class(morpho_obj) == 'lakeMorpho') {
-    max_depth <- lakeMaxDepth(morpho_obj, correctFactor = 0.6)
-    lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
-    COMID <- morpho_obj$lake$COMID
-
-    output <- data.frame(COMID = COMID, depth = max_depth, fetch = lake_fetch)
-    saveRDS(output, file = paste0('./private/metrics/lake_metric', COMID, ".rds"))
-  } else {
-    message("Skipping file: ", file_name)
-  }
-}
-
-lake_met <- lapply(lm_files, morph_it)
-
-#pull metrics data to create final df
-met_dir <- "./private/metrics/"
-met_files <- fs::dir_ls(met_dir, regexp = "\\.rds$")
-
-# compile files into a single data frame
-lake_met_df <- met_files |>
-  map_dfr(readRDS)
-
-# save csv with exsiting lake metrics
-write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
-
+# compile depths into one column
+# using hiercarchy to give prefence to LAGOS and NHD populated depths
 
 PredDataMas$LAGOSLakeDepth <- replace(PredDataMas$LAGOSLakeDepth, which(PredDataMas$LAGOSLakeDepth <= 0), NA)
 PredDataMas$NHDLakeDepth <- replace(PredDataMas$NHDLakeDepth, which(PredDataMas$NHDLakeDepth <= 0), NA)
@@ -444,35 +383,20 @@ PredDataMas <- PredDataMas %>%
 
 fetch <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/fetch_df_21.csv")
 
-
 PredDataMas <- left_join(PredDataMas, fetch, by = 'COMID')
 
 PredDataMas$fetch <- replace(PredDataMas$fetch, which(PredDataMas$fetch <= 0), NA)
-PredDataMas$fetch <- coalesce(DataMas$fetch, DataMas$max_length)
+PredDataMas$fetch <- coalesce(PredDataMas$fetch, PredDataMas$max_length)
 
-summary(PredDataMas$max_length.x)
+summary(PredDataMas$fetch)
 
-colnames(DataMas)colmax_length.ynames(DataMas)
+#colnames(DataMas)colmax_length.ynames(DataMas)
 
 # Modeling ---------------------------------------------------------------------
-
-lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_dir"
-lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "//.csv$")
-
-# compile files into a single data frame
-lake_met_df <- lake_met_files |>
-  map_dfr(read.csv)
-
-lake_met_df <- lake_met_df %>%
-  distinct(COMID, .keep_all = TRUE)
-
 
 PredDataMas <- PredDataMas[!is.na(PredDataMas$lake_m_depth),]
 
 PredDataMini <- PredDataMas
-
-
-summary(PredDataMini$BFIWs.Nutr)
 
 PredDataMini <- subset(PredDataMini, select = -c(BFIWs.Str))
 names(PredDataMini)[names(PredDataMini) == 'BFIWs.Nutr'] <- 'BFIWs'
@@ -483,7 +407,7 @@ PredDataMini <- PredDataMini %>%
   rename(Tmean8110Ws = Tmean9120Ws,
          Precip8110Ws = Precip9120Ws,
          MAXDEPTH = lake_m_depth,
-         lakemorpho_fetch = max_length.y)
+         lakemorpho_fetch = fetch)
 
 # n-farm-inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste
 # n-dev-inputs = N_Human_Waste + N_Fert_Urban
@@ -514,18 +438,24 @@ PredDataMini$UNIQUE_ID[is.na(PredDataMini$UNIQUE_ID)] <- 0
 PredDataMini <- PredDataMini %>%
   distinct(COMID, .keep_all = TRUE)
 
-
-summary(PredDataMini$MAXDEPTH)
-summary(PredDataMas$LAGOSLakeDepth)
-
 PredDataMini <- subset(PredDataMini, select = -c(...1))
+
+# convert WSArea from sq km to ha
+PredDataMini$WsAreaHa <- PredDataMini$WsAreaSqKm * 100
+
+# divide nutrient data by ha
+PredDataMini$n_dev_inputs <- PredDataMini$n_dev_inputs / PredDataMini$WsAreaHa
+PredDataMini$n_farm_inputs <- PredDataMini$n_farm_inputs / PredDataMini$WsAreaHa
+
+PredDataMini$p_dev_inputs <- PredDataMini$p_dev_inputs / PredDataMini$WsAreaHa
+PredDataMini$p_farm_inputs <- PredDataMini$p_farm_inputs / PredDataMini$WsAreaHa
+
+# cyanobacteria modeling -------------------------------------------------------
 
 variables <- c(names(model_cyano_nolakes$coefficients$fixed), 'DSGN_CYCLE', 'UNIQUE_ID', 'COMID', 'AG_ECO3')
 variables <- variables[!variables %in% c('(Intercept)', 'AG_ECO3PLNLOW', 'AG_ECO3EHIGH')]
 
 PredDataVar <- subset(PredDataMini, select = c(variables))
-
-summary(PredDataVar$lakemorpho_fetch)
 
 wbd_pred <- wbd_copy %>%
   st_point_on_surface() %>%
@@ -534,337 +464,54 @@ wbd_pred <- wbd_copy %>%
   dplyr::select(-COMID) %>%
   drop_na()
 
-colnames(PredDataMini)
 Sys.time()
 Pred <- predict(object = model_cyano_nolakes, newdata = wbd_pred,
                 local = list(method = 'all', parallel = TRUE, ncores = 6))
 Sys.time()
 
-shapes <- select(PredDataMini, subset = c(lakemorpho_fetch, Shape))
-pred <- left_join(pred_df, shapes, by = 'lakemorpho_fetch')
-
 pred_df <- wbd_pred %>%
   mutate(pred_cyano = Pred,
          cyano_transform = 10^Pred - 1000)
 
-pred_df <- read_csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/pred_df.csv", col_names = TRUE)
+# pred_df <- read_csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/pred_df.csv", col_names = TRUE)
 
-ggplot(pred_df, aes(color = pred_cyano)) +
+ggplot(pred_df, aes(color = pred_cyano), order=orderrank) +
   geom_sf(size = 0.5) +
-  scale_color_viridis_c(limits = c(0, 50)) +
+  scale_color_viridis_c(limits = c(0, 10)) +
   theme_gray(base_size = 18)
 
-pred_df$Shape <- st_as_sf(pred_df$Shape)
+# microcystin ------------------------------------------------------------------
 
-# assign <- function(column) {
-#   if (column == 0) {New_Lakes <- 0}ls
-#   else if (column != 0) {New_Lakes <- 1}
-# }
-#
-# PredDataMini$New_Lakes <- assign(PredDataMini$UNIQUE_ID)
+m_variables <- c(names(model_micx_nolakes$coefficients$fixed), 'DSGN_CYCLE', 'UNIQUE_ID', 'COMID', 'AG_ECO3')
+m_variables <- m_variables[!m_variables %in% c('(Intercept)', 'AG_ECO3PLNLOW', 'AG_ECO3EHIGH', 'AG_ECO3WMTNS')]
 
-# lake depths 10/3 -------------------------------------------------------------
+PredDataMicx <- subset(PredDataMini, select = c(m_variables))
 
-# packages for the remote enviroment
-install.packages('nhdplusTools')
-install.packages('spmodel')
-install.packages('elevatr')
-remotes::install_github("usepa/lakemorpho")
-install.packages("future.apply")
-
-
-library(devtools)
-library(dplyr)
-library(stars)
-library(nhdplusTools)
-library(tidyverse)
-library(tidyr)
-library(sf)
-library(ggplot2)
-library(spmodel)
-library(elevatr)
-library(lakemorpho)
-library(raster)
-library(future.apply)
-library(fs)
-
-lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_dir"
-lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "//.csv$")
-
-# compile files into a single data frame
-lake_met_df <- lake_met_files |>
-  map_dfr(read.csv)
-
-met_comids <- lake_met_df$COMID
-
-lake_met_df |>
-  group_by(across(COMID)) |>
-  summarise(across(where(is.numeric), mean))
-
-
-# remove COMIDs with existing metrics from missing depths df
-missing_depth <- within_pop[!(within_pop$COMID %in% met_comids), ]
-missing_com <- missing_depth$COMID
-
-get_morpho_obj <- function(com, df){
-  lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
-  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-  saveRDS(lake_lm, file = paste0('./private/lake_morpho_objects/lake_morpho_', com, ".rds"))
-}
-
-
-max_n <- PredDataVar[PredDataVar$COMID == "116812",]
-
-
-which(PredDataVar$n_farm_inputs == "4449295.0")
-plot(max_n)
-
-# run function to the missing depths COMIDs
-depths <- lapply(missing_com, get_morpho_obj, missing_depth)
-
-# load lake morpho object files from folder
-data_dir <- "./private/lake_morpho_objects/"
-lm_files <- dir_ls(data_dir, regexp = "\\.rds$")
-
-# function to pull files from lake morpho objects into metrics to compile into df
-morph_it <- function(file_name) {
-  morpho_obj <- readRDS(file_name)
-
-  if (class(morpho_obj) == 'lakeMorpho') {
-    max_depth <- lakeMaxDepth(morpho_obj, correctFactor = 0.6)
-    lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
-    COMID <- morpho_obj$lake$COMID
-    print(COMID)
-    output <- data.frame(COMID = COMID, depth = max_depth, fetch = lake_fetch)
-    saveRDS(output, file = paste0('./private/new_metrics/lake_metric', COMID, ".rds"))
-  } else {
-    message("Skipping file: ", file_name)
-  }
-}
-
-
-COMID_bad <- 22220649
-summary(lake_morpho_2445)
-summary(lake_morpho_22220649)
-
-
-lm_coms <- str_extract(lm_files, "\\d+")
-metric_coms <- str_extract(met_files, "\\d+")
-
-missing_depth <- within_pop[!(within_pop$COMID %in% lm_coms), ]
-
-lake_met <- lapply(lm_files, morph_it)
-
-#pull metrics data to create final df
-met_dir <- "./private/metrics/"
-met_files <- fs::dir_ls(met_dir, regexp = "\\.rds$")
-
-# compile files into a single data frame
-lake_met_df <- met_files |>
-  map_dfr(readRDS)
-
-# save csv with exsiting lake metrics
-write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
-
-length(unique(PredDataMas$COMID))
-length(PredDataMas$COMID)
-
-# ------------------------------------------------------------------------------
-
-library(devtools)
-library(dplyr)
-library(tidyverse)
-library(tidyr)
-library(sf)
-library(ggplot2)
-library(fs)
-library(units)
-
-wbd_copy <- wbd_copy %>%
-  distinct(COMID, .keep_all = TRUE)
-
-test_df1 <- wbd_copy %>%
-  st_as_sf() %>%
-  dplyr::select(COMID, Shape)
-
-df_list1 <- split(test_df1, seq(nrow(test_df1)))
-
-# shapes %>%
-#   st_cast("POINT") %>% # turn polygon into points
-#   st_distance() %>% # calculate distance matrix
-#   max()
-
-plot(shapes)
-
-big_lake <- max(wbd_copy$LakeArea[85000:100000],na.rm = TRUE)
-df_test <- dplyr::filter(wbd_copy, LakeArea == big_lake)
-df <- df_test
-
-max_dist <- function(df) {
-  #shape <- df$Shape
-  df_s <- data.frame(st_coordinates(sf::st_sample(st_cast(df, "MULTILINESTRING"), 100, type = "regular")))
-  df_s <- st_as_sf(df_s, coords = c('X', 'Y'), crs = 5072)
-  dists <- st_distance(df_s)
-  max_leng <- max(dists)
-  distance_df <- data.frame(COMID = df$COMID, max_length = max_leng)
-  return(distance_df)
-}
+micx_pred <- wbd_copy %>%
+  st_point_on_surface() %>%
+  dplyr::select(COMID) %>%
+  inner_join(PredDataMicx, by = 'COMID') %>%
+  dplyr::select(-COMID) %>%
+  drop_na()
 
 Sys.time()
-df1 <- bind_rows(lapply(df_list1, max_dist))
+Pred <- predict(object = model_micx_nolakes, newdata = micx_pred,
+                local = list(method = 'all', parallel = TRUE, ncores = 48))
 Sys.time()
-df1$max_length <- drop_units(df1$max_length)
 
-summary(df)
+micx_pred_df <- micx_pred %>%
+  mutate(pred_micx = Pred,
+         micx_transform = 10^Pred - 1000)
 
-# df <- 1:25,000
-# df2 <- 25,000:50,000
-#df3 <- 50,000 : 75,000
-# df4 <- 75,001:85,000
-# df5 <- 85:001 : 100,000
+boot::inv.logit(micx_pred_df$pred_micx)
 
-fetch_df <- bind_rows(df,
-                      df2,
-                      df4)
-
-write.csv(df1,"./private/fetch_df_21.csv")
-
-ggplot(df, aes(x = fetch, y = max_length)) +
-  geom_point(aes(fill = "lake morpho fetch"))  +
-  geom_abline(slope = 1, linetype = "dashed", color = "red") +
-  xlim(50, 1500) +
-  ylim(50, 1500) +
-  labs(y = "calcuated max length (m)", x = "lake morpho fetch", fill = "Legend",
-       title = "lake morpho vs calculated lake lengths")
-
-cor(df$max_length, df$fetch, method = "spearman")
-
-model <- lm(fetch ~ max_length, data = df)
-
-options(scipen = 999)
-summary(model)
-
-st_as_sf(df_s)
-dists <- st_distance(df_s)
-max_leng <- max(dists)
-distance_df <- data.frame(COMID = df$COMID, max_length = max_leng)
-return(distance_df)
-}
-
-# meck_cnty <- st_polygon(x = list(coords[, 1:2])) %>%  # just X and Y please
-#   st_sfc() %>%  # from sfg to sfc
-#   st_sf() # from sfc to sf
-
-Sys.time()
-df5 <- bind_rows(lapply(df_list5, max_dist))
-Sys.time()
-df$max_length <- drop_units(df$p_max_length)
-
-# df <- 1:25,000
-# df2 <- 25,000:50,000
-#df3 <- 50,000 : 75,000
-# df4 <- 75,001:85,000
-# df5 <- 85:001 : 100,000
-
-fetch_df <- bind_rows(df,
-                      df2,
-                      df4)
-
-write.csv(fetch_df,"./private/fetch_df.csv")
-
-ggplot(df, aes(x = fetch, y = max_length)) +
-  geom_point(aes(fill = "lake morpho fetch"))  +
-  geom_abline(slope = 1, linetype = "dashed", color = "red") +
-  xlim(50, 1500) +
-  ylim(50, 1500) +
-  labs(y = "calcuated max length (m)", x = "lake morpho fetch", fill = "Legend",
-       title = "lake morpho vs calculated lake lengths")
-
-cor(df$max_length, df$fetch, method = "spearman")
-
-model <- lm(fetch ~ max_length, data = df)
-
-options(scipen = 999)
-summary(model)
-
---------------------------------------------------------------------------------
-library(devtools)
-library(dplyr)
-library(tidyverse)
-library(tidyr)
-library(sf)
-library(ggplot2)
-library(fs)
-library(units)
-remotes::install_github("usepa/lakemorpho")
-library(lakemorpho)
-
-# load lake morpho object files from folder
-data_dir <- "./private/lake_morpho_objects/"
-lm_files <- dir_ls(data_dir, regexp = "\\.rds$")
-
-#remove comids that have already been processed
-
-#select comids with metrics already
-data_dir <- "./private/metrics3/"
-com_files <- dir_ls(data_dir, regexp = "\\.rds$")
-
-# create df with file name list
-lm_files_copy <- read.table(text=lm_files,col.names=c('ID'))
-com_files_copy <- read.table(text=com_files,col.names=c('ID'))
-
-# remove all non-digits
-lm_coms <- gsub("\\D+", ",", lm_files_copy)
-rm_coms <- gsub("\\D+", ",", com_files_copy)
-
-# coherse into df
-s2 <- data.frame(strsplit(lm_coms, ","))
-s1 <- data.frame(strsplit(rm_coms, ","))
-
-colnames(s2) <- 'COMID'
-colnames(s1) <- 'COMID'
-
-# remove exsiting comids from yet to be processed comids
-comids <- s2[!(s2$COMID %in% s1$COMID),]
-
-all_lms <- list.files("./private/lake_morpho_objects", full.names= TRUE)
-
-run_files <- paste0('./private/lake_morpho_objects/lake_morpho_', comids, ".rds")
-
-length(run_files[!run_files %in% all_lms])
-
-# function to pull files from lake morpho objects into metrics to compile into df
-morph_it <- function(file_name) {
-  morpho_obj <- readRDS(file_name)
-
-  if (class(morpho_obj) == 'lakeMorpho') {
-    max_depth <- lakemorpho::lakeMaxDepth(morpho_obj, correctFactor = 0.6)
-    #lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
-    COMID <- morpho_obj$lake$COMID
-
-    output <- data.frame(COMID = COMID, depth = max_depth)
-    saveRDS(output, file = paste0('./private/metrics3/lake_metric', COMID, ".rds"))
-  } else {
-    message("Skipping file: ", file_name)
-  }
-}
-
-lake_met <- lapply(run_files, morph_it)
+ggplot(micx_pred_df, aes(color = pred_micx)) +
+  geom_sf(size = 0.3) +
+  scale_color_viridis_c(limits = c(0, 1)) +
+  theme_gray(base_size = 18)
 
 
-data_dir <- "./private/metrics3/"
-met_files <- dir_ls(data_dir, regexp = "\\.rds$")
-
-# compile files into a single data frame
-lake_met_df <- met_files |>
-  map_dfr(readRDS)
-
-# save csv with exsiting lake metrics
-write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
-
-
-# modeling ---------------------------------------------------------------------
+# modeling DMAP ----------------------------------------------------------------
 install.packages('spmodel')
 library(spmodel)
 
