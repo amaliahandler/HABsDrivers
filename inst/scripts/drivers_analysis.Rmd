@@ -57,7 +57,7 @@ habs <- habs|>
          lakemorpho_depth = ifelse(lakemorpho_depth > 500, NA, lakemorpho_depth),
          n_farm_inputs = ifelse(n_farm_inputs > 600, NA, n_farm_inputs),
          p_farm_inputs = ifelse(p_farm_inputs > 100, NA, p_farm_inputs),
-         n_dev_inputs = ifelse(n_dev_inputs > 100, NA, n_dev_inputs),
+         n_dev_inputs = ifelse(n_dev_inputs > 300, NA, n_dev_inputs),
          p_dev_inputs = ifelse(p_dev_inputs > 100, NA, p_dev_inputs),
          N_Surplus = ifelse(N_Surplus > 3000, NA, N_Surplus),
          TEMPERATURE = ifelse(TEMPERATURE > 50, NA, TEMPERATURE))
@@ -419,11 +419,12 @@ cyano_nolake_sp_loocv <- loocv(c4, cv_predict = TRUE)
 habs_mod$preds        <- cyano_nolake_sp_loocv$cv_predict
 
 max_val <- max(log10(habs_mod$B_G_DENS + const), habs_mod$preds)
+min_val <- min(log10(habs_mod$B_G_DENS + const), habs_mod$preds)
 
 fig <- ggplot(data = habs_mod, aes(x = preds, y = log10(B_G_DENS + const))) +
   geom_hex(bins = 60) +
   scale_fill_continuous(type = "viridis") +
-  xlim(2.8, max_val) + ylim(2.8, max_val) +
+  xlim(min_val, max_val) + ylim(min_val, max_val) +
   ylab("Observed") +
   xlab("Fitted") +
   ggtitle(paste0("Log10(Cyanobacteria + ", const,")"))
@@ -442,6 +443,35 @@ ggplot() +
                        name = "Log10(Cyanobacteria + 1000)") +
   theme_void()
 ggsave("./inst/figures/cyano_sp_final_fitted_preds_map.png", width = 7, height = 3.5, units = "in", dpi = 600)
+
+# Map of standardized residuals
+cyano_aug <- augment(c4)
+breaks <- c(-2, 0, 2, 3, 4)
+cols <- rev(RColorBrewer::brewer.pal(6, "Spectral"))
+ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = arrange(cyano_aug, .std.resid), 
+          aes(fill = .std.resid), pch = 21, size = 1.5) +
+  scale_fill_stepsn(colors = cols,
+                    breaks = breaks,
+                    name = "Standardized \nResiduals") +
+  theme_void()
+ggsave("./inst/figures/cyano_nolake_stdresiduals_map.png", width = 7, height = 3.5, units = "in", dpi = 600)
+
+# Biplot of fitted versus observed data colored by the standardized residuals 
+cyano_aug$preds <- cyano_nolake_sp_loocv$cv_predict
+ggplot(data = cyano_aug, aes(x = preds, y = `log10(B_G_DENS + 1000)`, fill = .std.resid)) +
+  geom_point(pch = 21) +
+  # scale_fill_continuous(type = "viridis",
+  #                       name = "Standardized \nResidual") +
+  scale_fill_stepsn(colors = cols,
+                    breaks = breaks,
+                    name = "Standardized \nResiduals") +
+  xlim(min_val, max_val) + ylim(min_val, max_val) +
+  ylab("Observed") +
+  xlab("Fitted") +
+  ggtitle(paste0("Log10(Cyanobacteria + ", const,")"))
+ggsave(paste0("./inst/figures/cyano_nolake_stdresiduals_biplot.png"), height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
 ```
 
@@ -823,6 +853,29 @@ ggplot() +
                        name = "Fitted \nProbability") +
   theme_void()
 ggsave("./inst/figures/micx_sp_final_fitted_probs_map.png", width = 5, height = 3.5, units = "in", dpi = 600)
+
+# Map of standardized residuals
+# Organize the data so that most extreme values are plotted on top
+micx_sp_nolake_aug <- micx_sp_nolake_aug|>
+  mutate(plot_order = factor(case_when(.std.resid < -2 ~ "L2",
+                                  .std.resid > 2 ~ "L1",
+                                  .std.resid < -1 & .std.resid >= -2 ~ "L3",
+                                  TRUE ~ "L4"),
+                        levels = c("L1", "L2", "L3", "L4"))) |>
+  arrange(desc(plot_order))
+
+breaks <- c(-2, -1, 0, 1, 2)
+cols <- rev(RColorBrewer::brewer.pal(length(breaks) + 1, "Spectral"))
+
+ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = micx_sp_nolake_aug, 
+          aes(fill = .std.resid), pch = 21, size = 1.5) +
+  scale_fill_stepsn(colors = cols,
+                    breaks = breaks,
+                    name = "Standardized \nResiduals") +
+  theme_void()
+ggsave("./inst/figures/micx_nolake_stdresiduals_map.png", width = 7, height = 3.5, units = "in", dpi = 600)
 
 ```
 
