@@ -450,6 +450,13 @@ PredDataMini$n_farm_inputs <- PredDataMini$n_farm_inputs / PredDataMini$WsAreaHa
 PredDataMini$p_dev_inputs <- PredDataMini$p_dev_inputs / PredDataMini$WsAreaHa
 PredDataMini$p_farm_inputs <- PredDataMini$p_farm_inputs / PredDataMini$WsAreaHa
 
+# US basemap
+
+remotes::install_github("mikejohnson51/AOI")
+library(AOI)
+conus <- AOI::aoi_get(state = "conus")
+conus <- sf::st_transform(conus, 5072)
+
 # cyanobacteria modeling -------------------------------------------------------
 
 variables <- c(names(model_cyano_nolakes$coefficients$fixed), 'DSGN_CYCLE', 'UNIQUE_ID', 'COMID', 'AG_ECO3')
@@ -475,10 +482,34 @@ pred_df <- wbd_pred %>%
 
 # pred_df <- read_csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/pred_df.csv", col_names = TRUE)
 
-ggplot(pred_df, aes(color = pred_cyano), order=orderrank) +
-  geom_sf(size = 0.5) +
-  scale_color_viridis_c(limits = c(0, 8)) +
-  theme_gray(base_size = 18)
+pred_df <- pred_df %>%
+  mutate(disc_cyano = factor(case_when(pred_cyano < 4 ~ 'B1', # under 10k
+                                       pred_cyano >= 4 & pred_cyano < 4.7 ~ 'B2', # 10k - 50k
+                                       pred_cyano >= 4.7 & pred_cyano < 5 ~ 'B3', # 50k - 100k
+                                       pred_cyano >= 5 & pred_cyano < 5.3 ~ 'B4', # 100k - 200k
+                                       pred_cyano >= 5.3 & pred_cyano < 6 ~ 'B5', # 200k - 1 mil
+                                       pred_cyano > 6 ~ 'B6', # above 1 mil
+                                       TRUE ~ NA),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+  arrange(disc_cyano)
+
+# summary(pred_df$disc_cyano)
+# sum(is.na(pred_df$disc_cyano))
+
+cyano_labels <- c('< 10k', '10k - 50k', '50k - 100k', '100k - 200k', '200k - 1 million', ' > 1 million')
+
+ggplot(pred_df, aes(color = disc_cyano)) +
+  geom_sf(size = 0.4) +
+  scale_color_manual(values = c("#9f07f7", "#2B83BA", "#ABDDA4", "#f7d577", "#FDAE61","#D7191C"),
+                     labels = cyano_labels,
+                     name = "Cells/mL") +
+  labs(title = "Cyanobacteria Predictions") +
+  geom_sf(data = conus, fill = NA, color = "black", lwd = 0.2) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+#save plot
+ggsave("final_cyano_pred.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # microcystin ------------------------------------------------------------------
 
@@ -505,21 +536,29 @@ micx_pred_df <- micx_pred %>%
 
 micx_pred_df$pred_micx <- boot::inv.logit(micx_pred_df$pred_micx)
 
-remotes::install_github("mikejohnson51/AOI")
-library(AOI)
-conus <- AOI::aoi_get(state = "conus")
-conus <- st_transform(conus, 5072)
+# mapping the data
 
-install.packages("cowplot")
-library(cowplot)
+micx_pred_df <- micx_pred_df %>%
+  arrange(pred_micx)
+
+labels = c("0-25%", "25-50%", "50-75%", "75-100%")
+breaks <- c(0.25,0.50,0.75,1.0)
+cols <- c("#2B83BA","#ABDDA4", "#FDAE61", "#D7191C")
 
 ggplot(micx_pred_df, aes(color = pred_micx)) +
-  geom_sf(size = 0.3) +
-  scale_color_viridis_c(limits = c(0, 1)) +
+  geom_sf(size = 0.4) +
+  scale_color_stepsn(colors = cols,
+                     breaks = breaks,
+                     labels = labels,
+                     name = "Probability (%)") +
+  labs(title = "Microcystin Detection at or above 0.1 ug/L") +
   geom_sf(data = conus, fill = NA, color = "black", lwd = 0.2) +
-  labs(title = "Microcystin Detection at or above 0.1 ug/L",
-       subtitle = "Probability of detecting microcystin presence equal to or greater than 0.1 micrograms per litre.",
-       color = 'Probability (%)') +
-  theme(plot.subtitle = element_text(size = 8)) +
-  theme_minimal_grid(12)
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+# save the map
+ggsave("final_micx_pred.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+
+
 
