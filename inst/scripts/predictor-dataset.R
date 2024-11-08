@@ -457,6 +457,16 @@ library(AOI)
 conus <- AOI::aoi_get(state = "conus")
 conus <- sf::st_transform(conus, 5072)
 
+# Read in states to give some context
+states <- states(cb = TRUE, progress_bar = FALSE)  %>%
+  filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI'))  %>%
+  st_transform(crs = 5070)
+
+# Plot sample locations
+ggplot() +
+  geom_sf(data = states,
+          fill = NA)
+
 # cyanobacteria modeling -------------------------------------------------------
 
 variables <- c(names(model_cyano_nolakes$coefficients$fixed), 'DSGN_CYCLE', 'UNIQUE_ID', 'COMID', 'AG_ECO3')
@@ -504,7 +514,7 @@ ggplot(pred_df, aes(color = disc_cyano)) +
                      labels = cyano_labels,
                      name = "Cells/mL") +
   labs(title = "Cyanobacteria Predictions") +
-  geom_sf(data = conus, fill = NA, color = "black", lwd = 0.2) +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
@@ -551,14 +561,256 @@ ggplot(micx_pred_df, aes(color = pred_micx)) +
                      breaks = breaks,
                      labels = labels,
                      name = "Probability (%)") +
-  labs(title = "Microcystin Detection at or above 0.1 ug/L") +
-  geom_sf(data = conus, fill = NA, color = "black", lwd = 0.2) +
+  labs(title = "Microcystin Detection at or above 0.1 μg/L") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
 # save the map
 ggsave("final_micx_pred.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
+# individual variable mapping --------------------------------------------------
+
+# lake depths
+
+pred_df <- pred_df %>%
+  mutate(disc_depth = factor(case_when(MAXDEPTH < 1 ~ 'B1',
+                                       MAXDEPTH >= 1 & MAXDEPTH < 2 ~ 'B2',
+                                       MAXDEPTH >= 2 & MAXDEPTH < 5 ~ 'B3',
+                                       MAXDEPTH >= 5 & MAXDEPTH < 10 ~ 'B4',
+                                       MAXDEPTH >= 10 & MAXDEPTH < 20 ~ 'B5',
+                                       MAXDEPTH >= 20 & MAXDEPTH < 100 ~ 'B6',
+                                       MAXDEPTH >= 100  ~ 'B7'),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6','B7'))) %>%
+  arrange(disc_depth)
+
+depth_labels <- c('< 1m','1-2m', '2-5m', '5-10m', '10-20m', '20-100m', '> 100m')
+depth_cols <- rev(RColorBrewer::brewer.pal(7, "Spectral"))
 
 
+ggplot(pred_df, aes(color = disc_depth)) +
+  geom_sf(size = 0.4) +
+  scale_color_manual(values = depth_cols,
+                     labels = depth_labels,
+                     name = "Lake Depth") +
+  labs(title = "Lake Depth Distribution") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("lake_depths.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+# nitrogen mapping
+
+pred_df <- pred_df %>%
+  mutate(disc_n = factor(case_when(n_farm_inputs < 0.5 ~ 'B1',
+                                       n_farm_inputs >= 0.5 & n_farm_inputs < 5 ~ 'B2',
+                                       n_farm_inputs >= 5 & n_farm_inputs < 15 ~ 'B3',
+                                       n_farm_inputs >= 15 & n_farm_inputs < 50 ~ 'B4',
+                                       n_farm_inputs >= 50 & n_farm_inputs < 100 ~ 'B5',
+                                       n_farm_inputs >= 100 & n_farm_inputs < 200 ~ 'B6',
+                                       n_farm_inputs >= 200 & n_farm_inputs < 500 ~ 'B7',
+                                       n_farm_inputs >= 500  ~ 'B8'),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8'))) %>%
+  arrange(disc_n)
+
+n_labels <- c('<0.5','0.5-5','5-15','15-50','50-100','100-200','200-500','>500')
+n_cols <- RColorBrewer::brewer.pal(8, "YlOrRd")
+
+ggplot(pred_df, aes(color = disc_n)) +
+  geom_sf(size = 0.5) +
+  scale_color_manual(values = n_cols,
+                     labels = n_labels,
+                     name = "kg/ha/yr") +
+  labs(title = "Nitrogen Farm Inputs") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("nitrogen_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+# P inputs ---------------------------------------------------------------------
+
+pred_df <- pred_df %>%
+  mutate(disc_p = factor(case_when(p_dev_inputs < .0014 ~ 'B1',
+                                   p_dev_inputs >= .0014 & p_dev_inputs < 0.0444 ~ 'B2',
+                                   p_dev_inputs >= .0444 & p_dev_inputs < 0.2564 ~ 'B3',
+                                   p_dev_inputs >= .2564 & p_dev_inputs < 1.0 ~ 'B4',
+                                   p_dev_inputs >= 1.0 & p_dev_inputs < 5.0 ~ 'B5',
+                                   p_dev_inputs >= 5.0  ~ 'B6'),
+                         levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+  arrange(disc_p)
+
+p_labels <- c(' < 0.001', '0.001 - 0.04', '0.04 - 0.25', '0.25 - 1.00', '1.00 - 5.00', '> 5.00')
+p_cols <- RColorBrewer::brewer.pal(6, "YlOrRd")
+
+ggplot(pred_df, aes(color = disc_p)) +
+  geom_sf(size = 0.4) +
+  scale_color_manual(values = p_cols,
+                     labels = p_labels,
+                     name = "kg/ha/yr") +
+  labs(title = "Phosphorus Development Inputs") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("phos_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+# Lake Fetch Mapping -----------------------------------------------------------
+
+pred_df <- pred_df %>%
+  mutate(disc_fetch = factor(case_when(lakemorpho_fetch >= 0 & lakemorpho_fetch < 400 ~ 'B1',
+                                   lakemorpho_fetch >= 400 & lakemorpho_fetch < 800 ~ 'B2',
+                                   lakemorpho_fetch >= 800 & lakemorpho_fetch < 1600 ~ 'B3',
+                                   lakemorpho_fetch >= 1600 & lakemorpho_fetch < 3200 ~ 'B4',
+                                   lakemorpho_fetch >= 3200 & lakemorpho_fetch < 4800 ~ 'B5',
+                                   lakemorpho_fetch >= 4800  ~ 'B6'),
+                         levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+  arrange(disc_fetch)
+
+f_labels <- c('0-400', '400-800', '800-1600', '1600-3200', '3200-4800', '>4800')
+f_cols <- rev(RColorBrewer::brewer.pal(6, "Spectral"))
+
+ggplot(pred_df, aes(color = disc_fetch)) +
+  geom_sf(size = 0.4) +
+  scale_color_manual(values = f_cols,
+                     labels = f_labels,
+                     name = "Meters") +
+  labs(title = "Lake Fetch Distribution") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+
+
+# comparison mapping -----------------------------------------------------------
+
+library(cowplot)
+comp_df <- st_join(pred_df, micx_pred_df)
+comp_df <- subset(comp_df, select = c('pred_micx', 'pred_cyano', 'cyano_transform', 'disc_cyano', 'Shape'))
+
+comp_df <- comp_df %>%
+  distinct(Shape, .keep_all = TRUE)
+
+cor(comp_df$pred_micx, comp_df$pred_cyano,
+    method = "spearman")
+
+cor(pred_df$n_farm_inputs, pred_df$p_dev_inputs,
+    method = 'spearman')
+
+cor(comp_df$n_farm_inputs, comp_df$pred_cyano,
+    method = 'spearman')
+
+install.packages("biscale", dependencies = TRUE)
+library(biscale)
+
+
+
+# create classes
+comp_data <- bi_class(comp_df, x = pred_cyano, y = pred_micx, style = "quantile", dim = 3)
+
+# create map
+ggplot() +
+  geom_sf(data = comp_data, mapping = aes(fill = bi_class), color = "white", size = 0.1, show.legend = FALSE) +
+  bi_scale_fill(pal = "GrPink", dim = 3) +
+  bi_theme()
+
+# compare with the ObData ------------------------------------------------------
+
+ob_df <- model_cyano_nolakes$obdata
+ob_df <- st_as_sf(ob_df, coords = c(".xcoord", ".ycoord"), crs = 5072)
+
+ob_df <- ob_df %>%
+  mutate(disc_depth = factor(case_when(MAXDEPTH < 1 ~ 'B1',
+                                       MAXDEPTH >= 1 & MAXDEPTH < 2 ~ 'B2',
+                                       MAXDEPTH >= 2 & MAXDEPTH < 5 ~ 'B3',
+                                       MAXDEPTH >= 5 & MAXDEPTH < 10 ~ 'B4',
+                                       MAXDEPTH >= 10 & MAXDEPTH < 20 ~ 'B5',
+                                       MAXDEPTH >= 20 & MAXDEPTH < 100 ~ 'B6'),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+  arrange(disc_depth)
+
+ob_d_labels <- c('< 1m','1-2m', '2-5m', '5-10m', '10-20m', '20-100m')
+ob_d_cols <- rev(RColorBrewer::brewer.pal(7, "Spectral"))
+
+
+ggplot(ob_df, aes(color = disc_depth)) +
+  geom_sf(size = 1.5) +
+  scale_color_manual(values = ob_d_cols,
+                     labels = ob_d_labels,
+                     name = "Lake Depth") +
+  labs(title = "Lake Depth Distribution") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("lake_depths.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+# fetch
+
+ob_df <- ob_df %>%
+  mutate(disc_fetch = factor(case_when(lakemorpho_fetch >= 0 & lakemorpho_fetch < 400 ~ 'B1',
+                                       lakemorpho_fetch >= 400 & lakemorpho_fetch < 800 ~ 'B2',
+                                       lakemorpho_fetch >= 800 & lakemorpho_fetch < 1600 ~ 'B3',
+                                       lakemorpho_fetch >= 1600 & lakemorpho_fetch < 3200 ~ 'B4',
+                                       lakemorpho_fetch >= 3200 & lakemorpho_fetch < 4800 ~ 'B5',
+                                       lakemorpho_fetch >= 4800  ~ 'B6'),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+  arrange(disc_fetch)
+
+ob_f_labels <- c('0-400', '400-800', '800-1600', '1600-3200', '3200-4800', '>4800')
+ob_f_cols <- rev(RColorBrewer::brewer.pal(6, "Spectral"))
+
+ggplot(ob_df, aes(color = disc_fetch)) +
+  geom_sf(size = 1.5) +
+  scale_color_manual(values = ob_f_cols,
+                     labels = ob_f_labels,
+                     name = "Meters") +
+  labs(title = "Lake Fetch Distribution") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+# DMAP -------------------------------------------------------------------------
+
+install.packages("biscale", dependencies = TRUE)
+library(biscale)
+
+library(devtools)
+library(dplyr)
+library(stars)
+library(tidyverse)
+library(tidyr)
+library(sf)
+library(ggplot2)
+library(spmodel)
+library(corrplot)
+library(remotes)
+library(units)
+library(fs)
+library(cowplot)
+
+comp_df <- st_join(pred_df, micx_pred_df)
+comp_df <- subset(comp_df, select = c('pred_micx', 'pred_cyano', 'cyano_transform', 'disc_cyano', 'Shape'))
+
+comp_df <- comp_df %>%
+  distinct(Shape, .keep_all = TRUE)
+
+cor(comp_df$pred_micx, comp_df$pred_cyano,
+    method = "spearman")
+
+cor(pred_df$n_farm_inputs, pred_df$p_dev_inputs,
+    method = 'spearman')
+
+cor(comp_df$n_farm_inputs, comp_df$pred_cyano,
+    method = 'spearman')
+
+# create classes
+comp_data <- bi_class(comp_df, x = pred_cyano, y = pred_micx, style = "quantile", dim = 3)
+
+# create map
+ggplot() +
+  geom_sf(data = comp_data, mapping = aes(fill = bi_class), color = "white", size = 0.1, show.legend = FALSE) +
+  bi_scale_fill(pal = "GrPink", dim = 3) +
+  bi_theme()
 
