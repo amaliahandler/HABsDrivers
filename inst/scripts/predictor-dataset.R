@@ -681,6 +681,41 @@ ggplot(pred_df, aes(color = disc_fetch)) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
+# Lake Area Mapping ------------------------------------------------------------
+
+for (Shape in 1:length(wbd_copy)) {
+  shapes <- wbd_copy$Shape
+  wbd_copy$custom_area <- st_area(shapes)
+}
+
+wbd_copy$custom_area <- drop_units(wbd_copy$custom_area)
+area_df <- subset(wbd_copy, select = c('COMID', 'custom_area', 'Shape'))
+
+area_df$points <- st_point_on_surface(area_df$Shape)
+
+
+ area_df <- area_df %>%
+  mutate(disc_area = factor(case_when(custom_area >= 0 & custom_area < 100 ~ 'B1',
+                                       custom_area >= 100 & custom_area < 1000 ~ 'B2',
+                                       custom_area >= 1000 & custom_area < 10000 ~ 'B3',
+                                       custom_area >= 10000 & custom_area < 100000 ~ 'B4',
+                                       custom_area >= 100000 & custom_area < 200000 ~ 'B5',
+                                       custom_area >= 200000  ~ 'B6'),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+  arrange(disc_area)
+
+a_labels <- c('0-100','100-1,000','1,000-10,000','10,000-100,000','100,000-200,000','>200,000')
+a_cols <- rev(RColorBrewer::brewer.pal(6, "Spectral"))
+
+ggplot(area_df, aes(color = disc_area)) +
+  geom_sf(size = 0.4) +
+  scale_color_manual(values = a_cols,
+                     labels = a_labels,
+                     name = "Square Meters") +
+  labs(title = "Lake Area Distribution") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
 
 
 # comparison mapping -----------------------------------------------------------
