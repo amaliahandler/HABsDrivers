@@ -725,15 +725,15 @@ ggsave("area_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # forest cover mapping ---------------------------------------------------------
 
-pred_df <- pred_df %>%
+pred_df <- pred_df |>
   mutate(disc_fst = factor(case_when(fst_ws < 0.25 ~ 'B1',
                                    fst_ws >= 0.25 & fst_ws < 0.50 ~ 'B2',
                                    fst_ws >= 0.50 & fst_ws < 0.75 ~ 'B3',
                                    fst_ws >= 0.75 & fst_ws < 0.85 ~ 'B4',
                                    fst_ws >= 0.85 & fst_ws < 0.95 ~ 'B5',
                                    fst_ws >= 0.95  ~ 'B6'),
-                         levels = c('B1', 'B2', 'B3', 'B4', 'B5','B6'))) %>%
-  arrange(disc_fst)
+                         levels = c('B6','B5','B4','B3','B2','B1'))) |>
+  (arrange(disc_fst))
 
 fst_labels = c("0-25%", "25-50%", "50-75%", "75-85%", "85-95%", ">95%")
 fst_cols <- rev(RColorBrewer::brewer.pal(6, "Spectral"))
