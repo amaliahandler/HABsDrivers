@@ -725,18 +725,19 @@ ggsave("area_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # forest cover mapping ---------------------------------------------------------
 
-pred_df <- pred_df |>
-  mutate(disc_fst = factor(case_when(fst_ws < 0.25 ~ 'B1',
-                                   fst_ws >= 0.25 & fst_ws < 0.50 ~ 'B2',
-                                   fst_ws >= 0.50 & fst_ws < 0.75 ~ 'B3',
-                                   fst_ws >= 0.75 & fst_ws < 0.85 ~ 'B4',
-                                   fst_ws >= 0.85 & fst_ws < 0.95 ~ 'B5',
-                                   fst_ws >= 0.95  ~ 'B6'),
-                         levels = c('B6','B5','B4','B3','B2','B1'))) |>
-  (arrange(disc_fst))
+pred_df <- pred_df %>%
+  mutate(disc_fst = factor(case_when(fst_ws < 25 ~ 'B1',
+                                      fst_ws >= 25 & fst_ws < 50 ~ 'B2',
+                                      fst_ws >= 50 & fst_ws < 75 ~ 'B3',
+                                      fst_ws >= 75 & fst_ws < 85 ~ 'B4',
+                                      fst_ws >= 85 & fst_ws < 95 ~ 'B5',
+                                      fst_ws >= 95  ~ 'B6'),
+                            levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+  arrange(disc_fst)
+
 
 fst_labels = c("0-25%", "25-50%", "50-75%", "75-85%", "85-95%", ">95%")
-fst_cols <- rev(RColorBrewer::brewer.pal(6, "Spectral"))
+fst_cols <- RColorBrewer::brewer.pal(6, "YlGn")
 
 ggplot(pred_df, aes(color = disc_fst)) +
   geom_sf(size = 0.4) +
@@ -773,15 +774,6 @@ map <- ggplot(comp_data, aes(color = bi_class)) +
 comp_data <- comp_data %>%
   mutate(bi_class = factor(bi_class))
 
-comp_data |>
-  group_b(bi_class)
-
-comp_data |>
-  filter(bi_class == '1-1') |>
-  pull(pred_micx) |>
-  summary()
-
-
 # create map
 cyano_map <- ggplot() +
   geom_sf(data = comp_data,
@@ -811,6 +803,54 @@ ggsave("cyano_micx_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500
 mapview::mapview(pred_df)
 pred_df %>%
   mapview(zcol = "pred_cyano", burst = TRUE)
+
+# comparison mapping the nutrients and cyano/micx risk
+
+comp_df <- st_join(pred_df, micx_pred_df)
+comp_df <- subset(comp_df, select = c('pred_micx', 'pred_cyano', 'cyano_transform', 'Shape', 'n_farm_inputs', 'p_dev_inputs'))
+
+comp_df$nutr_all <- comp_df$n_farm_inputs + comp_df$p_dev_inputs
+
+comp_data <- bi_class(comp_df, x = pred_cyano, y = nutr_all, style = "quantile", dim = 2)
+
+comp_data <- comp_data |>
+  mutate(bi_class = factor(bi_class))
+
+comp_data |>
+  group_b(bi_class)
+
+comp_data |>
+  filter(bi_class == '2-2') |>
+  pull(nutr_all) |>
+  summary()
+
+# create map
+cyano_nutr_map <- ggplot() +
+  geom_sf(data = comp_data,
+          mapping = aes(color = bi_class),
+          size = 1,
+          show.legend = FALSE) +
+  bi_scale_color(pal = "BlueGold", dim = 2) +
+  labs(title = "Nutrients vs Cyanobacteria") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  bi_theme(base_size = 12)
+
+cyano_nutr_legend <- bi_legend(pal = "BlueGold",
+                          dim = 2,
+                          xlab = "Higher Cyano Levels ",
+                          ylab = "Higher Nutrient Levels",
+                          size = 6)
+
+# combine map with legend
+cyano_map <- ggdraw() +
+  draw_plot(cyano_nutr_map) +
+  draw_plot(cyano_nutr_legend, 0.1, 0.07, 0.2, 0.2)
+
+ggsave("cyano_nutr_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+
+library(ggplot2)
+library(cowplot)
 
 library(mapview)
 # nitrogen inputs analysis -----------------------------------------------------
@@ -851,3 +891,49 @@ ggplot(xs_n, aes(color = disc_cyano)) +
 # phosphorus inputs
 
 xs_p <- filter(PredDataMini, p_farm_inputs > 1000)
+
+# Oregon Mapping ==============================================================
+
+OR <- states(cb = TRUE, progress_bar = FALSE)  %>%
+  filter(STUSPS %in% c("OR"))  %>%
+  st_transform(crs = 5070) # change crs to match pred_df
+
+or_shp <- counties(state = 'Oregon')
+
+or_df <- st_join(pred_df, states)
+
+or_df <- or_df |>
+  filter(STUSPS == 'OR') %>%
+  st_transform(crs = 4326)
+
+ggplot(or_df, aes(color = disc_cyano)) +
+  geom_sf(size = 2) +
+  scale_color_manual(values = c("#9f07f7", "#2B83BA", "#ABDDA4", "#f7d577", "#FDAE61","#D7191C"),
+                     labels = cyano_labels,
+                     name = "Cells/mL") +
+  labs(title = "Oregon Cyanobacteria Predictions") +
+  geom_sf(data = OR, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("cyano_or_state.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+# State Count ==================================================================
+
+states <- states(cb = TRUE, progress_bar = FALSE)  %>%
+  filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI'))  %>%
+  st_transform(crs = 5070)
+
+state_df <- st_join(pred_df, states)
+
+state_count <- state_df |>
+  count(STUSPS)
+
+ggplot(state_count, aes(color = n)) +
+  geom_sf(size = 2) +
+  labs(title = "Oregon Cyanobacteria Predictions") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1)
+
+state_exp <- subset(state_count, select = -c(Shape))
+
+write.csv(state_exp, file = 'state_count.csv')
