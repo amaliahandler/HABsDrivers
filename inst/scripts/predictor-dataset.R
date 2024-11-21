@@ -613,7 +613,7 @@ n_labels <- c('<0.5','0.5-5','5-15','15-50','50-100','100-200','200-500','>500')
 n_cols <- RColorBrewer::brewer.pal(8, "YlOrRd")
 
 ggplot(pred_df, aes(color = disc_n)) +
-  geom_sf(size = 0.5) +
+  geom_sf(size = 0.75) +
   scale_color_manual(values = n_cols,
                      labels = n_labels,
                      name = "kg/ha/yr") +
@@ -640,7 +640,7 @@ p_labels <- c(' < 0.001', '0.001 - 0.04', '0.04 - 0.25', '0.25 - 1.00', '1.00 - 
 p_cols <- RColorBrewer::brewer.pal(6, "YlOrRd")
 
 ggplot(pred_df, aes(color = disc_p)) +
-  geom_sf(size = 0.4) +
+  geom_sf(size = 0.75) +
   scale_color_manual(values = p_cols,
                      labels = p_labels,
                      name = "kg/ha/yr") +
@@ -667,7 +667,7 @@ f_labels <- c('0-400', '400-800', '800-1600', '1600-3200', '3200-4800', '>4800')
 f_cols <- rev(RColorBrewer::brewer.pal(6, "Spectral"))
 
 ggplot(pred_df, aes(color = disc_fetch)) +
-  geom_sf(size = 0.4) +
+  geom_sf(size = 0.75) +
   scale_color_manual(values = f_cols,
                      labels = f_labels,
                      name = "Meters") +
@@ -675,6 +675,9 @@ ggplot(pred_df, aes(color = disc_fetch)) +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("fetch_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
 
 # Lake Area Mapping ------------------------------------------------------------
 
@@ -740,7 +743,7 @@ fst_labels = c("0-25%", "25-50%", "50-75%", "75-85%", "85-95%", ">95%")
 fst_cols <- RColorBrewer::brewer.pal(6, "YlGn")
 
 ggplot(pred_df, aes(color = disc_fst)) +
-  geom_sf(size = 0.4) +
+  geom_sf(size = 0.75) +
   scale_color_manual(values = fst_cols,
                      labels = fst_labels,
                      name = "Cover (%)") +
@@ -748,6 +751,9 @@ ggplot(pred_df, aes(color = disc_fst)) +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("fst_cover.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
 
 # comparison mapping -----------------------------------------------------------
 
@@ -804,7 +810,7 @@ mapview::mapview(pred_df)
 pred_df %>%
   mapview(zcol = "pred_cyano", burst = TRUE)
 
-# comparison mapping the nutrients and cyano/micx risk
+# comparison mapping the nutrients and cyano risk
 
 comp_df <- st_join(pred_df, micx_pred_df)
 comp_df <- subset(comp_df, select = c('pred_micx', 'pred_cyano', 'cyano_transform', 'Shape', 'n_farm_inputs', 'p_dev_inputs'))
@@ -816,19 +822,19 @@ comp_data <- bi_class(comp_df, x = pred_cyano, y = nutr_all, style = "quantile",
 comp_data <- comp_data |>
   mutate(bi_class = factor(bi_class))
 
-comp_data |>
-  group_b(bi_class)
+comp_data <- comp_data |>
+  arrange(desc(bi_class))
 
-comp_data |>
-  filter(bi_class == '2-2') |>
-  pull(nutr_all) |>
+comp_micx |>
+  filter(bi_class == '2-1') |>
+  pull(pred_micx) |>
   summary()
 
 # create map
 cyano_nutr_map <- ggplot() +
   geom_sf(data = comp_data,
           mapping = aes(color = bi_class),
-          size = 1,
+          size = 0.75,
           show.legend = FALSE) +
   bi_scale_color(pal = "BlueGold", dim = 2) +
   labs(title = "Nutrients vs Cyanobacteria") +
@@ -848,11 +854,89 @@ cyano_map <- ggdraw() +
 
 ggsave("cyano_nutr_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
+# micx / nutrient mapping
 
-library(ggplot2)
-library(cowplot)
+comp_micx <- bi_class(comp_df, x = pred_micx, y = nutr_all, style = "quantile", dim = 2)
 
-library(mapview)
+comp_micx <- comp_micx |>
+  mutate(bi_class = factor(bi_class))
+
+comp_micx |>
+  filter(bi_class == '1-3') |>
+  pull(nutr_all) |>
+  summary()
+
+# create map
+micx_nutr_map <- ggplot() +
+  geom_sf(data = comp_micx,
+          mapping = aes(color = bi_class),
+          size = 0.75,
+          show.legend = FALSE) +
+  bi_scale_color(pal = "Bluegill", dim = 2) +
+  labs(title = "Nutrients vs Microcystin") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  bi_theme(base_size = 12)
+
+micx_nutr_legend <- bi_legend(pal = "Bluegill",
+                               dim = 2,
+                               xlab = "Higher Micx Levels ",
+                               ylab = "Higher Nutrient Levels",
+                               size = 6)
+
+# combine map with legend
+micx_map <- ggdraw() +
+  draw_plot(micx_nutr_map) +
+  draw_plot(micx_nutr_legend, 0.1, 0.07, 0.2, 0.2)
+
+ggsave("micx_nutr_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+# lake depth / cyano mapping
+
+comp_df <- st_join(pred_df, micx_pred_df)
+comp_df <- subset(comp_df, select = c('pred_micx', 'pred_cyano', 'cyano_transform', 'Shape', 'n_farm_inputs', 'p_dev_inputs', 'MAXDEPTH.x'))
+
+comp_df$nutr_all <- comp_df$n_farm_inputs + comp_df$p_dev_inputs
+
+
+comp_data <- bi_class(comp_df, x = pred_cyano, y = MAXDEPTH.x, style = "quantile", dim = 3)
+
+comp_data <- comp_data |>
+  mutate(bi_class = factor(bi_class))
+
+# comp_data <- comp_data |>
+#   arrange(desc(bi_class))
+#
+# comp_data |>
+#   filter(bi_class == '2-2') |>
+#   pull(nutr_all) |>
+#   summary()
+
+# create map
+cyano_depth_map <- ggplot() +
+  geom_sf(data = comp_data,
+          mapping = aes(color = bi_class),
+          size = 0.75,
+          show.legend = FALSE) +
+  bi_scale_color(pal = "BlueOr", dim = 3) +
+  labs(title = "Lake Depth vs Cyanobacteria") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  bi_theme(base_size = 12)
+
+cyano_depth_legend <- bi_legend(pal = "BlueOr",
+                               dim = 3,
+                               xlab = "Higher Cyano Levels ",
+                               ylab = "Higher Depths",
+                               size = 6)
+
+# combine map with legend
+cyano_depth_map <- ggdraw() +
+  draw_plot(cyano_depth_map) +
+  draw_plot(cyano_depth_legend, 0.1, 0.07, 0.2, 0.2)
+
+ggsave("cyano_depth_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+
+
 # nitrogen inputs analysis -----------------------------------------------------
 
 xs_n <- filter(pred_df, n_farm_inputs > 1000)
@@ -888,9 +972,37 @@ ggplot(xs_n, aes(color = disc_cyano)) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
+# mapping nutrient inputs
+
+xs_n <- xs_n %>%
+  mutate(disc_nitro = factor(case_when(n_farm_inputs < 1050 ~ 'B1',
+                                       n_farm_inputs >= 1050 & n_farm_inputs < 1200 ~ 'B2',
+                                       n_farm_inputs >= 1200 & n_farm_inputs < 1400 ~ 'B3',
+                                       n_farm_inputs >= 1400 & n_farm_inputs < 2000 ~ 'B4',
+                                       n_farm_inputs >= 2000 ~ 'B5'),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5'))) %>%
+  arrange(disc_nitro)
+
+nitr_labels <- c('< 1050','1000-1200', '1200-1400','1400-2000','> 2000')
+nitr_col <- RColorBrewer::brewer.pal(5, "YlOrRd")
+
+ggplot(xs_n, aes(color = disc_nitro)) +
+  geom_sf(size = 2) +
+  scale_color_manual(values = nitr_col,
+                     labels = nitr_labels,
+                     name = "kg/ha/yr") +
+  labs(title = "Nitrogen Farm Inputs (> 1000)") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+
+ggsave("k_nutr_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+
 # phosphorus inputs
 
-xs_p <- filter(PredDataMini, p_farm_inputs > 1000)
+xs_p <- filter(PredDataMini, n_dev_inputs > 1000)
 
 # Oregon Mapping ==============================================================
 
@@ -937,3 +1049,8 @@ ggplot(state_count, aes(color = n)) +
 state_exp <- subset(state_count, select = -c(Shape))
 
 write.csv(state_exp, file = 'state_count.csv')
+
+
+
+
+
