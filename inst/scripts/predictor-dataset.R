@@ -217,7 +217,7 @@ wbd_copy <- subset(wbd, COMID %in% PredDataMas$COMID)
 rm(df_list)
 
 # clean wbd_copy by removing excess variables
-wbd_copy <- subset(wbd_copy, select = c(COMID, ELEVATION, ONOFFNET, MeanDepth, LakeVolume, MaxDepth, LakeArea, Shape))
+wbd_copy <- subset(wbd_copy, select = c(COMID, ELEVATION, ONOFFNET, MeanDepth, LakeVolume, MaxDepth, LakeArea, GNIS_NAME, AREASQKM, Shape))
 
 PredDataMas <- merge(PredDataMas, wbd_copy, by = 'COMID')
 
@@ -303,18 +303,18 @@ names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
 
 # Lake Depth Creation -----------------------------------------------------------
 
-lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_dir"
-lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "\\.csv$")
-
-# compile files into a single data frame
-lake_met_df <- lake_met_files |>
-  map_dfr(read.csv)
-
-met_comids <- lake_met_df$COMID
-
-lake_met_df <- lake_met_df |>
-  distinct(COMID, .keep_all = TRUE)
-
+# lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_dir"
+# lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "\\.csv$")
+#
+# # compile files into a single data frame
+# lake_met_df <- lake_met_files |>
+#   map_dfr(read.csv)
+#
+# met_comids <- lake_met_df$COMID
+#
+# lake_met_df <- lake_met_df |>
+#   distinct(COMID, .keep_all = TRUE)
+#
 # get_morpho_obj <- function(com, df){
 #   lake_com <- filter(df, COMID == com)
 #   lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
@@ -322,20 +322,22 @@ lake_met_df <- lake_met_df |>
 #   saveRDS(lake_lm, file = paste0('./private/lake_morpho_objects/lake_morpho_', com, ".rds"))
 # }
 #
-# # run function to the missing depths COMIDs
-# depths <- future_lapply(missing_com, get_morpho_obj, missing_depth)
+# lapply(practice, funraster)
 #
-# # load lake morpho object files from folder
+# #run function to the missing depths COMIDs
+# depths <- lapply(missing_com, get_morpho_obj, missing_depth)
+#
+# #load lake morpho object files from folder
 # data_dir <- "./private/lake_morpho_objects/"
 # lm_files <- dir_ls(data_dir, regexp = "\\.rds$")
 #
-# # function to pull files from lake morpho objects into metrics to compile into df
+# #function to pull files from lake morpho objects into metrics to compile into df
 # morph_it <- function(file_name) {
 #   morpho_obj <- readRDS(file_name)
 #
 #   if (class(morpho_obj) == 'lakeMorpho') {
 #     max_depth <- lakemorpho::lakeMaxDepth(morpho_obj, correctFactor = 0.6)
-#     #lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
+#     lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
 #     COMID <- morpho_obj$lake$COMID
 #
 #     output <- data.frame(COMID = COMID, depth = max_depth)
@@ -345,21 +347,20 @@ lake_met_df <- lake_met_df |>
 #   }
 # }
 #
-# lake_met <- lapply(lm_files, morph_it)
+# l <- lapply(lm_files, morph_it)
 #
 # #pull metrics data to create final df
 # met_dir <- "./private/metrics/"
 # met_files <- fs::dir_ls(met_dir, regexp = "\\.rds$")
 #
-# # compile files into a single data frame
+# #compile files into a single data frame
 # lake_met_df <- met_files |>
 #   map_dfr(readRDS)
 #
 # # save csv with exsiting lake metrics
 # write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
 
-# compile depths into one column
-# using hiercarchy to give prefence to LAGOS and NHD populated depths
+#compile depths into one column using hiercarchy to give prefence to LAGOS and NHD populated depths
 
 PredDataMas$LAGOSLakeDepth <- replace(PredDataMas$LAGOSLakeDepth, which(PredDataMas$LAGOSLakeDepth <= 0), NA)
 PredDataMas$NHDLakeDepth <- replace(PredDataMas$NHDLakeDepth, which(PredDataMas$NHDLakeDepth <= 0), NA)
@@ -460,7 +461,7 @@ conus <- sf::st_transform(conus, 5072)
 # Read in states to give some context
 states <- states(cb = TRUE, progress_bar = FALSE)  %>%
   filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI'))  %>%
-  st_transform(crs = 5070)
+  st_transform(crs = 5072)
 
 # cyanobacteria modeling -------------------------------------------------------
 
