@@ -473,6 +473,19 @@ ggplot(data = cyano_aug, aes(x = preds, y = `log10(B_G_DENS + 1000)`, fill = .st
   ggtitle(paste0("Log10(Cyanobacteria + ", const,")"))
 ggsave(paste0("./inst/figures/cyano_nolake_stdresiduals_biplot.png"), height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
+# The spatial covariance contribution to fitted values, mapped
+cyano_aug <- augment(model_cyano_nolakedata)
+cyano_aug$.spde <- fitted(model_cyano_nolakedata, type = "spcov")$de
+
+ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = arrange(cyano_aug, .spde), 
+          aes(fill = .spde), pch = 21, size = 1) +
+  colorspace::scale_fill_continuous_divergingx(palette = 'RdBu', mid = 0, rev = TRUE) +
+  theme_void()
+ggsave("./inst/figures/cyano_nolake_spde_map.png", width = 7, height = 3.5, units = "in", dpi = 600)
+
+
 ```
 
 
@@ -884,6 +897,18 @@ ggplot() +
                     name = "Standardized \nResiduals") +
   theme_void()
 ggsave("./inst/figures/micx_nolake_stdresiduals_map_NoEcoregion.png", width = 7, height = 3.5, units = "in", dpi = 600)
+
+# The spatial covariance contribution to fitted values, mapped
+micx_aug <- augment(model_micx_nolakedata)
+micx_aug$.spde <- fitted(model_micx_nolakedata, type = "spcov")$de
+
+ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = arrange(micx_aug, .spde), 
+          aes(fill = .spde), pch = 21, size = 1) +
+  colorspace::scale_fill_continuous_divergingx(palette = 'RdBu', mid = 0, rev = TRUE) +
+  theme_void()
+ggsave("./inst/figures/micx_nolake_spde_map.png", width = 7, height = 3.5, units = "in", dpi = 600)
 
 ```
 
