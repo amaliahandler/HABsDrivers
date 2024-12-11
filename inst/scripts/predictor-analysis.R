@@ -7,23 +7,25 @@
 
 var_pred <- st_join(wbd_copy, micx_pred_df)
 
-comp_micx <- PredDataMini |>
-  select(c(COMID, Runoff.Str, wet_ws, agr_ws, LakeVolume, drain_ratio)) |>
-  merge(var_pred, by = 'COMID')
+pred_cols <- PredDataMini |>
+  select(c(COMID, Runoff.Str, wet_ws, agr_ws, LakeVolume, drain_ratio, Tot_Sdep_2007, ag_eco9,
+           ClayWs, SandWs, AgKffactWs))
 
+comp_micx <- left_join(var_pred, pred_cols, by = 'COMID')
 
 # Nutrients --------------------------------------------------------------------
 comp_micx$nutr_all <- comp_micx$p_farm_inputs + comp_micx$n_dev_inputs
 
 comp_micx <- comp_micx %>%
-  mutate(nutr_class = factor(case_when(nutr_all >= 10 & pred_micx <= 0.277 ~ 'HNLM',
-                                       nutr_all <= 10 & pred_micx >= 0.277 ~ 'LNHM',
-                                       nutr_all >= 10 & pred_micx >= 0.277 ~ 'HNHM',
-                                       nutr_all <= 10 & pred_micx <= 0.277 ~ 'LNLM')))
+  mutate(nutr_class = factor(case_when(nutr_all >= 10 & pred_micx <= 0.75 ~ 'HNLM',
+                                       nutr_all <= 10 & pred_micx >= 0.75 ~ 'LNHM',
+                                       nutr_all >= 10 & pred_micx >= 0.75 ~ 'HNHM',
+                                       nutr_all <= 10 & pred_micx <= 0.75 ~ 'LNLM')))
 comp_micx_filter <- comp_micx |>
   filter(!is.na(nutr_class))
 
-comp_micx_filter$Shape <- st_point_on_surface(comp_micx_filter$Shape)
+comp_micx_filter$Shape <- st_point_on_surface(comp_micx_filter$Shape)|>
+  st_transform(crs=5072)
 
 # HNLM ~ high nutrients, low microcystin
 
@@ -36,54 +38,92 @@ HNHM <- comp_micx |>
 LNLM <- comp_micx |>
   filter(nutr_class == 'LNLM')
 
-LN <- comp_micx |>
-  filter(nutr_all == 'LNHM' | nutr_all == 'LNLM')
-
-
-HNLM <- HNLM %>%
-  mutate(depth_class = factor(case_when(MAXDEPTH <= 1 ~ 'D1',
-                                        MAXDEPTH >= 1 & MAXDEPTH < 10 ~ 'D2',
-                                        MAXDEPTH >= 10 & MAXDEPTH < 50 ~ 'D3',
-                                        MAXDEPTH >= 50 ~ 'D4')))
-
-dep_labels <- c('< 1','1-10', '10-50','> 50')
-dep_col <- RColorBrewer::brewer.pal(4, "YlGnBu")
-
-ggplot(HNLM, aes(color = depth_class)) +
-  geom_sf(size = 1) +
-  scale_color_manual(values = dep_col,
-                     labels = dep_labels,
-                     name = "Meters") +
-  labs(title = "Lake Depths (High Nutrients, Low Microcystin)") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-ggsave("HNLM_depth.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
-
-# LNHM ~ low nutrients, high microcystin
-
 LNHM <- comp_micx |>
   filter(nutr_class == 'LNHM')
 
-LNHM <- LNHM %>%
-  mutate(depth_class = factor(case_when(MAXDEPTH <= 1 ~ 'D1',
-                                        MAXDEPTH >= 1 & MAXDEPTH < 10 ~ 'D2',
-                                        MAXDEPTH >= 10 & MAXDEPTH < 50 ~ 'D3',
-                                        MAXDEPTH >= 50 ~ 'D4')))
+ggplot(HNLM, aes(color = ag_eco9)) +
+  geom_sf(size = 1)
 
-ggplot(LNHM, aes(color = depth_class)) +
-  geom_sf(size = 1) +
-  scale_color_manual(values = dep_col,
-                     labels = dep_labels,
-                     name = "Meters") +
-  labs(title = "Lake Depths (Low Nutrients, High Microcystin)") +
+# BFIW -------------------------------------------------------------------------
+
+comp_micx_filter <- comp_micx_filter %>%
+  mutate(BFIW_class = factor(case_when(BFIWs <= 25 ~ 'B1',
+                                        BFIWs >= 25 & BFIWs < 50 ~ 'B2',
+                                        BFIWs >= 50 & BFIWs < 75 ~ 'B3',
+                                        BFIWs >= 75 ~ 'B4')))
+
+# comp_micx_filter$SandWs[is.na(comp_micx_filter$SandWs)] <- 0
+
+BFIW_labels <- c('< 25%','25-50%', '50-75%','> 75%')
+BFIW_col <- rev(RColorBrewer::brewer.pal(4, "YlOrBr"))
+
+ggplot(comp_micx_filter, aes(color = BFIW_class)) +
+  geom_sf(size = 0.5) +
+  facet_wrap(~nutr_class) +
+  scale_color_manual(values = BFIW_col,
+                     labels = BFIW_labels,
+                     name = "Base Flow") +
+  labs(title = "% of flow that is comporised of Base Flow by Nutrient Class") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12))
+
+ggsave("eco_75_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+# 9 ecoregions -----------------------------------------------------------------
+
+ggplot(comp_micx_filter, aes(color = ag_eco9)) +
+  geom_sf(size = 0.5) +
+  facet_wrap(~nutr_class) +
+  # scale_color_manual(values = BFIW_col,
+  #                    labels = BFIW_labels,
+  #                    name = "Sand % in Soil") +
+  labs(title = "Ecoregion with 75% Micx threshold") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
-ggsave("eco_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+# Temp / Precip ----------------------------------------------------------------
+
+ggplot(comp_micx_filter, aes(color = Tmean8110Ws)) +
+  geom_sf(size = 0.5) +
+  facet_wrap(~nutr_class) +
+  # scale_color_manual(values = BFIW_col,
+  #                    labels = BFIW_labels,
+  #                    name = "Sand % in Soil") +
+  labs(title = "Temperature Avg. with 75% Micx threshold") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12))
+
+
+
+# forest cover -----------------------------------------------------------------
+
+comp_micx_filter <- comp_micx_filter %>%
+  mutate(disc_fst = factor(case_when(fst_ws < 25 ~ 'B1',
+                                     fst_ws >= 25 & fst_ws < 50 ~ 'B2',
+                                     fst_ws >= 50 & fst_ws < 75 ~ 'B3',
+                                     fst_ws >= 75 & fst_ws < 85 ~ 'B4',
+                                     fst_ws >= 85 & fst_ws < 95 ~ 'B5',
+                                     fst_ws >= 95  ~ 'B6'),
+                           levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+  arrange(disc_fst)
+
+
+fst_labels = c("0-25%", "25-50%", "50-75%", "75-85%", "85-95%", ">95%")
+fst_cols <- RColorBrewer::brewer.pal(6, "YlGn")
+
+ggplot(comp_micx_filter, aes(color = disc_fst)) +
+  geom_sf(size = 0.75) +
+  facet_wrap(~nutr_class) +
+  scale_color_manual(values = fst_cols,
+                     labels = fst_labels,
+                     name = "Cover (%)") +
+  labs(title = "Forested Land Cover- Micx @ 75%") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("fst_75_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 
 #  -------------------------------------------------------------------
@@ -120,59 +160,55 @@ ggplot(comp_micx_filter, aes(x=Runoff.Str, fill = nutr_class)) +
   labs(y = "Density", x = "Runoff", fill = 'Class',
        title = "Runoff")
 
-ggplot(comp_micx_filter, aes(x=wet_ws, fill = nutr_class)) +
+ggplot(comp_micx_filter, aes(LakeVolume.x, fill = nutr_class)) +
   geom_density(size = 0.75, alpha = 0.5) +
-  #xlim(0,50000) +
+  xlim(0,50000) +
   labs(y = "Density", x = "lake volume", fill = 'Class',
        title = "lake volume")
 
+ggplot(comp_micx_filter, aes(x=Tot_Sdep_2007, fill = nutr_class)) +
+  geom_density(size = 0.75, alpha = 0.5) +
+  #xlim(0,50000) +
+  labs(y = "Density", x = "S Dep", fill = 'Class',
+       title = "micx + S dep")
 
-ggplot(comp_micx_filter, aes(x=AG_ECO3, fill = nutr_class)) +
-  geom_histogram(position="dodge", stat = "count") +
-  labs(y = "Count", x = "Ecoregion", fill = 'Class',
-       title = "Ecoregions - Micx")
+ggplot(comp_micx_filter, aes(x=SandWs, fill = nutr_class)) +
+  geom_density(size = 0.75, alpha = 0.5) +
+  labs(y = "Density", x = "Sand Soil", fill = 'Class',
+       title = "Micx / Soil Sand")
 
-# comp_micx_filter <- comp_micx_filter |>
-#   mutate(depth_log <- transform(comp_micx_filter$MAXDEPTH, method = 'log'))
+ggsave("micx_sand.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
-#names(comp_micx_filter)[names(comp_micx_filter) == "_data"] <- "log_depth"
-
-labels = c("0-25%", "25-50%", "50-75%", "75-100%")
-breaks <- c(0.25,0.50,0.75,1.0)
-cols <- c("#2B83BA","#ABDDA4", "#FDAE61", "#D7191C")
-
-ggplot(comp_micx_filter, aes(color = Runoff.Str)) +
-  geom_sf(size = 0.4) +
-  scale_color_stepsn(colors = cols,
-                     breaks = breaks,
-                     labels = labels,
-                     name = "Probability (%)") +
-  labs(title = "Microcystin Detection at or above 0.1 μg/L") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-
-
-# log transform depth and fetch data to make easier for density mapping
 
 table(LNLM$AG_ECO3)
 
 # Cyanobacteria ================================================================
 
+cy_pred <- st_join(wbd_copy, pred_df)
+
+pred_cols <- PredDataMini |>
+  select(c(COMID, Runoff.Str, wet_ws, agr_ws, LakeVolume, drain_ratio, Tot_Sdep_2007, ag_eco9,
+           ClayWs, SandWs, AgKffactWs))
+
+comp_cyano <- left_join(cy_pred, pred_cols, by = 'COMID')
+
+comp_cyano$Shape <- st_point_on_surface(comp_cyano$Shape) |>
+  st_transform(crs=5072)
+
 # Nutrients --------------------------------------------------------------------
 
-
-comp_cyano <- pred_df
 comp_cyano$nutr_all <- comp_cyano$n_farm_inputs + comp_cyano$p_dev_inputs
 
-comp_cyano_filter <- comp_cyano %>%
-  mutate(nutr_class = factor(case_when(nutr_all >= 10 & pred_cyano <= 5.1034 ~ 'HNLC',
-                                       nutr_all <= 10 & pred_cyano >= 5.1034 ~ 'LNHC')))
-                                       #nutr_all >= 10 & pred_cyano >= 5.1034 ~ 'HNHC',
-                                       #nutr_all <= 10 & pred_cyano <= 5.1034 ~ 'LNLC')))
-comp_cyano_filter <- comp_cyano_filter |>
+comp_cyano <- comp_cyano %>%
+  mutate(nutr_class = factor(case_when(nutr_all >= 10 & pred_cyano <= 5 ~ 'HNLC',
+                                       nutr_all <= 10 & pred_cyano >= 5 ~ 'LNHC',
+                                       nutr_all >= 10 & pred_cyano >= 5 ~ 'HNHC',
+                                       nutr_all <= 10 & pred_cyano <= 5 ~ 'LNLC')))
+comp_cyano_filter <- comp_cyano |>
   filter(!is.na(nutr_class))
+
+comp_micx_filter[is.na(comp_micx_filter)] <- 0
+
 
 # HNLC ~ high nutrients, low cyanobacteria
 
@@ -188,49 +224,73 @@ LNLC <- comp_cyano |>
 LNHC <- comp_cyano |>
   filter(nutr_class == 'LNHC')
 
-HNLC <- HNLC %>%
-  mutate(depth_class = factor(case_when(MAXDEPTH <= 1 ~ 'D1',
-                                        MAXDEPTH >= 1 & MAXDEPTH < 10 ~ 'D2',
-                                        MAXDEPTH >= 10 & MAXDEPTH < 50 ~ 'D3',
-                                        MAXDEPTH >= 50 ~ 'D4')))
+# Base flow --------------------------------------------------------------------
 
-dep_labels <- c('< 1','1-10', '10-50','> 50')
-dep_col <- RColorBrewer::brewer.pal(4, "YlGnBu")
+comp_cyano_filter <- comp_cyano_filter %>%
+  mutate(BFIW_class = factor(case_when(BFIWs <= 25 ~ 'B1',
+                                       BFIWs >= 25 & BFIWs < 50 ~ 'B2',
+                                       BFIWs >= 50 & BFIWs < 75 ~ 'B3',
+                                       BFIWs >= 75 ~ 'B4')))
 
-ggplot(HNLC, aes(color = depth_class)) +
-  geom_sf(size = 1) +
-  scale_color_manual(values = dep_col,
-                     labels = dep_labels,
-                     name = "Meters") +
-  labs(title = "Lake Depths (High Nutrients, Low Cyanobacteria)") +
+# comp_cyano_filter$SandWs[is.na(comp_cyano_filter$SandWs)] <- 0
+
+BFIW_labels <- c('< 25%','25-50%', '50-75%','> 75%')
+BFIW_col <- RColorBrewer::brewer.pal(4, "YlGnBu")
+
+ggplot(comp_cyano_filter, aes(color = BFIW_class)) +
+  geom_sf(size = 0.5) +
+  facet_wrap(~nutr_class) +
+  scale_color_manual(values = BFIW_col,
+                     labels = BFIW_labels,
+                     name = "Base Flow") +
+  labs(title = "% Base Flow by Nutrient Class") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
-ggsave("HNLC_depth.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("BFIW_100k_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
+# runoff -----------------------------------------------------------------------
 
-# LNHM ~ low nutrients, high microcystin
+comp_cyano_filter <- comp_cyano_filter %>%
+  mutate(runoff_class = factor(case_when(Runoff.Str <= 100 ~ 'D1',
+                                        Runoff.Str >= 100 & Runoff.Str < 200 ~ 'D2',
+                                        Runoff.Str >= 200 & Runoff.Str < 300 ~ 'D3',
+                                        Runoff.Str >= 300 & Runoff.Str < 400 ~ 'D4',
+                                        Runoff.Str >= 400 ~ 'D5')))
 
+run_labels <- c('< 100mm','100-200mm', '200-300mm','300-400mm', '> 400mm')
+run_col <- rev(RColorBrewer::brewer.pal(5, "Spectral"))
 
-LNHC <- LNHC %>%
-  mutate(depth_class = factor(case_when(MAXDEPTH <= 1 ~ 'D1',
-                                        MAXDEPTH >= 1 & MAXDEPTH < 10 ~ 'D2',
-                                        MAXDEPTH >= 10 & MAXDEPTH < 50 ~ 'D3',
-                                        MAXDEPTH >= 50 ~ 'D4')))
+comp_cyano_filter$Runoff.Str[is.na(comp_cyano_filter$Runoff.Str)] <- 0
 
-ggplot(LNHC, aes(color = depth_class)) +
-  geom_sf(size = 1) +
-  scale_color_manual(values = dep_col,
-                     labels = dep_labels,
-                     name = "Meters") +
-  labs(title = "Lake Depths (Low Nutrients, High Cyanobacteria)") +
+ggplot(comp_cyano_filter, aes(color = runoff_class)) +
+  geom_sf(size = 0.5) +
+  scale_color_manual(values = run_col,
+                     labels = run_labels,
+                     name = "Runoff (mm)") +
+  facet_wrap(~nutr_class) +
+  labs(title = "Runoff by Nutrient Class") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
-ggsave("eco_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("runoff_100k_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
+# agricultural erodability -----------------------------------------------------
+
+ggplot(comp_cyano_filter, aes(color = AgKffactWs)) +
+  geom_sf(size = 0.5) +
+  facet_wrap(~nutr_class) +
+  # scale_color_manual(values = BFIW_col,
+  #                    labels = BFIW_labels,
+  #                    name = "Sand % in Soil") +
+  labs(title = "Ecoregion with 100k Cyano threshold") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("eco_100k_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 #  -------------------------------------------------------------------
 
@@ -260,6 +320,27 @@ ggplot(comp_cyano, aes(x=BFIWs, fill = nutr_class)) +
   labs(y = "Density", x = "% of Flow that is Base Flow", fill = 'Class',
        title = "Base Flow - Cyano")
 
+ggplot(comp_cyano_filter, aes(x=Runoff.Str, fill = nutr_class)) +
+  geom_density(size = 0.75, alpha = 0.5) +
+  xlim(0,1000) +
+  labs(y = "Density", x = "Runoff", fill = 'Class',
+       title = "Runoff - Cyano")
+
+ggplot(comp_cyano_filter, aes(x=LakeVolume.x, fill = nutr_class)) +
+  geom_density(size = 0.75, alpha = 0.5) +
+  xlim(0,1000) +
+  labs(y = "Density", x = "Lake Volume", fill = 'Class',
+       title = "Lake Volume - Cyano")
+
+ggplot(comp_cyano_filter, aes(x=SandWs, fill = nutr_class)) +
+  geom_density(size = 0.75, alpha = 0.5) +
+  labs(y = "Density", x = "Soil Sand", fill = 'Class',
+       title = "Sand Soil - Cyano")
+
+
+ggsave("cyano_sand.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+
 # Print the result
 print(result_base_R)
 
@@ -267,5 +348,7 @@ ggplot(comp_cyano_filter, aes(x=AG_ECO3, fill = nutr_class)) +
   geom_histogram(position="dodge", stat = "count") +
   labs(y = "Count", x = "Ecoregion", fill = 'Class',
        title = "Ecoregions - Cyano")
+
+ggplot(comp_cyano_filter, aes(fill=nutr_class))
 
 
