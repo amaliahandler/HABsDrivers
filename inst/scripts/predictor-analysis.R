@@ -3,6 +3,10 @@
 # 11-21-2024
 # must load all pred results and packages
 
+states <- states(cb = TRUE, progress_bar = FALSE)  %>%
+  filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI'))  %>%
+  st_transform(crs = 5072)
+
 # Microcystin ==================================================================
 
 var_pred <- st_join(wbd_copy, micx_pred_df)
@@ -17,12 +21,11 @@ comp_micx <- left_join(var_pred, pred_cols, by = 'COMID')
 comp_micx$nutr_all <- comp_micx$p_farm_inputs + comp_micx$n_dev_inputs
 
 comp_micx <- comp_micx %>%
-  mutate(nutr_class = factor(case_when(nutr_all >= 10 & pred_micx <= 0.5 ~ 'HNLM',
-                                       nutr_all <= 10 & pred_micx >= 0.5 ~ 'LNHM',
-                                       nutr_all >= 10 & pred_micx >= 0.5 ~ 'HNHM',
-                                       nutr_all <= 10 & pred_micx <= 0.5 ~ 'LNLM'),
-                             levels = c('HNLM' , 'LNHM', 'HNHM', 'LNLM'))) %>%
-  arrange(nutr_class)
+  mutate(nutr_class = factor(case_when(
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx < 0.5 ~ 'HNLM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4)  & pred_micx >= 0.5 ~ 'LNHM',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4)  & pred_micx >= 0.5 ~ 'HNHM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx < 0.5 ~ 'LNLM')))
 
 comp_micx_filter <- comp_micx |>
   filter(!is.na(nutr_class))
@@ -60,7 +63,6 @@ high_micx <- merge(high_micx, model_nutr, by = 'COMID')
 
 write.csv(high_micx, col_names = TRUE, "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/high_micx.csv")
 
-write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
 # filtering by class -----------------------------------------------------------
 
 HNHM <- comp_micx |>
@@ -133,10 +135,10 @@ ggplot(comp_micx_filter, aes(color = runoff_class)) +
 ggsave("runoff_75_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 table(comp_micx_filter$nutr_class)
 
-# 9 ecoregions -----------------------------------------------------------------
+# ecoregions -------------------------------------------------------------------
 
-ggplot(comp_micx_filter, aes(color = ag_eco9)) +
-  geom_sf(size = 0.75) +
+ggplot(comp_micx_filter, aes(color = AG_ECO3)) +
+  geom_sf(size = 0.2) +
   facet_wrap(~nutr_class) +
   # scale_color_manual(values = BFIW_col,
   #                    labels = BFIW_labels,
@@ -146,19 +148,61 @@ ggplot(comp_micx_filter, aes(color = ag_eco9)) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
+ggsave("eco_3_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
 # Temp / Precip ----------------------------------------------------------------
 
-ggplot(comp_micx_filter, aes(color = Tmean8110Ws)) +
-  geom_sf(size = 0.5) +
+comp_micx_filter <- comp_micx_filter %>%
+  mutate(temp_class = factor(case_when(Tmean8110Ws <= 0 ~ 'T1',
+                                         Tmean8110Ws >= 0 & Tmean8110Ws < 5 ~ 'T2',
+                                         Tmean8110Ws >= 5 & Tmean8110Ws < 10 ~ 'T3',
+                                         Tmean8110Ws >= 10 & Tmean8110Ws < 15 ~ 'T4',
+                                         Tmean8110Ws >= 15 & Tmean8110Ws < 20 ~ 'T5',
+                                         Tmean8110Ws >= 20 ~ 'T6')))
+
+temp_labels <- c('< 0', '0-5','5-10','10-15', '15-20', '> 20')
+temp_col <- rev(RColorBrewer::brewer.pal(6, "YlGnBu"))
+
+
+ggplot(comp_micx_filter, aes(color = temp_class)) +
+  geom_sf(size = 0.2) +
   facet_wrap(~nutr_class) +
-  # scale_color_manual(values = BFIW_col,
-  #                    labels = BFIW_labels,
-  #                    name = "Sand % in Soil") +
-  labs(title = "Temperature Avg. with 75% Micx threshold") +
+  scale_color_manual(values = temp_col,
+                     labels = temp_labels,
+                     name = "°C") +
+  labs(title = "30 Year Temperature Avg. with 50% Micx threshold") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12))
+  theme(plot.title = element_text(size = 12))+
+  guides(colour = guide_legend(override.aes = list(size=4)))
 
+ggsave("temp_class_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
+# precip
+
+comp_micx_filter <- comp_micx_filter %>%
+  mutate(precip_class = factor(case_when(Precip8110Ws <= 250 ~ 'P1',
+                                       Precip8110Ws >= 250 & Precip8110Ws < 500 ~ 'P2',
+                                       Precip8110Ws >= 500 & Precip8110Ws < 750 ~ 'P3',
+                                       Precip8110Ws >= 750 & Precip8110Ws < 1000 ~ 'P4',
+                                       Precip8110Ws >= 1000 & Precip8110Ws < 1250 ~ 'P5',
+                                       Precip8110Ws >= 1250 & Precip8110Ws < 1500 ~ 'P6',
+                                       Precip8110Ws >= 1500 ~ 'P7')))
+
+precip_labels <- c('< 250','250-500','500-750','750-1000','1000-1250','1250-1500','> 1500')
+precip_col <- RColorBrewer::brewer.pal(7, "BuPu")
+
+ggplot(comp_micx_filter, aes(color = precip_class)) +
+  geom_sf(size = 0.2) +
+  facet_wrap(~nutr_class) +
+  scale_color_manual(values = precip_col,
+                     labels = precip_labels,
+                     name = "mm") +
+  labs(title = "30 Year Precipitation Avg. with 50% Micx threshold") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12))+
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("precip_class_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # forest cover -----------------------------------------------------------------
 
@@ -177,20 +221,174 @@ fst_labels = c("0-25%", "25-50%", "50-75%", "75-85%", "85-95%", ">95%")
 fst_cols <- RColorBrewer::brewer.pal(6, "YlGn")
 
 ggplot(comp_micx_filter, aes(color = disc_fst)) +
-  geom_sf(size = 0.75) +
+  geom_sf(size = 0.2) +
   facet_wrap(~nutr_class) +
   scale_color_manual(values = fst_cols,
                      labels = fst_labels,
                      name = "Cover (%)") +
-  labs(title = "Forested Land Cover- Micx @ 75%") +
+  labs(title = "Forested Land Cover with 50% Micx threshold") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
-ggsave("fst_75_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("fst_class_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+# nutrients --------------------------------------------------------------------
+
+# p_farm_inputs
+
+comp_micx_filter <- comp_micx_filter %>%
+  mutate(disc_p = factor(case_when(p_farm_inputs < 1 ~ 'B1',
+                                   p_farm_inputs >= 1 & p_farm_inputs < 5 ~ 'B2',
+                                   p_farm_inputs >= 5 & p_farm_inputs < 10 ~ 'B3',
+                                   p_farm_inputs >= 10 & p_farm_inputs < 15 ~ 'B4',
+                                   p_farm_inputs >= 15 & p_farm_inputs < 20 ~ 'B5',
+                                   p_farm_inputs >= 20 & p_farm_inputs < 100 ~ 'B6',
+                                   p_farm_inputs >=  100 ~ 'B7'),
+                         levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'))) %>%
+  arrange(disc_p)
+
+p_labels <- c('< 1', '1-5', '5-10','10-15','15-20', '20-100', '> 100')
+p_cols <- rev(RColorBrewer::brewer.pal(7, "Spectral"))
+
+ggplot(comp_micx_filter, aes(color = disc_p)) +
+  geom_sf(size = 0.2) +
+  facet_wrap(~nutr_class) +
+  scale_color_manual(values = p_cols,
+                     labels = p_labels,
+                     name = "kg/ha/yr") +
+  labs(title = "Phosphorus Farm Inputs with 50% Micx threshold") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("phos_class_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+# n_dev_inputs
+
+comp_micx_filter <- comp_micx_filter %>%
+  mutate(disc_n = factor(case_when(n_dev_inputs < 0.1 ~ 'B1',
+                                   n_dev_inputs >= 0.1 & n_dev_inputs < 1 ~ 'B2',
+                                   n_dev_inputs >= 1 & n_dev_inputs < 2.5 ~ 'B3',
+                                   n_dev_inputs >= 2.5 & n_dev_inputs < 5 ~ 'B4',
+                                   n_dev_inputs >= 5 & n_dev_inputs < 10 ~ 'B5',
+                                   n_dev_inputs >= 10 & n_dev_inputs < 20 ~ 'B6',
+                                   n_dev_inputs >= 20  ~ 'B7'),
+                         levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'))) %>%
+  arrange(disc_n)
+
+n_labels <- c('< 0.1', '0.1-1','1-2.5','2.5-5','5-10','10-20','> 20')
+n_cols <- rev(RColorBrewer::brewer.pal(7, "Spectral"))
+
+ggplot(comp_micx_filter, aes(color = disc_n)) +
+  geom_sf(size = 0.2) +
+  facet_wrap(~nutr_class) +
+  scale_color_manual(values = n_cols,
+                     labels = n_labels,
+                     name = "kg/ha/yr") +
+  labs(title = "Nitrogen Development Inputs with 50% Micx threshold") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("nitr_class_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 
-#  -------------------------------------------------------------------
+# Lake Fetch Mapping -----------------------------------------------------------
+
+comp_micx_filter <- comp_micx_filter %>%
+  mutate(disc_fetch = factor(case_when(lakemorpho_fetch >= 0 & lakemorpho_fetch < 400 ~ 'B1',
+                                       lakemorpho_fetch >= 400 & lakemorpho_fetch < 800 ~ 'B2',
+                                       lakemorpho_fetch >= 800 & lakemorpho_fetch < 1600 ~ 'B3',
+                                       lakemorpho_fetch >= 1600 & lakemorpho_fetch < 3200 ~ 'B4',
+                                       lakemorpho_fetch >= 3200 & lakemorpho_fetch < 4800 ~ 'B5',
+                                       lakemorpho_fetch >= 4800  ~ 'B6'),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+  arrange(disc_fetch)
+
+f_labels <- c('0-400', '400-800', '800-1600', '1600-3200', '3200-4800', '>4800')
+f_cols <- RColorBrewer::brewer.pal(6, "PuBuGn")
+
+ggplot(comp_micx_filter, aes(color = disc_fetch)) +
+  geom_sf(size = 0.2) +
+  facet_wrap(~nutr_class) +
+  scale_color_manual(values = f_cols,
+                     labels = f_labels,
+                     name = "Meters") +
+  labs(title = "Lake Fetch Distribution with 50% Micx threshold") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("fetch_class_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+# lake depth -------------------------------------------------------------------
+
+# lake depths
+
+comp_micx_filter <- comp_micx_filter %>%
+  mutate(disc_depth = factor(case_when(MAXDEPTH < 1 ~ 'B1',
+                                       MAXDEPTH >= 1 & MAXDEPTH < 2 ~ 'B2',
+                                       MAXDEPTH >= 2 & MAXDEPTH < 5 ~ 'B3',
+                                       MAXDEPTH >= 5 & MAXDEPTH < 10 ~ 'B4',
+                                       MAXDEPTH >= 10 & MAXDEPTH < 20 ~ 'B5',
+                                       MAXDEPTH >= 20 & MAXDEPTH < 100 ~ 'B6',
+                                       MAXDEPTH >= 100  ~ 'B7'),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6','B7'))) %>%
+  arrange(disc_depth)
+
+depth_labels <- c('< 1m','1-2m', '2-5m', '5-10m', '10-20m', '20-100m', '> 100m')
+depth_cols <- rev(RColorBrewer::brewer.pal(7, "Spectral"))
+
+
+ggplot(comp_micx_filter, aes(color = disc_depth)) +
+  geom_sf(size = 0.2) +
+  facet_wrap(~nutr_class) +
+  scale_color_manual(values = depth_cols,
+                     labels = depth_labels,
+                     name = "Lake Depth") +
+  labs(title = "Lake Depth Distribution with 50% Micx threshold") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("depth_class_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+# excess nutrient analysis
+
+# N_Fert_Farm : PredDataMas -> N_Fert_Farm_2007
+# N_CBNF : PredDataMas -> N_CBNF_2007
+# N_livestock_Waste : nutrMas -> N_Livestock.Waste_kg_Ag_20**Ws
+# P_human_waste_kg : nutrMas -> P_human_waste_kg_Urb_20**Ws
+# P_nf_fertilizer : nutrMas -> P_nf_fertilizer_kg_Urb_20**Ws
+
+
+model_nutr <- nutrMas |>
+  select(COMID,
+         P_f_fertilizer_kg_Ag_2002Ws, P_f_fertilizer_kg_Ag_2007Ws, P_f_fertilizer_kg_Ag_2012Ws,
+         P_livestock_Waste_kg_Ag_2002Ws, P_livestock_Waste_kg_Ag_2007Ws, P_livestock_Waste_kg_Ag_2012Ws,
+         N_Human_Waste_kg_Urb_2002Ws, N_Human_Waste_kg_Urb_2007Ws, N_Human_Waste_kg_Urb_2012Ws,
+         N_Fert_Urban_kg_Urb_2002Ws, N_Fert_Urban_kg_Urb_2007Ws, N_Fert_Urban_kg_Urb_2012Ws,
+         N_Livestock.Waste_kg_Ag_2002Ws, N_Livestock.Waste_kg_Ag_2007Ws, N_Livestock.Waste_kg_Ag_2012Ws,
+         P_human_waste_kg_Urb_2002Ws, P_human_waste_kg_Urb_2007Ws, P_human_waste_kg_Urb_2012Ws,
+         P_nf_fertilizer_kg_Urb_2002Ws, P_nf_fertilizer_kg_Urb_2007Ws, P_nf_fertilizer_kg_Urb_2012Ws
+  )
+
+predmas_nutr <- PredDataMas |>
+  select(COMID, N_Fert_Farm_2007, N_CBNF_2007)
+
+model_nutr <- merge(model_nutr, predmas_nutr, by ='COMID')
+
+xs_n <- PredDataMini |>
+  select(COMID, state, n_dev_inputs, n_farm_inputs, p_farm_inputs, p_dev_inputs, WsAreaHa, WsAreaSqKm,
+         P_f_fertilizer_kg_Ag, P_livestock_Waste_kg_Ag, N_Human_Waste_kg_Urb, N_Fert_Urban_kg_Urb) |>
+  filter(n_dev_inputs > 1000 | n_farm_inputs > 1000 | p_farm_inputs > 1000 | p_dev_inputs > 1000)
+
+high_nutr <- merge(xs_n, model_nutr, by = 'COMID')
+
+write_csv(high_nutr, col_names = TRUE, "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/high_nutr.csv")
+
+#  --------------------------------------------------------------------
 
 ggplot(LNHM, aes(color = fst_ws)) +
   geom_sf(size = 1)
