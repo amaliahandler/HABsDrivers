@@ -12,20 +12,64 @@ states <- states(cb = TRUE, progress_bar = FALSE)  %>%
 var_pred <- st_join(wbd_copy, micx_pred_df)
 
 pred_cols <- PredDataMini |>
-  select(c(COMID, Runoff.Str, wet_ws, agr_ws, LakeVolume, drain_ratio, Tot_Sdep_2007, ag_eco9,
-           ClayWs, SandWs, AgKffactWs))
+  select(c(COMID, Runoff.Str, state, drain_ratio))
 
 comp_micx <- left_join(var_pred, pred_cols, by = 'COMID')
 
-# Nutrients --------------------------------------------------------------------
-comp_micx$nutr_all <- comp_micx$p_farm_inputs + comp_micx$n_dev_inputs
+comp_micx <- unique(comp_micx, by = "COMID")
 
-comp_micx <- comp_micx %>%
-  mutate(nutr_class = factor(case_when(
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx < 0.5 ~ 'HNLM',
-    (n_dev_inputs < 10 | p_farm_inputs < 4)  & pred_micx >= 0.5 ~ 'LNHM',
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4)  & pred_micx >= 0.5 ~ 'HNHM',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx < 0.5 ~ 'LNLM')))
+micx_pred_df <- micx_pred_df %>%
+  mutate(y_partial_p_farm = (coef(model_micx_nolakes)[2]) * p_farm_inputs,
+         y_partial_n_dev = (coef(model_micx_nolakes)[3]) * n_dev_inputs,
+         y_partial_nutr_all = y_partial_p_farm + y_partial_n_dev)
+
+# Nutrients --------------------------------------------------------------------
+
+micx_pred_df$nutr_all <- micx_pred_df$p_farm_inputs + micx_pred_df$n_dev_inputs
+
+micx_pred_df <- micx_pred_df %>%
+  # mutate(micx_class = factor(case_when(
+  #   pred_micx >= 0.50 ~ 'HM',
+  #   pred_micx < 0.50 ~'LM',
+  #   TRUE ~ 'OTHER'
+  # ))) %>%
+  # mutate(p_class = factor(case_when(
+  #   p_farm_inputs >= 4 ~ 'HP',
+  #   p_farm_inputs < 4 ~ 'LP',
+  #   TRUE ~ 'OTHER'
+  # )))  %>%
+  # mutate(n_class = factor(case_when(
+  #   n_dev_inputs >= 10 ~ 'HN',
+  #   n_dev_inputs < 10 ~ 'LN',
+  #   TRUE ~ 'OTHER'
+  # ))) %>%
+  # mutate(alln_class = factor(case_when(
+  #   n_dev_inputs >= 10 | p_farm_inputs >= 4 ~ 'HN',
+  #   n_dev_inputs < 10 | p_farm_inputs < 4 ~ 'LN',
+  #   TRUE ~ 'OTHER'
+  # ))) %>%
+  # mutate(check_nutr = factor(case_when(
+  #   n_class == "HN" | p_class == "HP" ~ 'HC',
+  #   n_class == "LN" | p_class == "LP" ~ 'LC',
+  #   TRUE ~ 'OTHER'
+  # ))) %>%
+  # mutate(high_pred = factor(case_when(
+  #   (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx >= 0.50 ~ 'HNHM',
+  #   (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx >= 0.50 ~ 'LNHM',
+  #   TRUE ~ 'OTHER'
+  # )))  %>%
+  # mutate(low_pred = factor(case_when(
+  #   (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx < 0.50 ~ 'HNLM',
+  #   (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx < 0.50 ~ 'LNLM',
+  #   TRUE ~ 'OTHER'
+  # ))) %>%
+  mutate(all_pred = factor(case_when(
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx >= 0.50 ~ 'HNHM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx >= 0.50 ~ 'LNHM',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx < 0.50 ~ 'HNLM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx < 0.50 ~ 'LNLM',
+    TRUE ~ 'OTHER'
+  )))
 
 comp_micx_filter <- comp_micx |>
   filter(!is.na(nutr_class))
@@ -33,7 +77,55 @@ comp_micx_filter <- comp_micx |>
 comp_micx_filter$Shape <- st_point_on_surface(comp_micx_filter$Shape)|>
   st_transform(crs=5072)
 
-# high nutrients df ------------------------------------------------------------
+
+# Ratios --------------------------------------------------------------------
+
+comp_micx_filter <- comp_micx_filter %>%
+  mutate(area_km = LakeArea / 1000000,
+         ad_ratio = sqrt(area_km) / MAXDEPTH)
+
+is.nan.data.frame <- function(x)
+  do.call(cbind, lapply(x, is.nan))
+
+comp_micx_filter$ad_ratio[is.nan(comp_micx_filter$ad_ratio)] <- 0
+
+comp_micx_filter <- comp_micx_filter %>%
+  mutate(AD_class = factor(case_when(ad_ratio <= 0.088 ~ 'B1',
+                                       ad_ratio >= 0.088 & ad_ratio < 0.166 ~ 'B2',
+                                       ad_ratio >= 0.166 & ad_ratio < 0.353 ~ 'B3',
+                                       ad_ratio >= 0.353 ~ 'B4')))
+
+AD_labels <- c('< Q1','Q1-Q2', 'Q2-Q3','> Q3')
+AD_col <- rev(RColorBrewer::brewer.pal(4, "YlOrBr"))
+
+ggplot(comp_micx_filter, aes(color = AD_class)) +
+  geom_sf(size = 0.5) +
+  scale_color_manual(values = AD_col,
+                     labels = AD_labels,
+                     name = "Ratio") +
+  labs(title = "AREA:DEPTH Ratio") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+cor(comp_micx_filter$ad_ratio, comp_micx_filter$pred_micx,
+    method = 'spearman', use = "pairwise.complete.obs")
+
+ggplot(comp_micx_filter, aes(x=ad_ratio, fill = all_pred)) +
+  geom_density(size = 0.75, alpha = 0.5) +
+  facet_wrap(~all_pred) +
+  labs(y = "Density", x = "A:D Ratio", fill = 'Class',
+       title = '√lake area(km^2) / depth (m)')
+
+# Iowa and North Dakota --------------------------------------------------------
+
+IA <- comp_micx_filter |>
+  filter(state == 'IA')
+
+ND <- comp_micx_filter |>
+  filter(state == 'ND')
+
+ # high nutrients df -----------------------------------------------------------
 
 high_micx <- comp_micx |>
   filter(nutr_class == 'HNHM' | nutr_class == 'LNHM') |>
@@ -65,18 +157,21 @@ write.csv(high_micx, col_names = TRUE, "C:/Users/mreyno04/OneDrive - Environment
 
 # filtering by class -----------------------------------------------------------
 
-HNHM <- comp_micx |>
-  filter(nutr_class == 'HNHM')
+HNHM <- comp_micx_filter |>
+  filter(all_pred == 'HNHM')
 
-LNLM <- comp_micx |>
-  filter(nutr_class == 'LNLM')
+LNLM <- comp_micx_filter |>
+  filter(all_pred == 'LNLM')
 
-LNHM <- comp_micx |>
-  filter(nutr_class == 'LNHM')
+LNHM <- comp_micx_filter |>
+  filter(all_pred == 'LNHM')
 
-ggplot(comp_micx_filter, aes(color = nutr_class)) +
-  geom_sf(size = 0.1) +
-  # facet_wrap(~nutr_class) +
+HNLM <- comp_micx_filter |>
+  filter(all_pred == 'HNLM')
+
+ggplot(comp_micx_filter, aes(color = all_pred)) +
+  geom_sf(size = 0.5) +
+  facet_wrap(~all_pred) +
   labs(title = "Where are the nutrient/micx @ 50% classes?") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
