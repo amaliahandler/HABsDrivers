@@ -111,9 +111,10 @@ ggplot(comp_micx_filter, aes(color = AD_class)) +
 cor(comp_micx_filter$ad_ratio, comp_micx_filter$pred_micx,
     method = 'spearman', use = "pairwise.complete.obs")
 
-ggplot(comp_micx_filter, aes(x=ad_ratio, fill = all_pred)) +
+ggplot(comp_micx_filter, aes(x=(ad_ratio), fill = all_pred)) +
   geom_density(size = 0.75, alpha = 0.5) +
-  facet_wrap(~all_pred) +
+  facet_wrap(~all_pred, nrow=4, ncol=1) +
+  xlim(0,1) +
   labs(y = "Density", x = "A:D Ratio", fill = 'Class',
        title = '√lake area(km^2) / depth (m)')
 
@@ -173,6 +174,18 @@ ggplot(comp_micx_filter, aes(color = all_pred)) +
   geom_sf(size = 0.5) +
   facet_wrap(~all_pred) +
   labs(title = "Where are the nutrient/micx @ 50% classes?") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+# ggsave("mas_50_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+# y partial --------------------------------------------------------------------
+
+ggplot(comp_micx_filter, aes(color = y_partial_nutr_all)) +
+  geom_sf(size = 0.5) +
+  facet_wrap(~all_pred) +
+  labs(title = "Y Partial for all nutrients") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
@@ -485,62 +498,66 @@ write_csv(high_nutr, col_names = TRUE, "C:/Users/mreyno04/OneDrive - Environment
 
 #  --------------------------------------------------------------------
 
-ggplot(LNHM, aes(color = fst_ws)) +
-  geom_sf(size = 1)
-
-ggplot(comp_micx_filter, aes(fill = Runoff.Str)) +
-  geom_sf(size = 1)
-
-ggplot(comp_micx_filter, aes(x=fst_ws, fill = nutr_class)) +
+ggplot(comp_micx_filter, aes(x=fst_ws, fill = all_pred)) +
   geom_density(size = 0.75, alpha = 0.5) +
+  facet_wrap(~all_pred, nrow=4, ncol=1) +
+  xlim(0,50) +
   labs(y = "Density", x = "Forest Cover %", fill = 'Class',
-       title = 'Forest Cover')
+       title = 'Forest Cover - Micx')
 
-ggplot(comp_micx_filter, aes(x=Tmean8110Ws, fill=nutr_class)) +
+ggsave("new_fst_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
+
+ggplot(comp_micx_filter, aes(x=Tmean8110Ws, fill= all_pred)) +
   geom_density(size = 0.75, alpha = 0.5) +
+  facet_wrap(~all_pred, nrow=4, ncol=1) +
   labs(y = "Density", x = "Temp (°C)", fill = 'Class',
-       title = "30 Year Average Temperature: Micx @ 50%")
+       title = "30 Year Average Temperature - Micx")
 
-ggplot(comp_micx_filter, aes(x=Precip8110Ws, fill = nutr_class)) +
+ggsave("new_temp_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
+
+ggplot(comp_micx_filter, aes(x=Precip8110Ws, fill = all_pred)) +
   geom_density(size = 0.75, alpha = 0.5) +
-  facet_wrap(~nutr_class, nrow=4, ncol=1)+
+  facet_wrap(~all_pred, nrow=4, ncol=1)+
   xlim(0,2000) +
   labs(y = "Density", x = "Precipitation (mm)", fill = 'Class',
-       title = 'Precipitation: Micx @ 50%')
+       title = '30 Year Average Precipitation - Micx')
 
-ggplot(comp_micx_filter, aes(y=BFIWs, x=nutr_class, fill=nutr_class)) +
-  geom_violin() +
-  coord_flip()
+ggsave("new_precip_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
+
+ggplot(comp_micx_filter, aes(x=BFIWs, fill = all_pred)) +
+  geom_density(size = 0.75, alpha = 0.5) +
+  facet_wrap(~all_pred, nrow=4, ncol=1) +
   labs(y = "Density", x = "% of Flow that is Base Flow", fill = 'Class',
-       title = "Base Flow: Micx @ 50%")
+       title = "Base Flow - Micx")
 
-ggplot(comp_micx_filter, aes(x=Runoff.Str, fill = nutr_class)) +
+ggsave("new_BFIW_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
+
+ggplot(comp_micx_filter, aes(x=Runoff.Str, fill = all_pred)) +
   geom_density(size = 0.75, alpha = 0.5) +
-  xlim(0,1000) +
-  labs(y = "Density", x = "Runoff", fill = 'Class',
-       title = "Runoff")
+  facet_wrap(~all_pred, nrow=4, ncol=1) +
+  xlim(0,900) +
+  labs(y = "Density", x = "Runoff (mm)", fill = 'Class',
+       title = "Mean Watershed Runoff")
 
-ggplot(comp_micx_filter, aes(LakeVolume.x, fill = nutr_class)) +
+ggsave("new_runoff_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
+
+ggplot(comp_micx_filter, aes(x=MAXDEPTH, fill = all_pred)) +
   geom_density(size = 0.75, alpha = 0.5) +
-  xlim(0,50000) +
-  labs(y = "Density", x = "lake volume", fill = 'Class',
-       title = "lake volume")
+  facet_wrap(~all_pred, nrow=4, ncol=1) +
+  xlim(0,50) +
+  labs(y = "Density", x = "Depth (m)", fill = 'Class',
+       title = "Max Lake Depth - Micx")
 
-ggplot(comp_micx_filter, aes(x=Tot_Sdep_2007, fill = nutr_class)) +
+ggsave("new_depth_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
+
+ggplot(comp_micx_filter, aes(x=ad_ratio, fill = all_pred)) +
   geom_density(size = 0.75, alpha = 0.5) +
-  #xlim(0,50000) +
-  labs(y = "Density", x = "S Dep", fill = 'Class',
-       title = "micx + S dep")
+  facet_wrap(~all_pred, nrow=4, ncol=1) +
+  xlim(0,100000) +
+  labs(y = "Density", x = "Area (m^2)", fill = 'Class',
+       title = "Lake Area - Micx")
 
-ggplot(comp_micx_filter, aes(x=SandWs, fill = nutr_class)) +
-  geom_density(size = 0.75, alpha = 0.5) +
-  labs(y = "Density", x = "Sand Soil", fill = 'Class',
-       title = "Micx / Soil Sand")
-
-ggsave("BFIW_micx_den_4.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
-
-table(LNLM$AG_ECO3)
+ggsave("new_fetch_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
 
 # Cyanobacteria ================================================================
 
@@ -559,29 +576,83 @@ comp_cyano$Shape <- st_point_on_surface(comp_cyano$Shape) |>
 
 comp_cyano$nutr_all <- comp_cyano$n_farm_inputs + comp_cyano$p_dev_inputs
 
-comp_cyano <- comp_cyano %>%
-  mutate(nutr_class = factor(case_when(nutr_all >= 10 & pred_cyano <= 5 ~ 'HNLC',
-                                       nutr_all <= 10 & pred_cyano >= 5 ~ 'LNHC',
-                                       nutr_all >= 10 & pred_cyano >= 5 ~ 'HNHC',
-                                       nutr_all <= 10 & pred_cyano <= 5 ~ 'LNLC')))
-comp_cyano_filter <- comp_cyano |>
-  filter(!is.na(nutr_class))
+# comp_cyano <- comp_cyano %>%
+#   mutate(nutr_class = factor(case_when(nutr_all >= 10 & pred_cyano <= 5 ~ 'HNLC',
+#                                        nutr_all <= 10 & pred_cyano >= 5 ~ 'LNHC',
+#                                        nutr_all >= 10 & pred_cyano >= 5 ~ 'HNHC',
+#                                        nutr_all <= 10 & pred_cyano <= 5 ~ 'LNLC')))
 
-comp_micx_filter[is.na(comp_micx_filter)] <- 0
+pred_df <- pred_df %>%
+   mutate(cyano_class = factor(case_when(
+     pred_cyano >= 5 ~ 'HC',
+     pred_cyano < 5 ~'LC',
+     TRUE ~ 'OTHER'
+   ))) %>%
+   mutate(p_class = factor(case_when(
+     p_dev_inputs >= 4 ~ 'HP',
+     p_dev_inputs < 4 ~ 'LP',
+     TRUE ~ 'OTHER'
+   )))  %>%
+   mutate(n_class = factor(case_when(
+     n_farm_inputs >= 10 ~ 'HN',
+     n_farm_inputs < 10 ~ 'LN',
+     TRUE ~ 'OTHER'
+   ))) %>%
+   mutate(alln_class = factor(case_when(
+     n_farm_inputs >= 10 | p_dev_inputs >= 4 ~ 'HN',
+     n_farm_inputs < 10 | p_dev_inputs < 4 ~ 'LN',
+     TRUE ~ 'OTHER'
+   ))) %>%
+   mutate(check_nutr = factor(case_when(
+     n_class == "HN" | p_class == "HP" ~ 'HC',
+     n_class == "LN" | p_class == "LP" ~ 'LC',
+     TRUE ~ 'OTHER'
+   ))) %>%
+   mutate(high_pred = factor(case_when(
+     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano >= 5 ~ 'HNHC',
+     (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano >= 5 ~ 'LNHC',
+     TRUE ~ 'OTHER'
+   )))  %>%
+   mutate(low_pred = factor(case_when(
+     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano < 5 ~ 'HNLC',
+     (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano < 5 ~ 'LNLC',
+     TRUE ~ 'OTHER'
+   ))) %>%
+  mutate(all_pred = factor(case_when(
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano >= 5 ~ 'HNHC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano >= 5 ~ 'LNHC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano < 5 ~ 'HNLC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano < 5 ~ 'LNLC',
+    TRUE ~ 'OTHER'
+  )))
 
+pred_filter <- pred_df |>
+  filter(!is.na(all_pred))
 
-# HNLC ~ high nutrients, low cyanobacteria
+pred_filter$Shape <- st_point_on_surface(pred_filter$Shape)|>
+  st_transform(crs=5072)
 
+HNHC <- pred_filter |>
+  filter(all_pred == 'HNHC')
 
-ggplot(comp_cyano_filter, aes(color = nutr_class)) +
+LNLC <- pred_filter |>
+  filter(all_pred == 'LNLC')
+
+LNHC <- pred_filter |>
+  filter(all_pred == 'LNHC')
+
+HNLC <- pred_filter |>
+  filter(all_pred == 'HNLC')
+
+ggplot(pred_filter, aes(color = all_pred)) +
   geom_sf(size = 0.5) +
-  facet_wrap(~nutr_class) +
-  labs(title = "Where are the nutrient/cyano classes?") +
+  facet_wrap(~all_pred) +
+  labs(title = "Where are the nutrient/cyano @ 100k cutoff?") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
-ggsave("mas_100k_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("new_100k_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # Base flow --------------------------------------------------------------------
 
