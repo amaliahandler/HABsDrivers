@@ -1,0 +1,108 @@
+---
+title: "spmodel and random forest"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## Comparing spmodel and random forest
+
+### Load Packages
+
+```{r, message = FALSE, warning = FALSE}
+library(dplyr)
+library(tidyr)
+library(sf)
+library(ggplot2)
+library(spmodel)
+library(ranger)
+library(here)
+library(pROC)
+```
+
+
+### Prepare Data
+
+```{r}
+habs_mod <- readRDS(paste0(here(), "./inst/source_data/habs_mod.rds"))
+
+# Summarize nutrient inventory variables
+# Create binary microcystin response variable
+# Trim impossibly high nutrient inputs and one errant depth of 999 meters
+habs_mod <- habs |>
+  mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
+         n_dev_inputs = N_Human_Waste + N_Fert_Urban,
+         p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
+         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer) |>
+  mutate(MICX_DET = factor(ifelse(is.finite(MICX), 1, 0))) |>
+  mutate(MAXDEPTH = ifelse(MAXDEPTH == 999, NA, MAXDEPTH),
+         n_farm_inputs = ifelse(n_farm_inputs > 600, NA, n_farm_inputs),
+         p_farm_inputs = ifelse(p_farm_inputs > 100, NA, p_farm_inputs),
+         n_dev_inputs = ifelse(n_dev_inputs > 300, NA, n_dev_inputs),
+         p_dev_inputs = ifelse(p_dev_inputs > 100, NA, p_dev_inputs)) |>
+  select(B_G_DENS, MICX_DET, DSGN_CYCLE, UNIQUE_ID, MAXDEPTH, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs, RunoffWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, n_farm_inputs:p_dev_inputs, AG_ECO3) |>
+  drop_na()
+
+```
+
+### Spatial Regression Models
+
+```{r}
+# Final model for cyanobacteria (without access to in-lake data)
+cyano_sp <- splm(log10(B_G_DENS + 1000) ~ n_farm_inputs + p_dev_inputs + fst_ws + Precip8110Ws + Tmean8110Ws + BFIWs + MAXDEPTH + lakemorpho_fetch + AG_ECO3,
+                 data = habs_mod,
+                 spcov_type = "exponential",
+                 random = ~ DSGN_CYCLE + UNIQUE_ID,
+                 estmethod = "ml",
+                 local = T)
+
+# Final model for probability of microcystin detection (without access to in-lake data)
+micx_sp <- spglm(MICX_DET ~ p_farm_inputs + n_dev_inputs + fst_ws + Precip8110Ws + 
+    Tmean8110Ws + MAXDEPTH + lakemorpho_fetch + BFIWs + AG_ECO3,
+                 family = "binomial",
+                 data = habs_mod,
+                 spcov_type = "exponential",
+                 estmethod = "reml",
+                 random = ~ DSGN_CYCLE + UNIQUE_ID,
+                 local = T)
+
+```
+
+### Random Forest Models
+
+```{r}
+# Vector of all potential covariates
+covars <- habs_mod |>
+  st_drop_geometry() |>
+  select(-B_G_DENS, - MICX_DET, -DSGN_CYCLE, -UNIQUE_ID) |>
+  colnames()
+
+# Cyanobacteria random forest model
+cyano_rf <- ranger(
+  formula = as.formula(paste("log10(B_G_DENS + 1000) ~ ", paste(covars, collapse = " + "))),
+  data    = st_drop_geometry(habs_mod), 
+)
+
+# Microcystin random forest model
+micx_rf <- ranger(
+  formula = as.formula(paste("MICX_DET ~ ", paste(covars, collapse = " + "))),
+  data    = st_drop_geometry(habs_mod), 
+)
+
+```
+
+### Compare spmodel and ranger
+
+```{r}
+# Cyano spatial model performance
+cyano_sp_loocv <- loocv(cyano_sp)
+cyano_sp_r2 <- cyano_sp_loocv$cor2
+
+# Microcystin model performance
+micx_sp_auc <- AUROC(micx_sp)
+
+# Then I don't know how to generate the same metrics from ranger
+
+```
+
