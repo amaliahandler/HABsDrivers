@@ -44,6 +44,8 @@ habs_mod <- habs |>
   select(B_G_DENS, MICX_DET, DSGN_CYCLE, UNIQUE_ID, MAXDEPTH, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs, RunoffWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, n_farm_inputs:p_dev_inputs, AG_ECO3) |>
   drop_na()
 
+saveRDS(paste0(here(), "./inst/source_data/habs_mod.rds"))
+
 ```
 
 ### Spatial Regression Models
