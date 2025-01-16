@@ -228,7 +228,7 @@ run_cyano_ml <- function(mod_vars, interact){
               spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
               estmethod = "ml",
-              local = F)
+              local = T)
 }
 
 # Model comparison
@@ -310,7 +310,7 @@ fig <- ggplot(data = habs_mod, aes(x = preds, y = log10(B_G_DENS + const))) +
 ggsave(paste0("./inst/figures/cyano_withlake_sp_final_fitted_preds.png"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
 # Save the model
-# saveRDS(c4, "./inst/model_objects/model_cyano_nolakedata.rds")
+# saveRDS(c4, "./inst/model_objects/model_cyano_withlakedata.rds")
 
 # Map of fitted values
 conus <- st_transform(AOI::aoi_get(state = "conus"), 5072)
@@ -640,7 +640,7 @@ micx_sp_final_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_var
                                 spcov_type = "exponential",
                                 estmethod = "reml",
                                 random = ~ DSGN_CYCLE + UNIQUE_ID,
-                                local = F)
+                                local = T)
 Sys.time()
 
 # Get AUC of final model

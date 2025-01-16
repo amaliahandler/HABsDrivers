@@ -1,0 +1,134 @@
+---
+title: "CyanoHABs National Drivers and Predictions"
+format: docx
+authors: Amalia Handler, Michael Dumelle, and Melanie Reynolds
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include = FALSE}
+# Load model development data
+devtools::load_all()
+
+# Load packages
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(sf)
+library(tigris)
+library(knitr)
+
+# Do not include code chunks in document
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+```
+
+
+## Results
+
+
+
+### Map of NLA sample locations
+
+Note: Should this map be restricted to only the observations used in the model development?
+
+Note: Check the NARS flags associated with NA microcystin values. Be sure that all flags are MDL and not some other type of missing data.
+
+
+```{r nla map compilation, message = FALSE}
+# CONUS with state outlines
+conus <- tigris::states(cb = TRUE, progress_bar = FALSE) |>
+  filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI')) |>
+  st_transform(crs = 5072)
+
+nla_map <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
+  geom_sf(data = habs, shape = 24, fill = "blue", size = 1, stroke = .2, alpha = 0.5) +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+```
+
+```{r nla map}
+#| label: nla-map
+#| fig-width: 6
+#| fig-height: 4
+#| fig-cap: "Lakes sampled in the 2007, 2012, and 2017 National Lakes Assessment. Darker points represent lakes sampled multiple times."
+nla_map
+
+```
+
+### Table of model variables
+
+```{r construct variable summary table}
+# Each variable that was considered in the modeling process
+# Note that some of these values were excluded from the model development process because of suspected unreasonable outliers. Will need to update this once I determine where in the pipeline to trim these data.
+
+summerizer <- function(var){
+  colnum <- match(var[1], colnames(habs))
+  dat    <- pull(habs, colnum)
+  tibble(Variable = var[2],
+         Units = var[3],
+         Min = min(dat, na.rm = TRUE),
+         Med = median(dat, na.rm = TRUE),
+         Mean = mean(dat, na.rm = TRUE),
+         Max = max(dat, na.rm = TRUE),
+         Scale = var[4],
+         Source = var[5]
+         )
+}
+
+vec_list <- list(
+  c("B_G_DENS", "Cyanobacteria", "cells/mL", "Lake", "NLA"),
+  c("MICX", "Microcystin", "ug/L", "Lake", "NLA"),
+  c("PTL", "Total Phosphorus", "ug/L", "Lake", "NLA"),
+  c("NTL", "Total Nitrogen", "mg N/L", "Lake", "NLA"),
+  c("NITRATE_N", "Nitrate", "mg N/L", "Lake", "NLA"),
+  c("AMMONIA_N", "Ammonium", "mg N/L", "Lake", "NLA"),
+  c("DOC", "Dissolved Organic Carbon", "mg/L", "Lake", "NLA"),
+  c("PH", "pH", "Std. Units", "Lake", "NLA"),
+  c("TURB", "Tubidty", "NTU", "Lake", "NLA"),
+  c("EVAP_INFL", "Evaporation:Inflow", "unitless", "Lake", "NLA"),
+  c("MAXDEPTH", "Maximum Lake Depth", "meters", "Lake", "NLA"),
+  c("lakemorpho_fetch", "Lake Fetch", "meters", "Lake", "Lakemorpho"),
+  c("N_Fert_Farm", "Farm Fertilizer N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("N_livestock_Waste", "Livestock Waste N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("N_CBNF", "Cultivated Crop Biological Nitrogen Fixation", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("P_f_fertilizer", "Farm Fertilizer P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("P_livestock_Waste", "Livestock Waste P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("N_Human_Waste", "Human Waste N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("N_Fert_Urban", "Non-Farm Fertilizer N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("P_human_waste_kg", "Human Waste P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("P_nf_fertilizer", "Non-Farm Fertilizer P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("fst_ws", "Forested Land Cover", "percent", "Watershed", "NLCD 2011"),
+  c("BFIWs", "Baseflow Index", "unitless", "Watershed", "LakeCat"),
+  c("precip_mean_month", "Month Mean Precipitation", "millimeters", "Watershed", "LakeCat"),
+  c("temp_mean_month", "Month Mean Temperature", "degC", "Watershed", "LakeCat"),
+  c("Precip8110Ws", "Mean Annual Precipitation", "millimeters", "Watershed", "LakeCat"),
+  c("Tmean8110Ws", "Mean Annual Temperature", "millimeters", "Watershed", "LakeCat")
+)
+
+summary_covariate_table <- do.call(rbind, lapply(vec_list, summerizer))
+
+```
+
+```{r varable summary table}
+#| label: tbl-var-summary
+#| 
+#| tbl-cap: Summary statistics for response variable and covariates in the model.
+
+kable(summary_covariate_table,
+      digits = 2,
+      format.args = list(scientific = FALSE))
+
+```
+
+
+-   Summary table of covariates in the models (variable, units, summary stats, scale \[lake, watershed\], and source \[citation, dataset names\])
+
+-   Correlation plot of covariates included in the model
+
+-   Table of model results/equations (covariates \[intercept, fixed effect, random effect, ie, de, range\],
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
