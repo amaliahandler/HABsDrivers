@@ -25,6 +25,8 @@ load_all()
 
 # Detailed guide to spmodel
 # https://usepa.github.io/spmodel/articles/guide.html
+
+set.seed(99)
 ```
 
 
@@ -183,7 +185,7 @@ find_c <- function(par, formula, data) {
   g0
 }
 
-set.seed(1)
+set.seed(99)
 
 # example data
 dat <- data.frame(x = rnorm(10), y = rnorm(10, mean = 10))
@@ -196,7 +198,7 @@ dat <- st_drop_geometry(drop_na(select(habs, B_G_DENS, NTL, NITRATE_N, NITRATE_D
 out <- optim(0, 
              fn = find_c, 
              # formula = y ~ x,
-             formula = B_G_DENS ~ NTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3 + MAXDEPTH * NTL, 
+             formula = B_G_DENS ~ NTL, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3 + MAXDEPTH * NTL, 
              data = dat, 
              method = "Brent", 
              lower = -10, upper = 10)
@@ -899,8 +901,9 @@ ggplot() +
 ggsave("./inst/figures/micx_nolake_stdresiduals_map_NoEcoregion.png", width = 7, height = 3.5, units = "in", dpi = 600)
 
 # The spatial covariance contribution to fitted values, mapped
-micx_aug <- augment(model_micx_nolakedata)
-micx_aug$.spde <- fitted(model_micx_nolakedata, type = "spcov")$de
+micx_aug <- model_micx_nolakedata |>
+  augment() |>
+  mutate(.spde = fitted(model_micx_nolakedata, type = "spcov")$de, .after = .std.resid)
 
 ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
