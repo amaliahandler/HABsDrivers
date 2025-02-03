@@ -75,6 +75,7 @@ comp_micx <- comp_micx %>%
 # comp_micx_filter <- comp_micx |>
 #   filter(!is.na(all_pred))
 
+# Only run after area has been calculated
 comp_micx$Shape <- st_point_on_surface(comp_micx$Shape)|>
   st_transform(crs=5072)
 
@@ -143,9 +144,16 @@ comp_micx <- comp_micx %>%
   mutate(drain_manual = WsAreaSqKm / area_km)
 
 drain_mean <- comp_micx %>%
+  st_drop_geometry() %>%
   group_by(ag_eco9) %>%
-  summarize(drain_mean = mean(drain_manual, na.rm=TRUE)) %>%
-  st_drop_geometry()
+  summarize(drain_mean = mean(drain_manual, na.rm=TRUE))
+
+comp_micx <- comp_micx %>%
+  group_by(ag_eco9) %>%
+  mutate(dist_mean = drain_manual - mean(drain_manual))
+
+ggplot(comp_micx, aes(x= drain_manual, y=dist_mean))+
+  geom_point()
 
 # na_ad <- comp_micx_filter |>
 #   filter(ad_ratio == Inf)
