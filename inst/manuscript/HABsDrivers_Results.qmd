@@ -18,22 +18,42 @@ library(ggplot2)
 library(sf)
 library(tigris)
 library(knitr)
+library(here)
+library(corrplot)
 
 # Do not include code chunks in document
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+
+# Data prep
+habs <- habs |>
+  mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
+         n_dev_inputs = N_Human_Waste + N_Fert_Urban,
+         p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
+         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer) |>
+  mutate(MICX_DET = factor(ifelse(is.finite(MICX), 1, 0))) |>
+  mutate(MAXDEPTH = ifelse(MAXDEPTH == 999, NA, MAXDEPTH),
+         n_farm_inputs = ifelse(n_farm_inputs > 600, NA, n_farm_inputs),
+         p_farm_inputs = ifelse(p_farm_inputs > 100, NA, p_farm_inputs),
+         n_dev_inputs = ifelse(n_dev_inputs > 300, NA, n_dev_inputs),
+         p_dev_inputs = ifelse(p_dev_inputs > 100, NA, p_dev_inputs),
+         TEMPERATURE = ifelse(TEMPERATURE > 50, NA, TEMPERATURE))
+
+# Load model objects
+cyano_lake <- readRDS(paste0(here(), "/inst/model_objects/model_cyano_withlakedata.rds"))
+micx_lake  <- readRDS(paste0(here(), "/inst/model_objects/model_micx_withlakedata.rds"))
+
+cyano_nolake <- readRDS(paste0(here(), "/inst/model_objects/model_cyano_nolakedata.rds"))
+micx_nolake  <- readRDS(paste0(here(), "/inst/model_objects/model_micx_nolakedata.rds"))
+
 ```
 
-
 ## Results
-
-
 
 ### Map of NLA sample locations
 
 Note: Should this map be restricted to only the observations used in the model development?
 
 Note: Check the NARS flags associated with NA microcystin values. Be sure that all flags are MDL and not some other type of missing data.
-
 
 ```{r nla map compilation, message = FALSE}
 # CONUS with state outlines
@@ -123,12 +143,79 @@ kable(summary_covariate_table,
 
 ```
 
+```{r setup correlation plot}
+#| label: cor-plot
+#| fig-width: 6
+#| fig-height: 6
+#| fig-cap: "Pairwise spearman's rank correlation matrix of all covariates considered for the models."
 
--   Summary table of covariates in the models (variable, units, summary stats, scale \[lake, watershed\], and source \[citation, dataset names\])
+# Trim to just the variables explored in the models
+cor_dat <- habs |>
+  st_drop_geometry() |>
+  select(TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, n_farm_inputs:p_dev_inputs) |>
+  relocate(NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, n_dev_inputs, p_dev_inputs, N_Total_Deposition, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
 
--   Correlation plot of covariates included in the model
+var_names <- c("Total N", 
+               "Total P",   
+               "Nitrate", 
+               "Ammonia", 
+               "DOC", 
+               "pH", 
+               "Water Temp",
+               "Turbidity",
+               "Evaporation",
+               "Evaporation/Inflow",
+               "Forest Cover", 
+               "Wetland Cover",
+               "Soil Erodability",
+               "Farm N",
+               "Farm P",
+               "Developed N", 
+               "Developed P",
+               "Deposition N", 
+               "Monthly Precip",
+               "Monthly Temp",
+               "Annual Precip", 
+               "Annual Air Temp",
+               "Annual Precip-ET",
+               "Runoff", 
+               "Baseflow Index",
+               "Lake Depth",
+               "Lake Fetch")
+
+cormat_pred <- cor(cor_dat, use = "pairwise.complete.obs", method = "spearman")
+
+colnames(cormat_pred) <- var_names
+rownames(cormat_pred) <- var_names
+
+# Lower triangle plot
+corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.srt = 45)
+
+```
+
+```{r}
+
+fixed_effect_retriever <- function(model_obj, resp_var, lake_data){
+  summary(model_obj)$coefficients$fixed |>
+    mutate(fixed_effect = rownames(summary(model_obj)$coefficients$fixed)) |>
+    mutate(response_var = resp_var,
+           lake_data = lake_data)
+}
+
+fixed_effect_retriever(micx_lake, resp_var = "micx", lake_data = "present")
+fixed_effect_retriever(micx_nolake, resp_var = "micx", lake_data = "absent")
+
+summary(micx_nolake)$coefficients$fixed |>
+  mutate(fixed_effect = names(micx_nolake$coefficients$fixed)) |>
+  mutate(response_var = "micx",
+         lake_data = "absent")
+
+micx_nolake$coefficients$fixed
+
+
+```
+
 
 -   Table of model results/equations (covariates \[intercept, fixed effect, random effect, ie, de, range\],
 
 Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-

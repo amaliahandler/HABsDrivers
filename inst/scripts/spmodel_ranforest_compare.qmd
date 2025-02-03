@@ -1,0 +1,86 @@
+---
+title: "spmodel and random forest"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## Comparing spmodel and random forest
+
+### Prep
+
+```{r, message = FALSE, warning = FALSE}
+library(dplyr)
+library(tidyr)
+library(sf)
+library(ggplot2)
+library(spmodel)
+library(ranger)
+library(here)
+library(pROC)
+
+# Load data
+habs_mod <- readRDS(paste0(here(), "./inst/source_data/habs_mod.rds"))
+```
+
+### Spatial Regression Models
+
+```{r}
+# Final model for cyanobacteria (without access to in-lake data)
+cyano_sp <- splm(log10(B_G_DENS + 1000) ~ n_farm_inputs + p_dev_inputs + fst_ws + Precip8110Ws + Tmean8110Ws + BFIWs + MAXDEPTH + lakemorpho_fetch + AG_ECO3,
+                 data = habs_mod,
+                 spcov_type = "exponential",
+                 random = ~ DSGN_CYCLE + UNIQUE_ID,
+                 estmethod = "ml",
+                 local = T)
+
+# Final model for probability of microcystin detection (without access to in-lake data)
+micx_sp <- spglm(MICX_DET ~ p_farm_inputs + n_dev_inputs + fst_ws + Precip8110Ws + 
+    Tmean8110Ws + MAXDEPTH + lakemorpho_fetch + BFIWs + AG_ECO3,
+                 family = "binomial",
+                 data = habs_mod,
+                 spcov_type = "exponential",
+                 estmethod = "reml",
+                 random = ~ DSGN_CYCLE + UNIQUE_ID,
+                 local = T)
+
+```
+
+### Random Forest Models
+
+```{r}
+# Vector of all potential covariates
+covars <- habs_mod |>
+  st_drop_geometry() |>
+  select(-B_G_DENS, - MICX_DET, -DSGN_CYCLE, -UNIQUE_ID) |>
+  colnames()
+
+# Cyanobacteria random forest model
+cyano_rf <- ranger(
+  formula = as.formula(paste("log10(B_G_DENS + 1000) ~ ", paste(covars, collapse = " + "))),
+  data    = st_drop_geometry(habs_mod), 
+)
+
+# Microcystin random forest model
+micx_rf <- ranger(
+  formula = as.formula(paste("MICX_DET ~ ", paste(covars, collapse = " + "))),
+  data    = st_drop_geometry(habs_mod), 
+)
+
+```
+
+### Compare spmodel and ranger
+
+```{r}
+# Cyano spatial model performance
+cyano_sp_loocv <- loocv(cyano_sp)
+cyano_sp_r2 <- cyano_sp_loocv$cor2
+
+# Microcystin model performance
+micx_sp_auc <- AUROC(micx_sp)
+
+# Then I don't know how to generate the same metrics from ranger
+
+```
+
