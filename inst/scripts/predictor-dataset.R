@@ -306,7 +306,7 @@ names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
 lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_dir"
 lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "\\.csv$")
 #
-compile files into a single data frame
+#compile files into a single data frame
 lake_met_df <- lake_met_files |>
   map_dfr(read.csv)
 #
@@ -361,8 +361,8 @@ met_files <- fs::dir_ls(met_dir, regexp = "\\.rds$")
 lake_met_df <- met_files |>
   map_dfr(readRDS)
 #
-save csv with exsiting lake metrics
-write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
+# save csv with exsiting lake metrics
+# write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
 
 #compile depths into one column using hiercarchy to give prefence to LAGOS and NHD populated depths
 

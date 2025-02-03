@@ -12,21 +12,21 @@ states <- states(cb = TRUE, progress_bar = FALSE)  %>%
 micx_pred <- st_join(wbd_copy, micx_pred_df)
 
 pred_cols <- PredDataMini |>
-  select(c(COMID, Runoff.Str, state, drain_ratio))
+  select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
 
 comp_micx <- left_join(micx_pred, pred_cols, by = 'COMID')
 
 comp_micx <- comp_micx |>
   drop_na(pred_micx)
 
-micx_pred_df <- micx_pred_df %>%
-  mutate(y_partial_p_farm = (coef(model_micx_nolakes)[2]) * p_farm_inputs,
-         y_partial_n_dev = (coef(model_micx_nolakes)[3]) * n_dev_inputs,
-         y_partial_nutr_all = y_partial_p_farm + y_partial_n_dev)
+# micx_pred_df <- micx_pred_df %>%
+#   mutate(y_partial_p_farm = (coef(model_micx_nolakes)[2]) * p_farm_inputs,
+#          y_partial_n_dev = (coef(model_micx_nolakes)[3]) * n_dev_inputs,
+#          y_partial_nutr_all = y_partial_p_farm + y_partial_n_dev)
 
 # Nutrients --------------------------------------------------------------------
 
-micx_pred_df$nutr_all <- micx_pred_df$p_farm_inputs + micx_pred_df$n_dev_inputs
+comp_micx$nutr_all <- comp_micx$p_farm_inputs + comp_micx$n_dev_inputs
 
 comp_micx <- comp_micx %>%
   # mutate(micx_class = factor(case_when(
@@ -72,10 +72,10 @@ comp_micx <- comp_micx %>%
     TRUE ~ 'OTHER'
   )))
 
-comp_micx_filter <- comp_micx |>
-  filter(!is.na(all_pred))
+# comp_micx_filter <- comp_micx |>
+#   filter(!is.na(all_pred))
 
-comp_micx_filter$geometry <- st_point_on_surface(comp_micx_filter$geometry)|>
+comp_micx$Shape <- st_point_on_surface(comp_micx$Shape)|>
   st_transform(crs=5072)
 
 # y partial --------------------------------------------------------------------
@@ -113,29 +113,39 @@ ggsave("ypar_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # Ratios --------------------------------------------------------------------
 
-poly_col <- wbd_copy |>
-  select(c(COMID, Shape))
-comp_micx_t <- st_join(poly_col, comp_micx_filter)
+# poly_col <- wbd_copy |>
+#   select(c(COMID, Shape))
+# comp_micx_t <- st_join(poly_col, comp_micx_filter)
 
-for (Shape in 1:length(comp_micx_t)) {
-  shapes <- comp_micx_t$Shape
-  comp_micx_t$custom_area <- st_area(shapes)
+for (Shape in 1:length(comp_micx)) {
+  shapes <- comp_micx$Shape
+  comp_micx$custom_area <- st_area(shapes)
 }
 
-comp_micx_t$custom_area <- drop_units(comp_micx_t$custom_area)
-
-custom_area <- comp_micx_t |>
-  select(c(COMID.x, custom_area)) |>
-  sf::st_drop_geometry()
-
-names(custom_area)[names(custom_area) == 'COMID.x'] <- 'COMID'
-comp_micx_filter <- merge(comp_micx_filter, custom_area, by = 'COMID')
+comp_micx$custom_area <- drop_units(comp_micx$custom_area)
+comp_micx <- comp_micx |>
+  mutate(area_ha = (custom_area / 10000))
 
 
-comp_micx_filter <- comp_micx_filter %>%
-  mutate(area_km = custom_area.y / 1000000,
-         ad_ratio = sqrt(area_km) / MAXDEPTH) %>%
+# custom_area <- comp_micx_t |>
+#   select(c(COMID.x, custom_area)) |>
+#   sf::st_drop_geometry()
+#
+# names(custom_area)[names(custom_area) == 'COMID.x'] <- 'COMID'
+# comp_micx_filter <- merge(comp_micx_filter, custom_area, by = 'COMID')
+
+comp_micx <- comp_micx %>%
+  mutate(area_km = custom_area / 1000000,
+         ad_ratio = (sqrt(area_km)) / MAXDEPTH) %>%
   filter(MAXDEPTH > 0)
+
+comp_micx <- comp_micx %>%
+  mutate(drain_manual = WsAreaSqKm / area_km)
+
+drain_mean <- comp_micx %>%
+  group_by(ag_eco9) %>%
+  summarize(drain_mean = mean(drain_manual, na.rm=TRUE)) %>%
+  st_drop_geometry()
 
 # na_ad <- comp_micx_filter |>
 #   filter(ad_ratio == Inf)
@@ -145,23 +155,56 @@ comp_micx_filter <- comp_micx_filter %>%
 #   st_drop_geometry()
 # na_ad <- merge(na_ad, names, by='COMID')
 
-comp_micx_filter <- comp_micx_filter %>%
+comp_micx <- comp_micx |>
+  mutate(all_pred = factor(all_pred, levels = c('HNHM','HNLM','LNHM','LNLM')))
+
+micx_sample <- sample_n(comp_micx, 5000)
+
+ad_plot <- ggplot(comp_micx, aes(x=pred_micx, y=ad_ratio, color = all_pred)) +
+  geom_point(alpha = 0.25) +
+  geom_smooth(method = "lm") +
+#  facet_wrap(~all_pred) +
+  # ylim(0,50) +
+  # xlim(0,100) +
+  labs(y = "Lake Depth (m)", x = "Lake Area (km^2)", fill = 'Class',
+       title = 'Area:Depth Ratio and Micx classes')
+
+plot <- ggplot(comp_micx, aes(x=drain_manual, y=nutr_all)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = 'lm') +
+  labs(y = "Nutrients", x = "Drain Ratio",
+       title = 'Nutrients / Drain Ratio')
+
+plot +
+  scale_y_continuous(trans = 'log10')
+
+ggsave("AD_micx_scat.jpeg", width = 10, height = 8, device = 'jpeg', dpi = 500)
+
+ggplot(comp_micx, aes(x=drain_ratio, y=nutr_all, color = ag_eco9)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm") +
+  xlim(0,1) +
+  ylim(0,100)
+
+comp_micx <- comp_micx %>%
   mutate(AD_class = factor(case_when(ad_ratio <= 0.1 ~ 'B1',
                                        ad_ratio >= 0.1 & ad_ratio < 0.2 ~ 'B2',
                                        ad_ratio >= 0.2 & ad_ratio < 0.5 ~ 'B3',
-                                       ad_ratio >= 0.5 & ad_ratio < 5 ~ 'B4',
-                                       ad_ratio >= 5 ~ 'B5'),
-                           levels = c('B1', 'B2', 'B3', 'B4', 'B5'))) %>%
+                                       ad_ratio >= 0.5 & ad_ratio < 2.5 ~ 'B4',
+                                       ad_ratio >= 2.5 & ad_ratio < 5 ~ 'B5',
+                                       ad_ratio >= 5 ~ 'B6'),
+                           levels = c('B1', 'B2', 'B3', 'B4', 'B5','B6'))) %>%
   arrange(AD_class)
 
 # na_ratio <- comp_micx_filter |>
 #   filter(AD_class == 'OTHER')
 
-AD_labels <- c('< 0.1','0.1-0.2', '0.2-0.5', '0.5-5', '> 5')
-AD_col <- RColorBrewer::brewer.pal(5, "YlOrBr")
+AD_labels <- c('< 0.1','0.1-0.2', '0.2-0.5', '0.5-2.5','2.5-1', '> 5')
+AD_col <- rev(RColorBrewer::brewer.pal(6, "Spectral"))
 
-ggplot(comp_micx_filter, aes(color = AD_class)) +
+ggplot(comp_micx, aes(color = AD_class)) +
   geom_sf(size = 0.3) +
+  facet_wrap(~all_pred) +
   scale_color_manual(values = AD_col,
                      labels = AD_labels,
                      name = "Ratio") +
@@ -170,17 +213,56 @@ ggplot(comp_micx_filter, aes(color = AD_class)) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
-ggsave("AD_ratio_den_micx.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
+ggplot(comp_micx, aes(x=ag_eco9, y=drain_manual, fill = ag_eco9)) +
+  geom_boxplot() +
+  ylim(0,250)
+
+ggsave("AD_ratio_class.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 cor(comp_micx_filter$ad_ratio, comp_micx_filter$pred_micx,
     method = 'spearman', use = "pairwise.complete.obs")
 
-ggplot(comp_micx_filter, aes(x=(ad_ratio), fill = all_pred)) +
-  geom_density(size = 0.75, alpha = 0.5) +
+ggplot(comp_micx, aes(x=(ad_ratio), fill = all_pred)) +
+  geom_density(size = 0.75) +
   facet_wrap(~all_pred, nrow=4, ncol=1) +
   xlim(0,0.5) +
   labs(y = "Density", x = "A:D Ratio", fill = 'Class',
        title = 'A:D Ratio - MICX')
+
+# drainage ratio
+
+comp_micx <- comp_micx %>%
+  mutate(drain_class = factor(case_when(drain_ratio <= 0.0048 ~ 'B1',
+                                        drain_ratio >= 0.0048 & drain_ratio < 0.0163 ~ 'B2',
+                                        drain_ratio >= 0.0163 & drain_ratio < 0.0720 ~ 'B3',
+                                        drain_ratio >= 0.0720 ~ 'B4',
+                                        TRUE ~ 'OTHER')))
+
+drain_labels <- c('<= 0.0048', '0.0048-0.0163','0.0163-0.0720','>=0.0720')
+drain_col <- rev(RColorBrewer::brewer.pal(4, "Spectral"))
+
+
+ggplot(comp_micx, aes(color = drain_class)) +
+  geom_sf(size = 0.3) +
+  # facet_wrap(~all_pred) +
+  scale_color_manual(values = drain_col,
+                     labels = drain_labels,
+                     name = "Drain Ratio") +
+  labs(title = "Drain Ratio - All Observations") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("drain_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+ggplot(comp_micx, aes(x=(drain_ratio), fill = all_pred)) +
+  geom_density(size = 0.75) +
+  facet_wrap(~all_pred, nrow=4, ncol=1) +
+  xlim(0,0.075) +
+  labs(y = "Density", x = "Drainage Ratio", fill = 'Class',
+       title = 'Drain Ratio - MICX')
+
+ggsave("drain_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
 
 # Iowa and North Dakota --------------------------------------------------------
 
@@ -309,16 +391,16 @@ write.csv(high_micx, col_names = TRUE, "C:/Users/mreyno04/OneDrive - Environment
 
 # filtering by class -----------------------------------------------------------
 
-HNHM <- comp_micx_filter |>
+HNHM <- comp_micx |>
   filter(all_pred == 'HNHM')
 
-LNLM <- comp_micx_filter |>
+LNLM <- comp_micx |>
   filter(all_pred == 'LNLM')
 
-LNHM <- comp_micx_filter |>
+LNHM <- comp_micx |>
   filter(all_pred == 'LNHM')
 
-HNLM <- comp_micx_filter |>
+HNLM <- comp_micx |>
   filter(all_pred == 'HNLM')
 
 ggplot(comp_micx_filter, aes(color = all_pred)) +
@@ -765,7 +847,7 @@ comp_cyano$nutr_all <- comp_cyano$n_farm_inputs + comp_cyano$p_dev_inputs
 #                                        nutr_all >= 10 & pred_cyano >= 5 ~ 'HNHC',
 #                                        nutr_all <= 10 & pred_cyano <= 5 ~ 'LNLC')))
 
-pred_df <- pred_df %>%
+comp_cyano <- comp_cyano %>%
    # mutate(cyano_class = factor(case_when(
    #   pred_cyano >= 5 ~ 'HC',
    #   pred_cyano < 5 ~'LC',
@@ -809,23 +891,23 @@ pred_df <- pred_df %>%
     TRUE ~ 'OTHER'
   )))
 
-pred_filter <- pred_df |>
+pred_filter <- comp_cyano |>
   filter(!is.na(all_pred))
 
-pred_filter$Shape <- st_point_on_surface(pred_filter$Shape)|>
+comp_cyano$Shape <- st_point_on_surface(comp_cyano$Shape)|>
   st_transform(crs=5072)
 
-# OTHER <- comp_cyano |>
-#   filter(cyano_class == 'OTHER')
-#
-# LNLC <- pred_filter |>
-#   filter(all_pred == 'LNLC')
-#
-# LNHC <- pred_filter |>
-#   filter(all_pred == 'LNHC')
-#
-# HNLC <- pred_filter |>
-#   filter(all_pred == 'HNLC')
+HNHC <- comp_cyano |>
+  filter(all_pred == 'HNHC')
+
+LNLC <- comp_cyano |>
+  filter(all_pred == 'LNLC')
+
+LNHC <- comp_cyano |>
+  filter(all_pred == 'LNHC')
+
+HNLC <- comp_cyano |>
+  filter(all_pred == 'HNLC')
 
 ggplot(pred_filter, aes(color = all_pred)) +
   geom_sf(size = 0.4) +
@@ -839,23 +921,19 @@ ggsave("new_100k_cyano3.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 50
 
 # Ratios --------------------------------------------------------------------
 
-poly_col <- wbd_copy |>
-  select(c(COMID, Shape))
-pred_df_t <- st_join(poly_col, pred_filter)
-
-for (Shape in 1:length(pred_df_t)) {
-  shapes <- pred_df_t$Shape
-  pred_df_t$custom_area <- st_area(shapes)
+for (Shape in 1:length(comp_cyano)) {
+  shapes <- comp_cyano$Shape
+  comp_cyano$custom_area <- st_area(shapes)
 }
 
-pred_df_t$custom_area <- drop_units(pred_df_t$custom_area)
+comp_cyano$custom_area <- drop_units(comp_cyano$custom_area)
 
-custom_area <- pred_df_t |>
-  select(c(COMID, custom_area))
+# custom_area <- pred_df_t |>
+#   select(c(COMID, custom_area))
+#
+# pred_filter <- st_join(pred_df, custom_area)
 
-pred_filter <- st_join(pred_df, custom_area)
-
-pred_filter <- pred_filter %>%
+comp_cyano <- comp_cyano %>%
   mutate(area_km = custom_area / 1000000,
          ad_ratio = sqrt(area_km) / MAXDEPTH) %>%
   filter(MAXDEPTH > 0)
@@ -868,38 +946,108 @@ pred_filter <- pred_filter %>%
 #   st_drop_geometry()
 # na_ad <- merge(na_ad, names, by='COMID')
 
-pred_filter <- pred_filter %>%
+comp_sample <- sample_n(comp_cyano, 5000)
+
+ggplot(comp_cyano, aes(x=area_km, y=MAXDEPTH, color = all_pred)) +
+  geom_point(alpha = 0.25) +
+  geom_smooth(method = "lm") +
+  #  facet_wrap(~all_pred) +
+  ylim(0,50) +
+  xlim(0,100) +
+  labs(y = "Lake Depth (m)", x = "Lake Area (km^2)", fill = 'Class',
+       title = 'Area:Depth Ratio and Cyano classes')
+
+ggsave("AD_cyano_scat.jpeg", width = 10, height = 8, device = 'jpeg', dpi = 500)
+
+#
+# names <- PredDataMini |>
+#   select(c(COMID, nars_name)) |>
+#   st_drop_geometry()
+# na_ad <- merge(na_ad, names, by='COMID')
+
+comp_cyano <- comp_cyano %>%
   mutate(AD_class = factor(case_when(ad_ratio <= 0.1 ~ 'B1',
                                      ad_ratio >= 0.1 & ad_ratio < 0.2 ~ 'B2',
-                                     ad_ratio >= 0.2 & ad_ratio < 10 ~ 'B3',
-                                     ad_ratio >= 10 ~ 'B4',
-                                     TRUE ~ 'OTHER')))
+                                     ad_ratio >= 0.2 & ad_ratio < 0.5 ~ 'B3',
+                                     ad_ratio >= 0.5 & ad_ratio < 2.5 ~ 'B4',
+                                     ad_ratio >= 2.5 & ad_ratio < 5 ~ 'B5',
+                                     ad_ratio >= 5 ~ 'B6'),
+                           levels = c('B1', 'B2', 'B3', 'B4', 'B5','B6'))) %>%
+  arrange(AD_class)
+
+ggplot(comp_micx, aes(x=all_pred, y=drain_ratio, fill=all_pred)) +
+  geom_boxplot() +
+  ylim(0,0.1)
+
+ggsave("box_micx_drainage.jpeg", width = 10, height = 8, device = 'jpeg', dpi = 500)
+
 
 # na_ratio <- comp_micx_filter |>
 #   filter(AD_class == 'OTHER')
 
-AD_labels <- c('< Q1','Q1-Q2', 'Q2-Q3','> Q3')
-AD_col <- rev(RColorBrewer::brewer.pal(4, "YlOrBr"))
+# cor(pred_filter$ad_ratio, pred_filter$pred_cyano,
+#     method = 'spearman', use = "pairwise.complete.obs")
 
-ggplot(pred_filter, aes(color = AD_class)) +
-  geom_sf(size = 0.5) +
+AD_labels <- c('< 0.1','0.1-0.2', '0.2-0.5', '0.5-2.5','2.5-1', '> 5')
+AD_col <- rev(RColorBrewer::brewer.pal(6, "Spectral"))
+
+ggplot(comp_cyano, aes(color = AD_class)) +
+  geom_sf(size = 0.3) +
+  facet_wrap(~all_pred) +
   scale_color_manual(values = AD_col,
                      labels = AD_labels,
                      name = "Ratio") +
-  labs(title = "AREA:DEPTH Ratio Cyano") +
+  labs(title = "AREA:DEPTH Ratio - CYANO") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
-cor(pred_filter$ad_ratio, pred_filter$pred_cyano,
-    method = 'spearman', use = "pairwise.complete.obs")
+ggsave("AD_ratio_class_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
-ggplot(pred_filter, aes(x=(ad_ratio), fill = all_pred)) +
-  geom_density(size = 0.75, alpha = 0.5) +
+ggplot(comp_cyano, aes(x=(ad_ratio), fill = all_pred)) +
+  geom_density(size = 0.75) +
   facet_wrap(~all_pred, nrow=4, ncol=1) +
-  xlim(0,) +
+  xlim(0,0.5) +
   labs(y = "Density", x = "A:D Ratio", fill = 'Class',
-       title = 'A:D Ratio- CYANO)')
+       title = 'A:D Ratio- CYANO')
+
+ggsave("AD_cy_den_16.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
+
+# drainage ratio
+
+comp_cyano <- comp_cyano %>%
+  mutate(drain_class = factor(case_when(drain_ratio <= 0.0048 ~ 'B1',
+                                     drain_ratio >= 0.0048 & drain_ratio < 0.0163 ~ 'B2',
+                                     drain_ratio >= 0.0163 & drain_ratio < 0.0720 ~ 'B3',
+                                     drain_ratio >= 0.0720 ~ 'B4',
+                                     TRUE ~ 'OTHER')))
+
+drain_labels <- c('<= 0.0048', '0.0048-0.0163','0.0163-0.0720','>=0.0720')
+drain_col <- rev(RColorBrewer::brewer.pal(4, "Spectral"))
+
+
+
+ggplot(comp_cyano, aes(color = drain_class)) +
+  geom_sf(size = 0.3) +
+  facet_wrap(~all_pred) +
+  scale_color_manual(values = drain_col,
+                     labels = drain_labels,
+                     name = "Drain Ratio") +
+  labs(title = "Drain Ratio by Nutrient Class - CYANO") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("drain_cyano_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+ggplot(comp_cyano, aes(x=(drain_ratio), fill = all_pred)) +
+  geom_density(size = 0.75) +
+  facet_wrap(~all_pred, nrow=4, ncol=1) +
+  xlim(0,0.075) +
+  labs(y = "Density", x = "Drainage Ratio", fill = 'Class',
+       title = 'Drain Ratio - CYANO')
+
+ggsave("box_cyano_ad.jpeg", width = 10, height = 8, device = 'jpeg', dpi = 500)
 
 
 # Iowa and North Dakota --------------------------------------------------------
