@@ -141,52 +141,105 @@ comp_micx <- comp_micx %>%
   filter(MAXDEPTH > 0)
 
 comp_micx <- comp_micx %>%
-  mutate(drain_manual = WsAreaSqKm / area_km)
+  mutate(drain_manual = WsAreaSqKm / area_km,
+         WsAreaHa = WsAreaSqKm * 100)
+
+# drain specifics --------------------------------------------------------------
 
 drain_mean <- comp_micx %>%
   st_drop_geometry() %>%
   group_by(ag_eco9) %>%
   summarize(drain_mean = mean(drain_manual, na.rm=TRUE))
 
-comp_micx <- comp_micx %>%
-  group_by(ag_eco9) %>%
-  mutate(dist_mean = drain_manual - mean(drain_manual))
-
-ggplot(comp_micx, aes(x= drain_manual, y=dist_mean))+
-  geom_point()
-
-# na_ad <- comp_micx_filter |>
-#   filter(ad_ratio == Inf)
+# drain_limit <- comp_micx %>%
+#   filter(drain_manual < 1000)
 #
-# names <- PredDataMini |>
-#   select(c(COMID, nars_name)) |>
-#   st_drop_geometry()
-# na_ad <- merge(na_ad, names, by='COMID')
+# nutr_class_limit <- drain_limit %>%
+#   st_drop_geometry() %>%
+#   group_by(all_pred) %>%
+#   summarize(drain_avg = mean(drain_manual))
+
+drain_limit <- drain_limit %>%
+  group_by(ag_eco9) %>%
+  mutate(eco_mean = mean(drain_manual)) %>%
+  mutate(percent_diff = ((drain_manual - eco_mean) / eco_mean * 100))
+
+drain_limit <- drain_limit %>%
+  mutate(drain_class = factor(case_when(percent_diff <= -50.00 ~ 'B1',
+                                     percent_diff >= -50 & percent_diff < 0 ~ 'B2',
+                                     percent_diff >= 0 & percent_diff < 50 ~ 'B3',
+                                     percent_diff >= 50 & percent_diff < 100 ~ 'B4',
+                                     percent_diff >= 100 ~ 'B5'),
+                           levels = c('B1', 'B2', 'B3', 'B4', 'B5'))) %>%
+  arrange(drain_class)
+
+drain_labels <- c('< -50%','-50-0%', '0-50%', '50-100%','> 100%')
+drain_col <- rev(RColorBrewer::brewer.pal(5, "Spectral"))
+
+ggplot(drain_limit, aes(color = drain_class)) +
+  geom_sf(size = 0.3) +
+  scale_color_manual(values = drain_col,
+                     labels = drain_labels,
+                     name = "% Change") +
+  labs(title = "% Change between Drain Ratio and Ecoregion Drain Ratio Mean") +
+  # geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+nutr_class__cyano <- comp_cyano %>%
+  st_drop_geometry() %>%
+  group_by(all_pred) %>%
+  summarize(drain_avg = mean(drain_manual),
+            ad_avg = mean(ad_ratio))
+
+comp_micx <- comp_micx %>%
+  mutate(drain_level = factor(case_when(drain_manual <= 22 ~ 'B1',
+                                        drain_manual >= 22 & drain_manual < 61 ~ 'B2',
+                                        drain_manual >= 61 & drain_manual < 206 ~ 'B3',
+                                        drain_manual >= 206 ~ 'B4'),
+                              levels = c('B1', 'B2', 'B3', 'B4'))) %>%
+  arrange(drain_level)
+
+drain_labels <- c('< 22','22-61', '61-206', '206-9891','> 9891')
+drain_cols <- rev(RColorBrewer::brewer.pal(5, "Spectral"))
+
+plot <- ggplot(comp_micx, aes(color = all_pred)) +
+  geom_sf(size = 0.3) +
+  facet_wrap(~drain_level) +
+  # scale_color_manual(values = AD_col,
+  #                    labels = AD_labels,
+  #                    name = "Ratio") +
+  # labs(title = "AREA:DEPTH Ratio") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+
+# end drain specifics ----------------------------------------------------------
 
 comp_micx <- comp_micx |>
   mutate(all_pred = factor(all_pred, levels = c('HNHM','HNLM','LNHM','LNLM')))
 
-micx_sample <- sample_n(comp_micx, 5000)
+# micx_sample <- sample_n(comp_micx, 5000)
 
-ad_plot <- ggplot(comp_micx, aes(x=pred_micx, y=ad_ratio, color = all_pred)) +
-  geom_point(alpha = 0.25) +
-  geom_smooth(method = "lm") +
-#  facet_wrap(~all_pred) +
-  # ylim(0,50) +
-  # xlim(0,100) +
-  labs(y = "Lake Depth (m)", x = "Lake Area (km^2)", fill = 'Class',
-       title = 'Area:Depth Ratio and Micx classes')
-
-plot <- ggplot(comp_micx, aes(x=drain_manual, y=nutr_all)) +
+plot <- ggplot(comp_micx, aes(x=fst_ws, y=WsAreaHa)) +
   geom_point(alpha = 0.2) +
   geom_smooth(method = 'lm') +
-  labs(y = "Nutrients", x = "Drain Ratio",
-       title = 'Nutrients / Drain Ratio')
+  # scale_color_manual(values = fst_cols,
+  #                    labels = fst_labels,
+  #                    name = "Cover (%)") +
+  labs(y = "ws area", x = "forest cover",
+       title = 'wsarea / fst')
 
 plot +
+  scale_x_continuous(trans = 'log10') +
   scale_y_continuous(trans = 'log10')
 
-ggsave("AD_micx_scat.jpeg", width = 10, height = 8, device = 'jpeg', dpi = 500)
+ggplot(comp_micx, aes(x=ag_eco9, y=WsAreaHa, fill = ag_eco9)) +
+  geom_boxplot() +
+  ylim(0,250)
+
+ggsave("nutr_wsareaha_plot.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 ggplot(comp_micx, aes(x=drain_ratio, y=nutr_all, color = ag_eco9)) +
   geom_point(alpha = 0.2) +
@@ -555,19 +608,17 @@ ggsave("precip_class_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 
 
 # forest cover -----------------------------------------------------------------
 
-comp_micx_filter <- comp_micx_filter %>%
+comp_micx <- comp_micx %>%
   mutate(disc_fst = factor(case_when(fst_ws < 25 ~ 'B1',
                                      fst_ws >= 25 & fst_ws < 50 ~ 'B2',
                                      fst_ws >= 50 & fst_ws < 75 ~ 'B3',
-                                     fst_ws >= 75 & fst_ws < 85 ~ 'B4',
-                                     fst_ws >= 85 & fst_ws < 95 ~ 'B5',
-                                     fst_ws >= 95  ~ 'B6'),
-                           levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+                                     fst_ws >= 75  ~ 'B4'),
+                           levels = c('B1', 'B2', 'B3', 'B4'))) %>%
   arrange(disc_fst)
 
 
-fst_labels = c("0-25%", "25-50%", "50-75%", "75-85%", "85-95%", ">95%")
-fst_cols <- RColorBrewer::brewer.pal(6, "YlGn")
+fst_labels = c("0-25%", "25-50%", "50-75%", ">75%")
+fst_cols <- RColorBrewer::brewer.pal(4, "YlGn")
 
 ggplot(comp_micx_filter, aes(color = disc_fst)) +
   geom_sf(size = 0.2) +
@@ -804,7 +855,7 @@ ggsave("new_fetch_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi =
 cy_pred <- st_join(wbd_copy, pred_df)
 
 pred_cols <- PredDataMini |>
-  select(c(COMID, Runoff.Str, state, drain_ratio))
+  select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
 
 comp_cyano <- left_join(cy_pred, pred_cols, by = 'COMID')
 
@@ -905,18 +956,6 @@ pred_filter <- comp_cyano |>
 comp_cyano$Shape <- st_point_on_surface(comp_cyano$Shape)|>
   st_transform(crs=5072)
 
-HNHC <- comp_cyano |>
-  filter(all_pred == 'HNHC')
-
-LNLC <- comp_cyano |>
-  filter(all_pred == 'LNLC')
-
-LNHC <- comp_cyano |>
-  filter(all_pred == 'LNHC')
-
-HNLC <- comp_cyano |>
-  filter(all_pred == 'HNLC')
-
 ggplot(pred_filter, aes(color = all_pred)) +
   geom_sf(size = 0.4) +
   facet_wrap(~all_pred) +
@@ -945,6 +984,31 @@ comp_cyano <- comp_cyano %>%
   mutate(area_km = custom_area / 1000000,
          ad_ratio = sqrt(area_km) / MAXDEPTH) %>%
   filter(MAXDEPTH > 0)
+
+comp_cyano <- comp_cyano %>%
+  mutate(drain_manual = WsAreaSqKm / area_km)
+
+# drain specifics --------------------------------------------------------------
+
+drain_mean_cyano <- drain_limit %>%
+  st_drop_geometry() %>%
+  group_by(ag_eco9)
+
+# drain_limit <- comp_cyano %>%
+#   filter(drain_manual < 500)
+
+comp_cyano <- comp_cyano %>%
+  group_by(ag_eco9) %>%
+  mutate(eco_mean = mean(drain_manual)) %>%
+  mutate(percent_diff = ((drain_manual - eco_mean) / eco_mean * 100))
+
+nutr_class_limit <- drain_limit %>%
+  st_drop_geometry() %>%
+  group_by(all_pred) %>%
+  summarize(drain_avg = mean(drain_manual))
+
+# end drain specifics ----------------------------------------------------------
+
 
 # na_ad <- comp_micx_filter |>
 #   filter(ad_ratio == Inf)
@@ -983,9 +1047,9 @@ comp_cyano <- comp_cyano %>%
                            levels = c('B1', 'B2', 'B3', 'B4', 'B5','B6'))) %>%
   arrange(AD_class)
 
-ggplot(comp_micx, aes(x=all_pred, y=drain_ratio, fill=all_pred)) +
+ggplot(comp_micx, aes(x=all_pred, y=drain_manual, fill=all_pred)) +
   geom_boxplot() +
-  ylim(0,0.1)
+  ylim(0,206)
 
 ggsave("box_micx_drainage.jpeg", width = 10, height = 8, device = 'jpeg', dpi = 500)
 
