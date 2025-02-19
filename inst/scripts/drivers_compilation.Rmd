@@ -378,7 +378,7 @@ Pull in other watershed data compiled by Marc
 ```{r}
 # Pull in other relevant watershed characteristics
 ws_char <- wsmet |>
-  select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_depth, lakemorpho_fetch, lakemorpho_shoreline.length, BFIWs, AgKffactWs, KffactWs, RunoffWs, Precip_Minus_EVTWs, WWTPWs, Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs) %>%
+  select(UNIQUE_ID, DSGN_CYCLE, lakemorpho_fetch, BFIWs, AgKffactWs, KffactWs, RunoffWs, Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, ElevWs, SlopeWs) %>%
   right_join(nla_id, by = c("UNIQUE_ID", "DSGN_CYCLE"))
 
 ```
@@ -530,7 +530,7 @@ habs_comb <- nla_long %>%
 habs_nars_all <- sf::st_as_sf(habs_comb, coords = c('LON_DD83', 'LAT_DD83'), crs = 4269, remove = FALSE)
 
 # Transform to an equal area projection so that x and y distances are equivalent
-habs <- sf::st_transform(habs_nars_all, crs = 5070)
+habs <- sf::st_transform(habs_nars_all, crs = 5072)
 
 # Save the data as part of the package
 usethis::use_data(habs, overwrite = T)
