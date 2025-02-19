@@ -72,46 +72,6 @@ comp_micx <- comp_micx %>%
     TRUE ~ 'OTHER'
   )))
 
-# comp_micx_filter <- comp_micx |>
-#   filter(!is.na(all_pred))
-
-# Only run after area has been calculated
-comp_micx$Shape <- st_point_on_surface(comp_micx$Shape)|>
-  st_transform(crs=5072)
-
-# y partial --------------------------------------------------------------------
-
-micx_pred_df <- micx_pred_df %>%
-  mutate(y_partial_p_farm = (coef(model_micx_nolakes)[2]) * p_farm_inputs,
-         y_partial_n_dev = (coef(model_micx_nolakes)[3]) * n_dev_inputs,
-         y_partial_nutr_all = y_partial_p_farm + y_partial_n_dev)
-
-micx_pred_df <- micx_pred_df %>%
-  mutate(ypar_class = factor(case_when(y_partial_nutr_all <= 0.005 ~ 'B1',
-                                       y_partial_nutr_all >= 0.005 & y_partial_nutr_all < 0.1 ~ 'B2',
-                                       y_partial_nutr_all >= 0.1 & y_partial_nutr_all < 0.5 ~ 'B3',
-                                       y_partial_nutr_all >= 0.5 & y_partial_nutr_all < 1 ~ 'B4',
-                                       y_partial_nutr_all >= 1 ~ 'B5'),
-                             levels = c('B1', 'B2', 'B3', 'B4', 'B5'))) %>%
-  arrange(ypar_class)
-
-# comp_cyano_filter$SandWs[is.na(comp_cyano_filter$SandWs)] <- 0
-
-yparm_labels <- c('< 0.005','0.005-0.1', '0.1-0.5','0.5-1', '>1')
-yparm_col <- rev(RColorBrewer::brewer.pal(5, "Spectral"))
-
-ggplot(micx_pred_df, aes(color = ypar_class)) +
-  geom_sf(size = 0.5) +
-  scale_color_manual(values = yparm_col,
-                     labels = yparm_labels,
-                     name = "Y Partial") +
-  labs(title = "Y Partial / All nutrients (Micx)") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-ggsave("ypar_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
 # Ratios --------------------------------------------------------------------
 
 # poly_col <- wbd_copy |>
@@ -144,6 +104,44 @@ comp_micx <- comp_micx %>%
   mutate(drain_manual = WsAreaSqKm / area_km,
          WsAreaHa = WsAreaSqKm * 100)
 
+# Only run after area has been calculated
+comp_micx$Shape <- st_point_on_surface(comp_micx$Shape)|>
+  st_transform(crs=5072)
+
+# y partial --------------------------------------------------------------------
+
+# micx_pred_df <- micx_pred_df %>%
+#   mutate(y_partial_p_farm = (coef(model_micx_nolakes)[2]) * p_farm_inputs,
+#          y_partial_n_dev = (coef(model_micx_nolakes)[3]) * n_dev_inputs,
+#          y_partial_nutr_all = y_partial_p_farm + y_partial_n_dev)
+#
+# micx_pred_df <- micx_pred_df %>%
+#   mutate(ypar_class = factor(case_when(y_partial_nutr_all <= 0.005 ~ 'B1',
+#                                        y_partial_nutr_all >= 0.005 & y_partial_nutr_all < 0.1 ~ 'B2',
+#                                        y_partial_nutr_all >= 0.1 & y_partial_nutr_all < 0.5 ~ 'B3',
+#                                        y_partial_nutr_all >= 0.5 & y_partial_nutr_all < 1 ~ 'B4',
+#                                        y_partial_nutr_all >= 1 ~ 'B5'),
+#                              levels = c('B1', 'B2', 'B3', 'B4', 'B5'))) %>%
+#   arrange(ypar_class)
+#
+# # comp_cyano_filter$SandWs[is.na(comp_cyano_filter$SandWs)] <- 0
+
+#
+# yparm_labels <- c('< 0.005','0.005-0.1', '0.1-0.5','0.5-1', '>1')
+# yparm_col <- rev(RColorBrewer::brewer.pal(5, "Spectral"))
+#
+# ggplot(micx_pred_df, aes(color = ypar_class)) +
+#   geom_sf(size = 0.5) +
+#   scale_color_manual(values = yparm_col,
+#                      labels = yparm_labels,
+#                      name = "Y Partial") +
+#   labs(title = "Y Partial / All nutrients (Micx)") +
+#   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+#   theme(plot.title = element_text(size = 12)) +
+#   guides(colour = guide_legend(override.aes = list(size=4)))
+#
+# ggsave("ypar_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
 # drain specifics --------------------------------------------------------------
 
 drain_mean <- comp_micx %>%
@@ -159,44 +157,45 @@ drain_mean <- comp_micx %>%
 #   group_by(all_pred) %>%
 #   summarize(drain_avg = mean(drain_manual))
 
-drain_limit <- drain_limit %>%
-  group_by(ag_eco9) %>%
-  mutate(eco_mean = mean(drain_manual)) %>%
-  mutate(percent_diff = ((drain_manual - eco_mean) / eco_mean * 100))
-
-drain_limit <- drain_limit %>%
-  mutate(drain_class = factor(case_when(percent_diff <= -50.00 ~ 'B1',
-                                     percent_diff >= -50 & percent_diff < 0 ~ 'B2',
-                                     percent_diff >= 0 & percent_diff < 50 ~ 'B3',
-                                     percent_diff >= 50 & percent_diff < 100 ~ 'B4',
-                                     percent_diff >= 100 ~ 'B5'),
-                           levels = c('B1', 'B2', 'B3', 'B4', 'B5'))) %>%
-  arrange(drain_class)
-
-drain_labels <- c('< -50%','-50-0%', '0-50%', '50-100%','> 100%')
-drain_col <- rev(RColorBrewer::brewer.pal(5, "Spectral"))
-
-ggplot(drain_limit, aes(color = drain_class)) +
-  geom_sf(size = 0.3) +
-  scale_color_manual(values = drain_col,
-                     labels = drain_labels,
-                     name = "% Change") +
-  labs(title = "% Change between Drain Ratio and Ecoregion Drain Ratio Mean") +
-  # geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-nutr_class__cyano <- comp_cyano %>%
-  st_drop_geometry() %>%
-  group_by(all_pred) %>%
-  summarize(drain_avg = mean(drain_manual),
-            ad_avg = mean(ad_ratio))
+# drain_limit <- drain_limit %>%
+#   group_by(ag_eco9) %>%
+#   mutate(eco_mean = mean(drain_manual)) %>%
+#   mutate(percent_diff = ((drain_manual - eco_mean) / eco_mean * 100))
+#
+# drain_limit <- drain_limit %>%
+#   mutate(drain_class = factor(case_when(percent_diff <= -50.00 ~ 'B1',
+#                                      percent_diff >= -50 & percent_diff < 0 ~ 'B2',
+#                                      percent_diff >= 0 & percent_diff < 50 ~ 'B3',
+#                                      percent_diff >= 50 & percent_diff < 100 ~ 'B4',
+#                                      percent_diff >= 100 ~ 'B5'),
+#                            levels = c('B1', 'B2', 'B3', 'B4', 'B5'))) %>%
+#   arrange(drain_class)
+#
+# drain_labels <- c('< -50%','-50-0%', '0-50%', '50-100%','> 100%')
+# drain_col <- rev(RColorBrewer::brewer.pal(5, "Spectral"))
+#
+# ggplot(drain_limit, aes(color = drain_class)) +
+#   geom_sf(size = 0.3) +
+#   scale_color_manual(values = drain_col,
+#                      labels = drain_labels,
+#                      name = "% Change") +
+#   labs(title = "% Change between Drain Ratio and Ecoregion Drain Ratio Mean") +
+#   # geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+#   theme(plot.title = element_text(size = 12)) +
+#   guides(colour = guide_legend(override.aes = list(size=4)))
+#
+# nutr_class__cyano <- comp_cyano %>%
+#   st_drop_geometry() %>%
+#   group_by(all_pred) %>%
+#   summarize(drain_avg = mean(drain_manual),
+#             ad_avg = mean(ad_ratio))
 
 comp_micx <- comp_micx %>%
   mutate(drain_level = factor(case_when(drain_manual <= 22 ~ 'B1',
                                         drain_manual >= 22 & drain_manual < 61 ~ 'B2',
                                         drain_manual >= 61 & drain_manual < 206 ~ 'B3',
-                                        drain_manual >= 206 ~ 'B4'),
+                                        drain_manual >= 206 & drain_manual < 9891 ~ 'B4',
+                                        drain_manual >= 9891 ~ 'B5'),
                               levels = c('B1', 'B2', 'B3', 'B4'))) %>%
   arrange(drain_level)
 
@@ -213,6 +212,8 @@ plot <- ggplot(comp_micx, aes(color = all_pred)) +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("drain_bin.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 700)
 
 
 # end drain specifics ----------------------------------------------------------
