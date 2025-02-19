@@ -1,5 +1,5 @@
 ---
-title: "drivers_analysis"
+title: "Analysis of Cyanobacteria and Microcystin Drivers in Lakes"
 author: "Handler"
 date: '2022-11-21'
 output: html_document
@@ -7,7 +7,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-Based on data compiled in drivers_compilation.Rmd
+Based on data compiled in inst/scripts/drivers_compilation.Rmd
 
 ```{r setup, include=FALSE}
 library(usethis)
@@ -29,6 +29,7 @@ load_all()
 set.seed(99)
 ```
 
+### Data Prep
 
 ```{r data prep}
 # Create aggregate nutrient input variables
@@ -54,69 +55,11 @@ habs <- habs|>
 habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
 ```
 
+### Find Cyanobacteria Constant
 
-Examine the predictor data for colinear variables
+Find the constant to add to the cyanobacteria cell count. This variable has very high numbers in addition to real zero values. Determine a constant value that will ensure that zero is "close" to small numbers.
 
-```{r}
-cormat_pred <- cor(st_drop_geometry(select(habs, TEMPERATURE:P_Surplus)), use = "pairwise.complete.obs")
-
-# Trim to just the variables explored in the models
-cor_dat <- habs |>
-  st_drop_geometry() |>
-  select(TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, n_farm_inputs:p_dev_inputs) |>
-  relocate(NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, n_dev_inputs, p_dev_inputs, N_Total_Deposition, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
-
-var_names <- c("Total N", 
-               "Total P",   
-               "Nitrate", 
-               "Ammonia", 
-               "DOC", 
-               "pH", 
-               "Water Temp",
-               "Turbidity",
-               "Evaporation",
-               "Evaporation/Inflow",
-               "Forest Cover", 
-               "Wetland Cover",
-               "Soil Erodability",
-               "Farm N",
-               "Farm P",
-               "Developed N", 
-               "Developed P",
-               "Deposition N", 
-               "Monthly Precip",
-               "Monthly Temp",
-               "Annual Precip", 
-               "Annual Air Temp",
-               "Annual Precip-ET",
-               "Runoff", 
-               "Baseflow Index",
-               "Lake Depth",
-               "Lake Fetch")
-
-cormat_pred <- cor(cor_dat, use = "pairwise.complete.obs", method = "spearman")
-
-colnames(cormat_pred) <- var_names
-rownames(cormat_pred) <- var_names
-
-# Square plot
-corrplot.mixed(cormat_pred, upper = "ellipse", diag = "n", tl.pos = "lt", tl.col = "black", tl.srt = 45)
-
-# Lower triangle plot
-cor_drivers <- corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.srt = 45)
-
-# Save the plot
-# png(filename = "./figures/Correlation Matrix of Major Drivers.png", height = 6, width = 6, units = "in", bg = "transparent", res = 600)
-# corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.srt = 45)
-# dev.off()
-
-```
-
-
-Find the constant to add to the cyanobacteria cell count. Since this variable should be log-transformed and there are zeros in the data that are real.
-
-
-```{r cyano models}
+```{r find constant}
 
 # Find a constant to add to the cyano for the log transformation
 
@@ -142,7 +85,7 @@ find_c <- function(par, formula, data) {
 dat <- data.frame(x = rnorm(10), y = rnorm(10, mean = 10))
 
 # HABs data
-dat <- st_drop_geometry(drop_na(select(habs, B_G_DENS, NTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3)))
+dat <- st_drop_geometry(drop_na(select(habs, B_G_DENS, NTL, NITRATE_N, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3)))
 
 # Finds the c for log(y + c) (note that y should be on the original scale for the purposes of this function. The find_c function take the log of the response variable)
 # Note that changing the covariates impacts the constant. By trying different sets and numbers of covariates, the constant bounces around a bit, but is usually in the 100's to the 1000's. 
@@ -167,7 +110,7 @@ const    <- 1000
 
 # Filter to the same set of observations for model comparison purposes. These are all the variables that will be tested for the model.
 habs_mod <- habs |>
-  select(B_G_DENS, NTL, PTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
+  select(B_G_DENS, NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
   drop_na()
 
 # Function to run the cyano models for model comparison.
