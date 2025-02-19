@@ -28,8 +28,6 @@ Physical, chemical, and algal (phytoplankton) data from the NLA. These data were
 
 
 ```{r}
-library(dplyr)
-library(tidyr)
 
 # Updated from Karen to include temperature data whenever a profile was collected
 all_nla <- read.csv("./inst/source_data/NLA2007-2012-2017_LakeData_forHABs_28Sept2023.csv")
@@ -50,10 +48,6 @@ unique_nla_lakecat <- nla_lakecat %>%
 
 # Define needed columns from NLA data (will deal with missing pH values below)
 nla_comid <- all_nla %>%
-  select(SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, LAT_DD83, LON_DD83,  
-         TEMPERATURE, MAXDEPTH, STRATIFIED, AMMONIA_N, DO_SURF, DOC, NTL, PTL, 
-         TURB, NITRATE_N, PH, CHLA_RESULT, MICX, CYLSPER, B_G_DENS, BG_BIOVOL,
-         PHYT_BIOVOL) %>%
   left_join(unique_nla_lakecat, by = "UNIQUE_ID")
 
 # For sites still missing COMIDs, get from the alternate integrated NLA document
@@ -73,13 +67,21 @@ nla_all_coms <- nla_comid %>%
 # Pivot from wide to long format
 # Problem with some ammonium numbers recorded as "< 0.03", which cannot be coerced to a numeric value. Need to replace these values with something so that the column can be coerced to numeric type.
 # Stratified column is a character currently and needs to be changed to numeric type to convert to long format
-# For NITRATE, values of 0.005 in 2007 should be recoded as NA. This seems to be what was reported for anything below the reporting limit of 0.02.
+# Lots of nitrate data below the MDL. Looks like everything below the reporting limit had a result recorded as 0.005 mg/L in 2007 (RL = 0.02). In 2012 (RL = 0.02) and 2017 (RL = 0.0025) ND for nitrate is reported as NA in result column. For NITRATE, values of 0.005 in 2007 are what was reported for anything below the reporting limit of 0.02. Assuming this is 1/2 of the MDL in 2007. 
+# When NITRATE and AMMONIUM are below the detection limit, replace with 1/2 the MDL.
+# 
 nla_long <- nla_all_coms %>%
-  mutate(STRATIFIED = ifelse(is.na(STRATIFIED), 0, 1)) %>%
-  mutate(AMMONIA_N = as.numeric(replace(AMMONIA_N, AMMONIA_N == "< 0.03", NA))) %>%
-  mutate(NITRATE_N = case_when(DSGN_CYCLE == 2007 & NITRATE_N == 0.005 ~ NA,
-                               TRUE ~ NITRATE_N)) |>
-  pivot_longer(TEMPERATURE:PHYT_BIOVOL, names_to = "ANALYTE", values_to = "RESULT")
+  mutate(
+    STRATIFIED = ifelse(is.na(STRATIFIED), 0, 1),
+    AMMONIA_N = as.numeric(replace(AMMONIA_N, AMMONIA_N == "< 0.03", 0.5 * 0.03)),
+    AMMONIA_N = ifelse(is.na(AMMONIA_N) & grepl("ND", AMMONIA_N_NARS_FLAG), 0.5 * AMMONIA_N_MDL, AMMONIA_N),
+    NITRATE_N = ifelse(is.na(NITRATE_N) & grepl("ND", NITRATE_N_NARS_FLAG), 0.5 * NITRATE_N_MDL, NITRATE_N),
+    MICX_DET = ifelse(is.na(MICX) & grepl("ND", MICX_NARS_FLAG), 0, MICX),
+  ) |>
+  select(SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, LAT_DD83, LON_DD83, COMID,
+         TEMPERATURE, MAXDEPTH, STRATIFIED, AMMONIA_N, DO_SURF, DOC, NTL, PTL,
+         TURB, NITRATE_N, PH, CHLA_RESULT, MICX, B_G_DENS) %>%
+  pivot_longer(TEMPERATURE:B_G_DENS, names_to = "ANALYTE", values_to = "RESULT")
 
 # Where PH data was not measured in the lab, retrieve the top-most pH measurement from the profile
 ph_profile <- nla_long %>%
@@ -91,28 +93,18 @@ ph_profile <- nla_long %>%
   rename(RESULT = PH_FIELD)
 
 # Remove the rows with missing pH data from the lab and add the rows with pH data from the profile data
-# Remove NA rows for cylindrospermopsin from 2007 and 2012 surveys because this analysis was not run during those years. Want any NA values present in the df to imply that the analysis was run, but result was below the detection limit.
-# Add a units columns.
+# Add a units columns
 nla_long <- nla_long %>%
   filter(!(ANALYTE == "PH" & is.na(RESULT))) %>%
   bind_rows(ph_profile) %>%
-  filter(!(ANALYTE == "CYLSPER" & DSGN_CYCLE %in% c(2007, 2012))) %>%
   mutate(UNITS = case_when(ANALYTE == "TEMPERATURE" ~ "DEG_C",
                            ANALYTE == "MAXDEPTH" ~ "M",
                            ANALYTE == "STRATIFIED" ~ "Y/N_1/0",
-                           ANALYTE %in% c("PTL", "MICX", "CYLSPER") ~ "UG/L",
+                           ANALYTE %in% c("PTL", "MICX") ~ "UG/L",
                            ANALYTE == "TURB" ~ "NTU",
                            ANALYTE == "B_G_DENS" ~ "CELLS/ML",
-                           ANALYTE %in% c("BG_BIOVOL", "PHYT_BIOVOL") ~ "UM3/ML",
                            ANALYTE == "PH" ~ "STD_UNITS",
                            ANALYTE %in% c("DO_SURF", "AMMONIA_N", "DOC", "NTL", "NITRATE_N", "CHLA_RESULT") ~ "MG/L"))
-
-# Performing checks for missing data
-
-# Lots of Nitrate data missing. Looks like everything below the reporting limit was listed as 0.005 mg/L in 2007 (RL = 0.02). Note these observations are replace with NA above. In 2012 (RL = 0.02) and 2017 (RL = 0.0025) ND for nitrate is reported as NA. 
-nla_long %>%
-  filter(ANALYTE == "NITRATE_N" & is.na(RESULT)) %>%
-  nrow()
 
 # Extract NLA observation ID information for joining with other data sources
 nla_id <- nla_long %>%
@@ -248,8 +240,6 @@ Pull in 2016 NLCD data for watersheds missing from LakeCat for 2017 NLA
 
 
 ```{r}
-library(stars)
-
 # 2016 NLCD data
 rast <- read_stars('O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Projects/StreamCat/LandscapeRasters/QAComplete/nlcd_2006_land_cover_l48_20210604.tif')
 
@@ -270,7 +260,7 @@ missing_lakes <- filter(ws17, SITE_ID %in% missing_site_ids)
 missing_lakes <- st_transform(missing_lakes, st_crs(rast))
 
 # Try renaming the column holding the geometry
-missing_lakes <- rename(missing_lakes, geometry = geom)
+missing_lakes <- rename(missing_lakes, geometry = Shape)
 
 # Check graphically that there is data within the basin
 # i <- 81
