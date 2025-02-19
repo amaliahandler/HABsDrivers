@@ -30,38 +30,28 @@ set.seed(99)
 ```
 
 
-Some additional variables:
-
-```{r}
-# Calculate the chlorophyll a associated with cyanobacteria
-habs <- mutate(habs, CHLA_CYANO = CHLA_RESULT * BG_BIOVOL/PHYT_BIOVOL, .after = CHLA_RESULT)
-
-# Add a binary 1/0 variable for detect/non-detect of nitrate
-habs <- mutate(habs, NITRATE_DET = ifelse(is.na(NITRATE_N), 0, 1), .after = NITRATE_N)
-
-# Replace non-detect values for nitrate with 0
-habs <- mutate(habs, NITRATE_N = ifelse(is.na(NITRATE_N), 0, NITRATE_N))
-
+```{r data prep}
+# Create aggregate nutrient input variables
 habs <- habs |>
   mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
          n_dev_inputs = N_Human_Waste + N_Fert_Urban,
          p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
          p_dev_inputs = P_human_waste_kg + P_nf_fertilizer)
 
-# Create a categorical variable for microcystin detection
-habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
-
 # There is a MAXDEPTH measurement that is close to 1000 m that is not believable
 # There are also some extreme values for the nutrient inputs. Could this be an issue with the watershed area?
 # In addition, there are three water temperatures that exceed 50 degC, including over 250 degC (!) that should be removed.
 habs <- habs|>
   mutate(MAXDEPTH = ifelse(MAXDEPTH > 200, NA, MAXDEPTH),
-        n_farm_inputs = ifelse(n_farm_inputs > 600, NA, n_farm_inputs),
+         n_farm_inputs = ifelse(n_farm_inputs > 600, NA, n_farm_inputs),
          p_farm_inputs = ifelse(p_farm_inputs > 100, NA, p_farm_inputs),
          n_dev_inputs = ifelse(n_dev_inputs > 300, NA, n_dev_inputs),
          p_dev_inputs = ifelse(p_dev_inputs > 100, NA, p_dev_inputs),
          N_Surplus = ifelse(N_Surplus > 3000, NA, N_Surplus),
          TEMPERATURE = ifelse(TEMPERATURE > 50, NA, TEMPERATURE))
+
+# Set the western mountains to the base group
+habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
 ```
 
 
@@ -116,9 +106,9 @@ corrplot.mixed(cormat_pred, upper = "ellipse", diag = "n", tl.pos = "lt", tl.col
 cor_drivers <- corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.srt = 45)
 
 # Save the plot
-png(filename = "./figures/Correlation Matrix of Major Drivers.png", height = 6, width = 6, units = "in", bg = "transparent", res = 600)
-corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.srt = 45)
-dev.off()
+# png(filename = "./figures/Correlation Matrix of Major Drivers.png", height = 6, width = 6, units = "in", bg = "transparent", res = 600)
+# corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.srt = 45)
+# dev.off()
 
 ```
 
@@ -175,10 +165,7 @@ print(c_value)
 dep_var  <- "B_G_DENS"
 const    <- 1000
 
-# Set the western mountains to the base group
-habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
-
-# Filter to the same set of observations for model comparison
+# Filter to the same set of observations for model comparison purposes. These are all the variables that will be tested for the model.
 habs_mod <- habs |>
   select(B_G_DENS, NTL, PTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
   drop_na()
