@@ -51,13 +51,12 @@ habs <- habs |>
 # Create a categorical variable for microcystin detection
 habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
 
-# There is a MAXDEPTH measurement that is close to 1000 m and three lakemorpho observations > 500 m. Need to remove these.
+# There is a MAXDEPTH measurement that is close to 1000 m that is not believable
 # There are also some extreme values for the nutrient inputs. Could this be an issue with the watershed area?
 # In addition, there are three water temperatures that exceed 50 degC, including over 250 degC (!) that should be removed.
 habs <- habs|>
   mutate(MAXDEPTH = ifelse(MAXDEPTH > 200, NA, MAXDEPTH),
-         lakemorpho_depth = ifelse(lakemorpho_depth > 500, NA, lakemorpho_depth),
-         n_farm_inputs = ifelse(n_farm_inputs > 600, NA, n_farm_inputs),
+        n_farm_inputs = ifelse(n_farm_inputs > 600, NA, n_farm_inputs),
          p_farm_inputs = ifelse(p_farm_inputs > 100, NA, p_farm_inputs),
          n_dev_inputs = ifelse(n_dev_inputs > 300, NA, n_dev_inputs),
          p_dev_inputs = ifelse(p_dev_inputs > 100, NA, p_dev_inputs),
@@ -124,42 +123,6 @@ dev.off()
 ```
 
 
-How much of the variation in the response variables is potentially explainable based on the spatial versus temporal variation?
-
-
-```{r}
-# Assess spatial (signal) to temporal (noise) in response variables
-do.call(rbind, lapply(c("MICX", "B_G_DENS", "CHLA_RESULT", "CHLA_CYANO"), function(x){
-  form <- as.formula(paste(x, " ~ 1 + (1|SITE_ID)"))
-  df   <- habs
-  
-  if(x == "MICX"){
-    df <- drop_na(df, MICX)
-  }
-  
-  if(x == "B_G_DENS" | x == "MICX"){
-    form <- as.formula(paste("log10(", x, "+ 1) ~ 1 + (1|SITE_ID)"))
-  }
-  
-  if(x == "CHLA_RESULT"){
-    form <- as.formula(paste("log10(", x, ") ~ 1 + (1|SITE_ID)"))
-  }
-  
-  if(x == "CHLA_CYANO"){
-    form <- as.formula(paste("log10(", x, ") ~ 1 + (1|SITE_ID)"))
-  }
-  
-  mod         <- lme4::lmer(form, data = df, REML = T, verbose = F)
-  site.var    <- as.numeric(lme4::VarCorr(mod)) 
-  visit.var   <- attr(lme4::VarCorr(mod), "sc")^2
-  sn          <- site.var / visit.var
-  maxR2       <- sn/(sn + 1)
-  return(data.frame(variable = x, maxR2))
-}))
-
-```
-
-
 Find the constant to add to the cyanobacteria cell count. Since this variable should be log-transformed and there are zeros in the data that are real.
 
 
@@ -185,20 +148,17 @@ find_c <- function(par, formula, data) {
   g0
 }
 
-set.seed(99)
-
 # example data
 dat <- data.frame(x = rnorm(10), y = rnorm(10, mean = 10))
 
 # HABs data
 dat <- st_drop_geometry(drop_na(select(habs, B_G_DENS, NTL, NITRATE_N, NITRATE_DET, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3)))
 
-# finds the c for log(y + c) (note that y should be on the original scale for
-# the purposes of this function, as I take the log inside)
+# Finds the c for log(y + c) (note that y should be on the original scale for the purposes of this function. The find_c function take the log of the response variable)
+# Note that changing the covariates impacts the constant. By trying different sets and numbers of covariates, the constant bounces around a bit, but is usually in the 100's to the 1000's. 
 out <- optim(0, 
              fn = find_c, 
-             # formula = y ~ x,
-             formula = B_G_DENS ~ NTL, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3 + MAXDEPTH * NTL, 
+             formula = B_G_DENS ~ NTL + AMMONIA_N + DOC + PH + TURB + Precip8110Ws + Tmean8110Ws + EVAP_INFL + MAXDEPTH + lakemorpho_fetch + AG_ECO3, 
              data = dat, 
              method = "Brent", 
              lower = -10, upper = 10)
