@@ -80,7 +80,7 @@ nla_long <- nla_all_coms %>%
   ) |>
   select(SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, LAT_DD83, LON_DD83, COMID,
          TEMPERATURE, MAXDEPTH, STRATIFIED, AMMONIA_N, DO_SURF, DOC, NTL, PTL,
-         TURB, NITRATE_N, PH, CHLA_RESULT, MICX, B_G_DENS) %>%
+         TURB, NITRATE_N, PH, CHLA_RESULT, MICX, MICX_DET, B_G_DENS) %>%
   pivot_longer(TEMPERATURE:B_G_DENS, names_to = "ANALYTE", values_to = "RESULT")
 
 # Where PH data was not measured in the lab, retrieve the top-most pH measurement from the profile
@@ -101,6 +101,7 @@ nla_long <- nla_long %>%
                            ANALYTE == "MAXDEPTH" ~ "M",
                            ANALYTE == "STRATIFIED" ~ "Y/N_1/0",
                            ANALYTE %in% c("PTL", "MICX") ~ "UG/L",
+                           ANALYTE == "MICX_DET" ~ "1 = DET, 0 = ND",
                            ANALYTE == "TURB" ~ "NTU",
                            ANALYTE == "B_G_DENS" ~ "CELLS/ML",
                            ANALYTE == "PH" ~ "STD_UNITS",
