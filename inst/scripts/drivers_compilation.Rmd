@@ -69,15 +69,18 @@ nla_all_coms <- nla_comid %>%
 # Stratified column is a character currently and needs to be changed to numeric type to convert to long format
 # Lots of nitrate data below the MDL. Looks like everything below the reporting limit had a result recorded as 0.005 mg/L in 2007 (RL = 0.02). In 2012 (RL = 0.02) and 2017 (RL = 0.0025) ND for nitrate is reported as NA in result column. For NITRATE, values of 0.005 in 2007 are what was reported for anything below the reporting limit of 0.02. Assuming this is 1/2 of the MDL in 2007. 
 # When NITRATE and AMMONIUM are below the detection limit, replace with 1/2 the MDL.
-# 
+# Remove observations when there is a lack of microcystin and cyanobacteria data
 nla_long <- nla_all_coms %>%
   mutate(
     STRATIFIED = ifelse(is.na(STRATIFIED), 0, 1),
     AMMONIA_N = as.numeric(replace(AMMONIA_N, AMMONIA_N == "< 0.03", 0.5 * 0.03)),
     AMMONIA_N = ifelse(is.na(AMMONIA_N) & grepl("ND", AMMONIA_N_NARS_FLAG), 0.5 * AMMONIA_N_MDL, AMMONIA_N),
     NITRATE_N = ifelse(is.na(NITRATE_N) & grepl("ND", NITRATE_N_NARS_FLAG), 0.5 * NITRATE_N_MDL, NITRATE_N),
-    MICX_DET = ifelse(is.na(MICX) & grepl("ND", MICX_NARS_FLAG), 0, MICX),
-  ) |>
+    MICX_DET = case_when(is.na(MICX) & grepl("ND", MICX_NARS_FLAG) ~ 0,
+                         is.na(MICX) & !grepl("ND", MICX_NARS_FLAG) ~ NA,
+                         is.finite(MICX) ~ 1)
+    ) |>
+  filter(!(is.na(MICX_DET) & is.na(B_G_DENS))) |>
   select(SITE_ID, VISIT_NO, UNIQUE_ID, DSGN_CYCLE, DATE_COL, LAT_DD83, LON_DD83, COMID,
          TEMPERATURE, MAXDEPTH, STRATIFIED, AMMONIA_N, DO_SURF, DOC, NTL, PTL,
          TURB, NITRATE_N, PH, CHLA_RESULT, MICX, MICX_DET, B_G_DENS) %>%
