@@ -458,11 +458,10 @@ dat_micx_lake <- habs |>
          # Nutrient input fixed effects
          p_farm_inputs, 
          # Lake water fixed effects
-         NTL, NITRATE_N, DOC, TEMPERATURE, EVAP_INFL) |> 
-  mutate(AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH"))) |>
+         NTL, NITRATE_N, DOC, TEMPERATURE, EVAP_INFL) |>
   drop_na()
 
-# Function to run independent error models
+# Function to run independent error models with maximum likelihood 
 
 # Set the initial covariance to be small. This produces results identical to glm()
 spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
@@ -486,16 +485,16 @@ mx1 <-run_micx_ie(mod_vars = c("NTL", "DOC", "precip_mean_month", "TEMPERATURE",
 mx2 <-run_micx_ie(mod_vars = c("NTL", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
 # Do dissolved N species improve model fit?
-mx3 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
+mx3 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
 # What about additional watershed metrics?
-mx4 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
+mx4 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
 # What about ecoregion?
-mx5 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
+mx5 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
 
 # What is there an interaction?
-mx6 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
+mx6 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
 
 # Review model AIC/BIC
 glances(mx1, mx2, mx3, mx4, mx5, mx6)
@@ -504,7 +503,7 @@ glances(mx1, mx2, mx3, mx4, mx5, mx6)
 mx_ie_mods <- list(mx1, mx2, mx3, mx4, mx5, mx6)
 
 # Review model AUC
-mx_ie_auc <- sapply(micx_ie_mods, AUROC)
+mx_ie_auc <- sapply(mx_ie_mods, AUROC)
 
 # Variables common to all models
 com_vars <- c("NTL", "DOC", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
@@ -527,6 +526,9 @@ mx_ie_modcomp <- glances(mx1, mx2, mx3, mx4, mx5, mx6) |>
          common_vars = paste(com_vars, collapse = ", ")) |>
   arrange(BIC)
 
+# Save the model comparison table
+saveRDS(mx_ie_modcomp, "./inst/model_objects/micx_iemod_compare_withlakedata.rds")
+
 # Based on the above analysis, models m4, m5, and m6 have the lower AIC/BIC and will be run with spatial covariance for final model selection
 
 # Function to run spatial models
@@ -541,11 +543,11 @@ run_micx_sp <- function(mod_vars, int = NULL){
 }
 
 # Running with spatial covariance
-mx4_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
+mx4_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
-mx5_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
+mx5_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
 
-mx6_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
+mx6_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
 
 # Make a list of the models to compare
 mx_lake_sp_mods <- list(mx4_sp, mx5_sp, mx6_sp)
@@ -557,7 +559,7 @@ mx_lake_sp_auc <- sapply(mx_lake_sp_mods, AUROC)
 mx_lake_sp_loocv <- do.call(rbind, lapply(mx_lake_sp_mods, loocv))
 
 # Variables common to all models
-com_vars <- c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
+com_vars <- c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(mx_lake_sp_mods, function(mod){
@@ -574,30 +576,52 @@ mx_lake_sp_modcomp <- mx_lake_sp_loocv |>
          common_vars = paste(com_vars, collapse = ", ")) |>
   arrange(desc(AUC))
 
+# Save the model comparison table
+saveRDS(mx_lake_sp_modcomp, "./inst/model_objects/mixc_spmod_compare_withlakedata.rds")
+
 # The final model is model mx5_sp due to the highest AUC and lowest MSPE, though mx4_sp performs virtually identically
 # The final model should be run using all available observations and with local = F
-mod_vars <- c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
+mod_vars <- c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
 int <- NULL
+dat_final <- habs |>
+  select(all_of(mod_vars), MICX_DET, DSGN_CYCLE, UNIQUE_ID) |>
+  drop_na()
+
 Sys.time()
-micx_sp_final_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
-                                family = "binomial",
-                                data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                                spcov_type = "exponential",
-                                estmethod = "reml",
-                                random = ~ DSGN_CYCLE + UNIQUE_ID,
-                                local = T)
+micx_sp_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
+                          family = "binomial",
+                          data = dat_final,
+                          spcov_type = "exponential",
+                          estmethod = "reml",
+                          random = ~ DSGN_CYCLE + UNIQUE_ID,
+                          local = F)
 Sys.time()
 
 # Get AUC of final model
-micx_sp_final_nolake_auc <- AUROC(micx_sp_final_withlake)
+micx_sp_withlake_auc <- AUROC(micx_sp_withlake)
 
 # Get bias, MSPE
-micx_sp_final_nolake_loocv <- loocv(micx_sp_final_withlake)
+micx_sp_withlake_loocv <- loocv(micx_sp_withlake)
 
 Sys.time()
 
 # Save the best performing micx model so far
-# saveRDS(micx_sp_final_withlake, "./inst/model_objects/model_micx_withlakedata.rds")
+saveRDS(micx_sp_withlake, "./inst/model_objects/model_micx_withlakedata.rds")
+
+# Run non-spatial model for comparison to final model
+micx_nsp_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
+                           family = "binomial",
+                           data = dat_final,
+                           estmethod = "reml",
+                           spcov_initial = spcov_init,
+                           random = ~ DSGN_CYCLE + UNIQUE_ID,
+                           local = F)
+
+# Get AUC of non-spatial model
+micx_nsp_withlake_auc <- AUROC(micx_nsp_withlake)
+
+# Get bias, MSPE of non-spatial model
+micx_nsp_withlake_loocv <- loocv(micx_nsp_withlake)
 
 # Visualize the results
 # Boxplot of probabilities
@@ -694,7 +718,7 @@ micx_ie_mods <- list(m0, m1a, m1b, m2, m3, m4, m5)
 micx_ie_auc <- sapply(micx_ie_mods, AUROC)
 
 # Run leave one out cross validation
-# micx_ie_loocv <- do.call(rbind, lapply(micx_ie_mods, loocv))
+micx_ie_loocv <- do.call(rbind, lapply(micx_ie_mods, loocv))
 
 # Variables common to all models
 com_vars <- c("p_farm_inputs", "n_dev_inputs", "BFIWs", "MAXDEPTH", "lakemorpho_fetch")
@@ -711,13 +735,16 @@ dif_vars <- sapply(micx_ie_mods, function(mod){
 # Put it all together into a table, note that the table is organized by BIC
 micx_ie_modcomp <- glances(m0, m1a, m1b, m2, m3, m4, m5) |>
   arrange(model) |>
-  # cbind(micx_ie_loocv) |>
+  cbind(micx_ie_loocv) |>
   select(-npar, -value, -AICc, -logLik, -pseudo.r.squared) |> 
   mutate(AUC = micx_ie_auc,
          distinct_vars = dif_vars,
          common_vars = paste(com_vars, collapse = ", ")) |>
-  # arrange(BIC) |>
+  arrange(BIC) |>
   tibble()
+
+# Save the model comparison table
+saveRDS(mx_ie_modcomp, "./inst/model_objects/micx_iemod_compare_nolakedata.rds")
 
 # Based on the above analysis, models m3, m4, and m5 have the lower AIC/BIC and will be run with spatial covariance for final model selection
 
@@ -739,13 +766,8 @@ m4_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Pr
 
 m5_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
 
-# Testing without ecoregion
-m1a_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
-
-m1b_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs"), int = NULL)
-
 # Make a list of the models to compare
-micx_sp_mods <- list(m1a_sp, m1b_sp, m4_sp, m5_sp)
+micx_sp_mods <- list(m3_sp, m4_sp, m5_sp)
 
 # Review model AUC
 micx_sp_auc <- sapply(micx_sp_mods, AUROC)
@@ -767,25 +789,32 @@ dif_vars <- sapply(micx_sp_mods, function(mod){
 
 # Put it all together into a table
 micx_sp_modcomp <- micx_sp_loocv |>
-  mutate(model = c("m1a_sp", "m1b_sp", "m4_sp", "m5_sp"),
+  mutate(model = c("m3_sp", "m4_sp", "m5_sp"),
          AUC = micx_sp_auc,
          distinct_vars = dif_vars,
          common_vars = paste(com_vars, collapse = ", ")) |>
   arrange(desc(AUC)) |>
   tibble()
 
+# Save the model comparison table
+saveRDS(micx_sp_modcomp, "./inst/model_objects/micx_spmod_compare_nolakedata.rds")
+
 # The final model is model m3_sp due to the highest AUC and lowest MSPE.
 # The final model should be run using all available observations and with local = F
 mod_vars <- c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3")
-int <- NULL
+int <- "p_farm_inputs * MAXDEPTH"
+dat_final <- habs |>
+  select(all_of(mod_vars), MICX_DET, DSGN_CYCLE, UNIQUE_ID) |>
+  drop_na()
+
 Sys.time()
-micx_sp_final_nolake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
-                              family = "binomial",
-                              data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                              spcov_type = "exponential",
-                              estmethod = "reml",
-                              random = ~ DSGN_CYCLE + UNIQUE_ID,
-                              local = F)
+micx_sp_nolake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
+                        family = "binomial",
+                        data = dat_final,
+                        spcov_type = "exponential",
+                        estmethod = "reml",
+                        random = ~ DSGN_CYCLE + UNIQUE_ID,
+                        local = F)
 Sys.time()
 
 # Get AUC of final model
@@ -857,6 +886,41 @@ ggplot() +
 ggsave("./inst/figures/micx_nolake_spde_map.png", width = 7, height = 3.5, units = "in", dpi = 600)
 
 ```
+
+### Microcystin model comparison
+
+Compare models with and without lake data and spatial and independent error models
+
+```{r}
+
+# With lake data
+micx_sp_withlake_auc
+micx_sp_withlake_loocv
+
+micx_nsp_withlake_auc
+micx_nsp_withlake_loocv
+
+# No lake data
+micx_sp_nolake_auc
+micx_sp_nolake_loocv
+
+micx_nsp_nolake_auc
+micx_nsp_nolake_loocv
+
+# Comparison table
+micx_spatial_comp <-
+  rbind(micx_sp_withlake_loocv,
+        micx_nsp_withlake_loocv) |>
+  mutate(resp_var = "cyano",
+         lake_data = c(rep("present", 2)), # lake_data = c(rep("present", 2), rep("absent", 2)),
+         spatial_mod = c("spatial", "non-spatial"), .before = bias, #spatial_mod = c(rep(c("spatial", "non-spatial"), 2)), .before = bias,
+         auc = c(micx_sp_withlake_auc, micx_nsp_withlake_auc))
+
+# Save the table
+saveRDS(cyano_spatial_comp, "./inst/model_objects/spatial_compare_cyano.rds")
+
+```
+
 
 Visuals for Merkley visit
 
