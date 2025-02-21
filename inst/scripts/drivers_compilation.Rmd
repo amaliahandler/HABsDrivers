@@ -321,8 +321,8 @@ missing_nlcd_sums <- missing_nlcd %>%
   left_join(filter(nla_id, DSGN_CYCLE == 2017), by = c("SITE_ID"))
 
 # There's one more row than expected due to two site visits for one of the lakes
-dup_site <- missing_nlcd_sums$SITE_ID[duplicated(missing_nlcd_sums$SITE_ID)]
-filter(missing_nlcd_sums, SITE_ID == dup_site)
+# dup_site <- missing_nlcd_sums$SITE_ID[duplicated(missing_nlcd_sums$SITE_ID)]
+# filter(missing_nlcd_sums, SITE_ID == dup_site)
 
 # Two sites ("NLA17_MO-HP005", "NLA17_TX-HP005") are hand picked sites and lack COMIDs (NLA COMID = 0)
 filter(missing_nlcd_sums, SITE_ID %in% c("NLA17_MO-HP005", "NLA17_TX-HP005"))
