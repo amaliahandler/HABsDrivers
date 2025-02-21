@@ -53,6 +53,9 @@ habs <- habs|>
 
 # Set the western mountains to the base group
 habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
+
+# Load CONUS polygon for making maps
+conus <- st_transform(AOI::aoi_get(state = "conus"), 5072)
 ```
 
 ### Find Cyanobacteria Constant
@@ -126,25 +129,25 @@ run_cyano_ml <- function(mod_vars, interact){
 # Model comparison
 
 # Does TN or TP fit better?
-cy1 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+cy1 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
 
-cy2 <- run_cyano_ml(mod_vars = c("PTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+cy2 <- run_cyano_ml(mod_vars = c("PTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
 
 # Monthly mean temperature and precipitation or climate normals?
-cy3 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "precip_mean_month", "temp_mean_month", "EVAP_INFL", "MAXDEPTH"), interact = NULL)
+cy3 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "precip_mean_month", "temp_mean_month", "EVAP_INFL", "MAXDEPTH"), interact = NULL)
 
 # Are there ecoregional differences?
-cy4 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+cy4 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
 
 # Do interactions improve the model?
-cy5 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = "MAXDEPTH * NTL")
+cy5 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = "MAXDEPTH * NTL")
 
-cy6 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * NTL")
+cy6 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * NTL")
 
 # Make a table of the model comparison
 
 # Variables common to all models
-com_vars <- c("NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch")
+com_vars <- c("NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch")
 
 # Which models are included in the table?
 cy_list <- list(cy1, cy2, cy3, cy4, cy5, cy6)
@@ -169,26 +172,39 @@ cy_res_table <- glances(cy1, cy2, cy3, cy4, cy5, cy6) |>
   arrange(BIC) |>
   tibble()
 
-# Run the best fit model, cy5, without spatial correlation for comparison
-mod_vars <- c("NTL", "NITRATE_N", "NITRATE_DET", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
-interact <- "MAXDEPTH * NTL"
+# Save the model comparison table for inclusion in supplement
+saveRDS(cy_res_table, "./inst/model_objects/cyano_mod_compare_withlakedata.rds")
 
+# Run best fit model (c6) with all available oberservations with local = F
+mod_vars <- c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3") 
+interact <- "AG_ECO3 * NTL"
+dat_final <- habs |>
+  select(all_of(mod_vars), B_G_DENS, DSGN_CYCLE, UNIQUE_ID) |>
+  drop_na()
+
+cyano_withlake_sp <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
+                          data = dat_final,
+                          spcov_type = "exponential",
+                          random = ~ DSGN_CYCLE + UNIQUE_ID,
+                          estmethod = "ml",
+                          local = F)
+
+# Run the best fit model without spatial correlation for comparison
 # Set the initial covariance to be small. This produces results identical to glm()
 spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
 
 cmod_final_withlake_nsp <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
-                              data = habs_mod,
+                              data = dat_final,
                               random = ~ DSGN_CYCLE + UNIQUE_ID,
                               spcov_initial = spcov_init,
                               local = F)
   
 # Evaluate fit of non-spatial model
-cyano_withlake_nsp_loocv <- loocv(cmod_final_nolake)
+cyano_withlake_nsp_loocv <- loocv(cmod_final_withlake_nsp)
 
-
-# Visual the fit of the final spatial model
-cyano_withlake_sp_loocv <- loocv(cy5, cv_predict = TRUE)
-habs_mod$preds        <- cyano_withlake_sp_loocv$cv_predict
+# Visualize the fit of the final spatial model
+cyano_withlake_sp_loocv <- loocv(cyano_withlake_sp, cv_predict = TRUE)
+habs_mod$preds          <- cyano_withlake_sp_loocv$cv_predict
 
 max_val <- max(log10(habs_mod$B_G_DENS + const), habs_mod$preds)
 
@@ -202,10 +218,9 @@ fig <- ggplot(data = habs_mod, aes(x = preds, y = log10(B_G_DENS + const))) +
 ggsave(paste0("./inst/figures/cyano_withlake_sp_final_fitted_preds.png"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
 # Save the model
-# saveRDS(c4, "./inst/model_objects/model_cyano_withlakedata.rds")
+# saveRDS(cyano_withlake_sp, "./inst/model_objects/model_cyano_withlakedata.rds")
 
 # Map of fitted values
-conus <- st_transform(AOI::aoi_get(state = "conus"), 5072)
 ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
   geom_sf(data = arrange(habs_mod, preds), 
@@ -227,9 +242,6 @@ ggsave("./inst/figures/cyano_withlake_sp_final_fitted_preds_map.png", width = 7,
 dep_var  <- "B_G_DENS"
 const    <- 1000
 
-# Set the western mountains to the base group
-habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
-
 # Filter to the same set of observations for model comparison
 habs_mod <- habs |>
   select(B_G_DENS, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, p_farm_inputs, n_farm_inputs, fst_ws, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
@@ -242,9 +254,8 @@ run_cyano_ml <- function(mod_vars, interact){
               spcov_type = "exponential",
               random = ~ DSGN_CYCLE + UNIQUE_ID,
               estmethod = "ml",
-              local = F)
+              local = T)
 }
-
 
 # Base model
 c1 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
@@ -288,32 +299,48 @@ cmods_ml_nolake <- glances(c1, c2, c3, c4, c5, c6) |>
          common_vars = paste(com_vars, collapse = ", ")) |>
   arrange(BIC) |>
   tibble()
-  
-# Run the best fit model, cy4, without spatial correlation for comparison
-mod_vars <- c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
-interact <- NULL
 
+# Save the model comparison table for inclusion in supplement
+saveRDS(cmods_ml_nolake, "./inst/model_objects/cyano_mod_compare_nolakedata.rds")
+
+# Run best fit model (c1) with all available observations with local = F
+mod_vars <- c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch") 
+interact <- NULL
+dat_final <- habs |>
+  select(all_of(mod_vars), B_G_DENS, DSGN_CYCLE, UNIQUE_ID) |>
+  drop_na()
+
+cyano_nolake_sp <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
+                          data = dat_final,
+                          spcov_type = "exponential",
+                          random = ~ DSGN_CYCLE + UNIQUE_ID,
+                          estmethod = "ml",
+                          local = F)
+
+# Save the model
+saveRDS(cyano_nolake_sp, "./inst/model_objects/model_cyano_nolakedata.rds")
+  
+# Run the best fit model, c1, without spatial correlation for comparison
 # Set the initial covariance to be small. This produces results identical to glm()
 spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
 
 cmod_final_nolake_nsp <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
-                              data = habs_mod,
+                              data = dat_final,
                               random = ~ DSGN_CYCLE + UNIQUE_ID,
                               spcov_initial = spcov_init,
                               local = F)
   
 # Evaluate fit of non-spatial model
-cyano_nolake_nsp_loocv <- loocv(cmod_final_nolake)
-
+cyano_nolake_nsp_loocv <- loocv(cmod_final_nolake_nsp)
 
 # Visual the fit of the final spatial model
-cyano_nolake_sp_loocv <- loocv(c4, cv_predict = TRUE)
-habs_mod$preds        <- cyano_nolake_sp_loocv$cv_predict
+cyano_nolake_sp_loocv <- loocv(cyano_nolake_sp, cv_predict = TRUE)
+dat_final$preds        <- cyano_nolake_sp_loocv$cv_predict
 
-max_val <- max(log10(habs_mod$B_G_DENS + const), habs_mod$preds)
-min_val <- min(log10(habs_mod$B_G_DENS + const), habs_mod$preds)
+max_val <- max(log10(dat_final$B_G_DENS + const), dat_final$preds)
+min_val <- min(log10(dat_final$B_G_DENS + const), dat_final$preds)
 
-fig <- ggplot(data = habs_mod, aes(x = preds, y = log10(B_G_DENS + const))) +
+fig <- ggplot(data = dat_final, aes(x = preds, y = log10(B_G_DENS + const))) +
   geom_hex(bins = 60) +
   scale_fill_continuous(type = "viridis") +
   xlim(min_val, max_val) + ylim(min_val, max_val) +
@@ -321,9 +348,6 @@ fig <- ggplot(data = habs_mod, aes(x = preds, y = log10(B_G_DENS + const))) +
   xlab("Fitted") +
   ggtitle(paste0("Log10(Cyanobacteria + ", const,")"))
 ggsave(paste0("./inst/figures/cyano_sp_final_fitted_preds.png"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
-
-# Save the model
-# saveRDS(c4, "./inst/model_objects/model_cyano_nolakedata.rds")
 
 # Map of fitted values
 conus <- st_transform(AOI::aoi_get(state = "conus"), 5072)
@@ -366,17 +390,46 @@ ggplot(data = cyano_aug, aes(x = preds, y = `log10(B_G_DENS + 1000)`, fill = .st
 ggsave(paste0("./inst/figures/cyano_nolake_stdresiduals_biplot.png"), height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
 # The spatial covariance contribution to fitted values, mapped
-cyano_aug <- augment(model_cyano_nolakedata)
-cyano_aug$.spde <- fitted(model_cyano_nolakedata, type = "spcov")$de
+cyano_aug <- augment(cyano_nolake_sp)
+cyano_aug$.spde <- fitted(cyano_nolake_sp, type = "spcov")$de
 
 ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
   geom_sf(data = arrange(cyano_aug, .spde), 
-          aes(fill = .spde), pch = 21, size = 1) +
+          aes(fill = .spde), pch = 21, size = 3) +
   colorspace::scale_fill_continuous_divergingx(palette = 'RdBu', mid = 0, rev = TRUE) +
   theme_void()
 ggsave("./inst/figures/cyano_nolake_spde_map.png", width = 7, height = 3.5, units = "in", dpi = 600)
 
+
+```
+
+### Comparison
+
+Comparison of spatial and non-spatial models for cyanobacteria, with and without lake data
+
+```{r}
+
+# With lake data
+cyano_withlake_sp_loocv
+cyano_withlake_nsp_loocv
+
+# No lake data
+cyano_nolake_sp_loocv$stats
+cyano_nolake_nsp_loocv
+
+# Comparison table
+cyano_spatial_comp <-
+  rbind(cyano_withlake_sp_loocv$stats,
+        cyano_withlake_nsp_loocv,
+        cyano_nolake_sp_loocv$stats,
+        cyano_nolake_nsp_loocv) |>
+  mutate(resp_var = "cyano",
+         lake_data = c(rep("present", 2), rep("absent", 2)),
+         spatial_mod = c(rep(c("spatial", "non-spatial"), 2)), .before = bias)
+
+# Save the table
+saveRDS(cyano_spatial_comp, "./inst/model_objects/spatial_compare_cyano.rds")
 
 ```
 
@@ -405,7 +458,7 @@ dat_micx_lake <- habs |>
          # Nutrient input fixed effects
          p_farm_inputs, 
          # Lake water fixed effects
-         NTL, NITRATE_DET, NITRATE_N, DOC, TEMPERATURE, EVAP_INFL) |> 
+         NTL, NITRATE_N, DOC, TEMPERATURE, EVAP_INFL) |> 
   mutate(AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH"))) |>
   drop_na()
 
