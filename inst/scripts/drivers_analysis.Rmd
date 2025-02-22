@@ -785,8 +785,6 @@ dif_vars <- sapply(micx_sp_mods, function(mod){
   paste(coef_names, collapse = ", ")
 })
 
-# Get any interaction terms
-
 # Put it all together into a table
 micx_sp_modcomp <- micx_sp_loocv |>
   mutate(model = c("m3_sp", "m4_sp", "m5_sp"),
@@ -802,7 +800,7 @@ saveRDS(micx_sp_modcomp, "./inst/model_objects/micx_spmod_compare_nolakedata.rds
 # The final model is model m3_sp due to the highest AUC and lowest MSPE.
 # The final model should be run using all available observations and with local = F
 mod_vars <- c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3")
-int <- "p_farm_inputs * MAXDEPTH"
+int <- NULL
 dat_final <- habs |>
   select(all_of(mod_vars), MICX_DET, DSGN_CYCLE, UNIQUE_ID) |>
   drop_na()
@@ -818,15 +816,30 @@ micx_sp_nolake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, inter
 Sys.time()
 
 # Get AUC of final model
-micx_sp_final_nolake_auc <- AUROC(micx_sp_final_nolake)
+micx_sp_nolake_auc <- AUROC(micx_sp_nolake)
 
 # Get bias, MSPE
-micx_sp_final_nolake_loocv <- loocv(micx_sp_final_nolake)
+micx_sp_nolake_loocv <- loocv(micx_sp_nolake)
 
 Sys.time()
 
 # Save the best performing micx model so far
-# saveRDS(micx_sp_final_nolake, "./inst/model_objects/model_micx_nolakedata.rds")
+saveRDS(micx_sp_nolake, "./inst/model_objects/model_micx_nolakedata.rds")
+
+# Run non-spatial model for comparison to final model
+micx_nsp_nolake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
+                           family = "binomial",
+                           data = dat_final,
+                           estmethod = "reml",
+                           spcov_initial = spcov_init,
+                           random = ~ DSGN_CYCLE + UNIQUE_ID,
+                           local = F)
+
+# Get AUC of non-spatial model
+micx_nsp_nolake_auc <- AUROC(micx_nsp_nolake)
+
+# Get bias, MSPE of non-spatial model
+micx_nsp_nolake_loocv <- loocv(micx_nsp_nolake)
 
 # Visualize the results
 # Boxplot of probabilities
@@ -910,14 +923,16 @@ micx_nsp_nolake_loocv
 # Comparison table
 micx_spatial_comp <-
   rbind(micx_sp_withlake_loocv,
-        micx_nsp_withlake_loocv) |>
-  mutate(resp_var = "cyano",
-         lake_data = c(rep("present", 2)), # lake_data = c(rep("present", 2), rep("absent", 2)),
-         spatial_mod = c("spatial", "non-spatial"), .before = bias, #spatial_mod = c(rep(c("spatial", "non-spatial"), 2)), .before = bias,
-         auc = c(micx_sp_withlake_auc, micx_nsp_withlake_auc))
+        micx_nsp_withlake_loocv,
+        micx_sp_nolake_loocv,
+        micx_nsp_nolake_loocv) |>
+  mutate(resp_var = "micx",
+         lake_data = c(rep("present", 2), rep("absent", 2)),
+         spatial_mod = c(rep(c("spatial", "non-spatial"), 2)), .before = bias,
+         auc = c(micx_sp_withlake_auc, micx_nsp_withlake_auc, micx_sp_nolake_auc, micx_nsp_nolake_auc))
 
 # Save the table
-saveRDS(cyano_spatial_comp, "./inst/model_objects/spatial_compare_cyano.rds")
+saveRDS(micx_spatial_comp, "./inst/model_objects/spatial_compare_micx.rds")
 
 ```
 
