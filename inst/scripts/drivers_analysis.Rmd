@@ -689,30 +689,27 @@ run_micx_ie <- function(mod_vars, int = NULL){
 # Run a few candidate models. Tried to choose a few combinations of fixed effects from the four categories: Nutrient inputs, climate, setting, and lake morphology
 
 # Initial model
-m0 <- run_micx_ie(mod_vars = c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs"), int = NULL)
+m1 <- run_micx_ie(mod_vars = c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs"), int = NULL)
+
+m2 <- run_micx_ie(mod_vars = c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs"), int = NULL)
 
 # Does the inclusion of ecoregion improve the model?
-m1a <- run_micx_ie(mod_vars = c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
-
-# Does the inclusion of forest cover improve the model over the initial model?
-m1b <- run_micx_ie(mod_vars = c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "fst_ws"), int = NULL)
+m3 <- run_micx_ie(mod_vars = c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
 
 # Does monthly climate data rather than annual MAT/MAP (m1) improve the model?
-m2 <- run_micx_ie(mod_vars = c("p_farm_inputs", "n_dev_inputs", "precip_mean_month", "temp_mean_month", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+m4 <- run_micx_ie(mod_vars = c("p_farm_inputs", "n_dev_inputs", "precip_mean_month", "temp_mean_month", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
 
 # Would the addition of another variable describing nutrient inputs improve the model?
-m3 <- run_micx_ie(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+m5 <- run_micx_ie(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
 
 # Would interactions improve the model?
-m4 <- run_micx_ie(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * MAXDEPTH")
-
-m5 <- run_micx_ie(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
+m6 <- run_micx_ie(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
 
 # Review model AIC/BIC
-glances(m0, m1a, m1b, m2, m3, m4, m5)
+glances(m1, m2, m3, m4, m5, m6)
 
 # Make a list of the independent error models to compare
-micx_ie_mods <- list(m0, m1a, m1b, m2, m3, m4, m5)
+micx_ie_mods <- list(m1, m2, m3, m4, m5, m6)
 
 # Review model AUC
 micx_ie_auc <- sapply(micx_ie_mods, AUROC)
@@ -721,7 +718,7 @@ micx_ie_auc <- sapply(micx_ie_mods, AUROC)
 micx_ie_loocv <- do.call(rbind, lapply(micx_ie_mods, loocv))
 
 # Variables common to all models
-com_vars <- c("p_farm_inputs", "n_dev_inputs", "BFIWs", "MAXDEPTH", "lakemorpho_fetch")
+com_vars <- c("BFIWs", "MAXDEPTH", "lakemorpho_fetch")
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(micx_ie_mods, function(mod){
@@ -733,7 +730,7 @@ dif_vars <- sapply(micx_ie_mods, function(mod){
 # Get any interaction terms
 
 # Put it all together into a table, note that the table is organized by BIC
-micx_ie_modcomp <- glances(m0, m1a, m1b, m2, m3, m4, m5) |>
+micx_ie_modcomp <- glances(m1, m2, m3, m4, m5, m6) |>
   arrange(model) |>
   cbind(micx_ie_loocv) |>
   select(-npar, -value, -AICc, -logLik, -pseudo.r.squared) |> 
@@ -819,7 +816,10 @@ Sys.time()
 micx_sp_nolake_auc <- AUROC(micx_sp_nolake)
 
 # Get bias, MSPE
-micx_sp_nolake_loocv <- loocv(micx_sp_nolake)
+micx_sp_nolake_loocv <- loocv(micx_sp_nolake, cv_predict = TRUE)
+
+# Get AUC from leave one out predictions
+pROC::roc(micx_sp_nolake$obdata$MICX_DET, micx_sp_nolake_loocv$cv_predict)
 
 Sys.time()
 
@@ -839,7 +839,10 @@ micx_nsp_nolake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, inte
 micx_nsp_nolake_auc <- AUROC(micx_nsp_nolake)
 
 # Get bias, MSPE of non-spatial model
-micx_nsp_nolake_loocv <- loocv(micx_nsp_nolake)
+micx_nsp_nolake_loocv <- loocv(micx_nsp_nolake, cv_predict = TRUE)
+
+# Check AUC for loovc
+pROC::roc(micx_nsp_nolake$obdata$MICX_DET, micx_nsp_nolake_loocv$cv_predict)
 
 # Visualize the results
 # Boxplot of probabilities
