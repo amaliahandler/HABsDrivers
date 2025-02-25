@@ -815,50 +815,6 @@ mapview::mapview(pred_df)
 pred_df %>%
   mapview(zcol = "pred_cyano", burst = TRUE)
 
-# comparison mapping the nutrients and cyano risk
-
-comp_df <- st_join(pred_df, micx_pred_df)
-comp_df <- subset(comp_df, select = c('pred_micx', 'pred_cyano', 'cyano_transform', 'Shape', 'n_farm_inputs', 'p_dev_inputs'))
-
-comp_df$nutr_all <- comp_df$n_farm_inputs + comp_df$p_dev_inputs
-
-comp_data <- bi_class(comp_df, x = pred_cyano, y = nutr_all, style = "quantile", dim = 2)
-
-comp_data <- comp_data |>
-  mutate(bi_class = factor(bi_class))
-
-comp_data <- comp_data |>
-  arrange(desc(bi_class))
-
-comp_micx |>
-  filter(bi_class == '2-1') |>
-  pull(pred_micx) |>
-  summary()
-
-# create map
-cyano_nutr_map <- ggplot() +
-  geom_sf(data = comp_data,
-          mapping = aes(color = bi_class),
-          size = 0.75,
-          show.legend = FALSE) +
-  bi_scale_color(pal = "BlueGold", dim = 2) +
-  labs(title = "Nutrients vs Cyanobacteria") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  bi_theme(base_size = 12)
-
-cyano_nutr_legend <- bi_legend(pal = "BlueGold",
-                          dim = 2,
-                          xlab = "Higher Cyano Levels ",
-                          ylab = "Higher Nutrient Levels",
-                          size = 6)
-
-# combine map with legend
-cyano_map <- ggdraw() +
-  draw_plot(cyano_nutr_map) +
-  draw_plot(cyano_nutr_legend, 0.1, 0.07, 0.2, 0.2)
-
-ggsave("cyano_nutr_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
 # micx / nutrient mapping
 
 comp_micx <- bi_class(comp_df, x = pred_micx, y = nutr_all, style = "quantile", dim = 2)

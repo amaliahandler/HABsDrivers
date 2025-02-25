@@ -324,15 +324,15 @@ ggplot(comp_micx, aes(x=(drain_ratio), fill = all_pred)) +
   labs(y = "Density", x = "Drainage Ratio", fill = 'Class',
        title = 'Drain Ratio - MICX')
 
-ggsave("drain_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
+ggsave("nutrients_cyano_bi.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 600)
 
 # Iowa and North Dakota --------------------------------------------------------
 
-IA <- comp_micx |>
-  filter(state == 'IA')
+oregon <- comp_cyano |>
+  filter(state == 'OR')
 
-IA_map <- states(cb = TRUE, progress_bar = FALSE)  %>%
-  filter(STUSPS %in% c('IA'))  %>%
+oregon_map <- states(cb = TRUE, progress_bar = FALSE)  %>%
+  filter(STUSPS %in% c('OR'))  %>%
   st_transform(crs = 5072)
 
 IA <- IA %>%
@@ -363,11 +363,9 @@ IA_HN <- IA |>
 IA_LN <- IA |>
   filter(alln_class == 'LN')
 
-ggplot(IA, aes(color = all_pred)) +
-  geom_sf(size = 0.7) +
-  facet_wrap(~all_pred) +
-  labs(title = "Iowa Nutrient/Micx Classes") +
-  geom_sf(data = IA_map, fill = NA, color = "black", lwd = 0.1) +
+ggplot(oregon, aes(color = n_farm_inputs)) +
+  geom_sf(size = 5) +
+  geom_sf(data = oregon_map, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
@@ -474,18 +472,6 @@ ggplot(comp_micx_filter, aes(color = all_pred)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
 ggsave("new_all_micx1.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
-# y partial --------------------------------------------------------------------
-
-ggplot(comp_micx_filter, aes(color = y_partial_nutr_all)) +
-  geom_sf(size = 0.5) +
-  facet_wrap(~all_pred) +
-  labs(title = "Y Partial for all nutrients") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-# ggsave("mas_50_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # BFIW -------------------------------------------------------------------------
 
@@ -863,39 +849,39 @@ comp_cyano <- left_join(cy_pred, pred_cols, by = 'COMID')
 comp_cyano <- comp_cyano |>
   drop_na(pred_cyano)
 
-# y partial --------------------------------------------------------------------
-
-pred_filter <- pred_filter %>%
-  mutate(y_partial_p_dev = (coef(model_cyano_nolakes)[3]) * p_dev_inputs,
-         y_partial_n_farm = (coef(model_cyano_nolakes)[2]) * n_farm_inputs,
-         y_partial_nutr_all = y_partial_p_dev + y_partial_n_farm)
-
-pred_filter <- pred_filter %>%
-  mutate(ypar_class = factor(case_when(y_partial_nutr_all <= 0.001 ~ 'B1',
-                                       y_partial_nutr_all >= 0.001 & y_partial_nutr_all < 0.005 ~ 'B2',
-                                       y_partial_nutr_all >= 0.005 & y_partial_nutr_all < 0.1 ~ 'B3',
-                                       y_partial_nutr_all >= 0.1 & y_partial_nutr_all < 1 ~ 'B4',
-                                       y_partial_nutr_all >= 1 ~ 'B5'),
-                             levels = c('B1', 'B2', 'B3', 'B4', 'B5'))) %>%
-  arrange(ypar_class)
-
-# comp_cyano_filter$SandWs[is.na(comp_cyano_filter$SandWs)] <- 0
-
-ypar_labels <- c('< 0.001','0.001-0.005', '0.005-0.1','0.1-1', '>1')
-ypar_col <- rev(RColorBrewer::brewer.pal(5, "Spectral"))
-
-
-ggplot(pred_filter, aes(color = ypar_class)) +
-  geom_sf(size = 0.5) +
-  scale_color_manual(values = ypar_col,
-                     labels = ypar_labels,
-                     name = "Y Partial") +
-  labs(title = "Y Partial / All nutrients (Cyano)") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-ggsave("ypar_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+# # y partial --------------------------------------------------------------------
+#
+# pred_filter <- pred_filter %>%
+#   mutate(y_partial_p_dev = (coef(model_cyano_nolakes)[3]) * p_dev_inputs,
+#          y_partial_n_farm = (coef(model_cyano_nolakes)[2]) * n_farm_inputs,
+#          y_partial_nutr_all = y_partial_p_dev + y_partial_n_farm)
+#
+# pred_filter <- pred_filter %>%
+#   mutate(ypar_class = factor(case_when(y_partial_nutr_all <= 0.001 ~ 'B1',
+#                                        y_partial_nutr_all >= 0.001 & y_partial_nutr_all < 0.005 ~ 'B2',
+#                                        y_partial_nutr_all >= 0.005 & y_partial_nutr_all < 0.1 ~ 'B3',
+#                                        y_partial_nutr_all >= 0.1 & y_partial_nutr_all < 1 ~ 'B4',
+#                                        y_partial_nutr_all >= 1 ~ 'B5'),
+#                              levels = c('B1', 'B2', 'B3', 'B4', 'B5'))) %>%
+#   arrange(ypar_class)
+#
+# # comp_cyano_filter$SandWs[is.na(comp_cyano_filter$SandWs)] <- 0
+#
+# ypar_labels <- c('< 0.001','0.001-0.005', '0.005-0.1','0.1-1', '>1')
+# ypar_col <- rev(RColorBrewer::brewer.pal(5, "Spectral"))
+#
+#
+# ggplot(pred_filter, aes(color = ypar_class)) +
+#   geom_sf(size = 0.5) +
+#   scale_color_manual(values = ypar_col,
+#                      labels = ypar_labels,
+#                      name = "Y Partial") +
+#   labs(title = "Y Partial / All nutrients (Cyano)") +
+#   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+#   theme(plot.title = element_text(size = 12)) +
+#   guides(colour = guide_legend(override.aes = list(size=4)))
+#
+# ggsave("ypar_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # Nutrients --------------------------------------------------------------------
 
@@ -951,21 +937,15 @@ comp_cyano <- comp_cyano %>%
     TRUE ~ 'OTHER'
   )))
 
-pred_filter <- comp_cyano |>
-  filter(!is.na(all_pred))
-
-comp_cyano$Shape <- st_point_on_surface(comp_cyano$Shape)|>
-  st_transform(crs=5072)
-
-ggplot(pred_filter, aes(color = all_pred)) +
-  geom_sf(size = 0.4) +
-  facet_wrap(~all_pred) +
-  labs(title = "Where are the nutrient/cyano @ 100k cutoff?") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-ggsave("new_100k_cyano3.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+# ggplot(pred_filter, aes(color = all_pred)) +
+#   geom_sf(size = 0.4) +
+#   facet_wrap(~all_pred) +
+#   labs(title = "Where are the nutrient/cyano @ 100k cutoff?") +
+#   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+#   theme(plot.title = element_text(size = 12)) +
+#   guides(colour = guide_legend(override.aes = list(size=4)))
+#
+# ggsave("new_100k_cyano3.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # Ratios --------------------------------------------------------------------
 
@@ -988,6 +968,9 @@ comp_cyano <- comp_cyano %>%
 
 comp_cyano <- comp_cyano %>%
   mutate(drain_manual = WsAreaSqKm / area_km)
+
+comp_cyano$Shape <- st_point_on_surface(comp_cyano$Shape)|>
+  st_transform(crs=5072)
 
 # drain specifics --------------------------------------------------------------
 
@@ -1080,9 +1063,8 @@ ggsave("AD_ratio_class_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi
 ggplot(comp_cyano, aes(x=(ad_ratio), fill = all_pred)) +
   geom_density(size = 0.75) +
   facet_wrap(~all_pred, nrow=4, ncol=1) +
-  xlim(0,0.5) +
-  labs(y = "Density", x = "A:D Ratio", fill = 'Class',
-       title = 'A:D Ratio- CYANO')
+  labs(y = "Density", x = "drain Ratio", fill = 'Class',
+       title = 'drain Ratio- CYANO')
 
 ggsave("AD_cy_den_16.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
 
@@ -1384,5 +1366,63 @@ ggplot(comp_cyano_filter, aes(x=AG_ECO3, fill = nutr_class)) +
        title = "Ecoregions - Cyano")
 
 ggplot(comp_cyano_filter, aes(fill=nutr_class))
+
+# comparison mapping the nutrients and cyano risk ------------------------------
+
+library(cowplot)
+library(biscale)
+
+cyano_sample <- sample_n(comp_cyano, 20000)
+
+cyano_sample <- bi_class(cyano_sample, x = pred_cyano, y = nutr_all, style = "quantile", dim = 2)
+
+cyano_sample <- cyano_sample |>
+  mutate(bi_class = factor(bi_class))
+
+# comp_data <- comp_data |>
+#   arrange(desc(bi_class))
+#
+# comp_micx |>
+#   filter(bi_class == '2-1') |>
+#   pull(pred_micx) |>
+#   summary()
+
+custom_pal <- c(
+  "1-1" = "#d3d3d3", # low x, low y
+  "2-1" = "#c9461e", # high x, low y
+  "1-2" = "#6d9709", # low x, high y
+  "2-2" = "#6b487d" # high x, high y
+)
+
+# create map
+cyano_nutr_map <- ggplot() +
+   geom_sf(data = comp_cyano,
+           mapping = aes(color = bi_class),
+           size = 1,
+           alpha = 0.4,
+           shape = 15,
+           show.legend = FALSE) +
+  bi_scale_color(pal = custom_pal, dim = 2) +
+  labs(title = "Nutrients vs Cyanobacteria") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  bi_theme(base_size = 12)
+
+cyano_nutr_legend <- bi_legend(pal = custom_pal,
+                               dim = 2,
+                               xlab = "Higher Cyano Levels ",
+                               ylab = "Higher Nutrient Levels",
+                               size = 6)
+
+# combine map with legend
+cyano_map <- ggdraw() +
+  draw_plot(cyano_nutr_map) +
+  draw_plot(cyano_nutr_legend, 0.1, 0.07, 0.2, 0.2)
+
+Sys.time()
+cyano_map
+Sys.time()
+
+ggsave("cyano_nutr_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
 
 
