@@ -212,7 +212,7 @@ fixed_effect_retriever <- function(model_obj, resp_var, lake_data){
 }
 
 # Extract the effects
-fixed_long <- rbind(
+fixed_df <- rbind(
   fixed_effect_retriever(micx_lake, resp_var = "micx", lake_data = "present"),
   fixed_effect_retriever(micx_nolake, resp_var = "micx", lake_data = "absent"),
   fixed_effect_retriever(cyano_lake, resp_var = "cyano", lake_data = "present"),
@@ -256,6 +256,7 @@ fixed_df |>
   arrange(fixed_effect) |>
   relocate(fixed_effect, cyano_present, micx_present, cyano_absent, micx_absent)
   
+knitr::kable(fixed_df)
 
 ```
 

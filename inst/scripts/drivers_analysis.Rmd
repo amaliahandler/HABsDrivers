@@ -741,7 +741,7 @@ micx_ie_modcomp <- glances(m1, m2, m3, m4, m5, m6) |>
   tibble()
 
 # Save the model comparison table
-saveRDS(mx_ie_modcomp, "./inst/model_objects/micx_iemod_compare_nolakedata.rds")
+saveRDS(micx_ie_modcomp, "./inst/model_objects/micx_iemod_compare_nolakedata_run3.rds")
 
 # Based on the above analysis, models m3, m4, and m5 have the lower AIC/BIC and will be run with spatial covariance for final model selection
 
@@ -757,20 +757,20 @@ run_micx_sp <- function(mod_vars, int = NULL){
 }
 
 # Run the models with spatial covariance
-m3_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
+m3_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
 
-m4_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * MAXDEPTH")
+m5_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = NULL)
 
-m5_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
+m6_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
 
 # Make a list of the models to compare
-micx_sp_mods <- list(m3_sp, m4_sp, m5_sp)
+micx_sp_mods <- list(m3_sp, m5_sp, m6_sp)
 
 # Review model AUC
 micx_sp_auc <- sapply(micx_sp_mods, AUROC)
 
 # Run leave one out cross validation
-micx_sp_loocv <- do.call(rbind, lapply(micx_sp_mods, loocv))
+micx_sp_loocv <- do.call(rbind, lapply(micx_sp_mods, loocv, cv_predict = TRUE))
 
 # Variables common to all models
 com_vars <- c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3")
