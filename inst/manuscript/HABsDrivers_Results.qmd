@@ -12,6 +12,7 @@ editor_options:
 devtools::load_all()
 
 # Load packages
+library(spmodel)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -120,6 +121,10 @@ vec_list <- list(
   c("N_Fert_Urban", "Non-Farm Fertilizer N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
   c("P_human_waste_kg", "Human Waste P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
   c("P_nf_fertilizer", "Non-Farm Fertilizer P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("n_farm_inputs", "Total Farm N Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+   c("p_farm_inputs", "Total Farm P Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+   c("n_dev_inputs", "Total Developed N Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+   c("p_dev_inputs", "Total Developed P Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
   c("fst_ws", "Forested Land Cover", "percent", "Watershed", "NLCD 2011"),
   c("BFIWs", "Baseflow Index", "unitless", "Watershed", "LakeCat"),
   c("precip_mean_month", "Month Mean Precipitation", "millimeters", "Watershed", "LakeCat"),
@@ -189,32 +194,71 @@ colnames(cormat_pred) <- var_names
 rownames(cormat_pred) <- var_names
 
 # Lower triangle plot
-corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.srt = 45)
+corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.srt = 45, tl.cex = 0.75)
 
 ```
 
-```{r}
+```{r extract model fixed effects}
 
+# Function to extract the fixed effects from each model
 fixed_effect_retriever <- function(model_obj, resp_var, lake_data){
   summary(model_obj)$coefficients$fixed |>
     mutate(fixed_effect = rownames(summary(model_obj)$coefficients$fixed)) |>
     mutate(response_var = resp_var,
-           lake_data = lake_data)
+           lake_data = lake_data) |>
+    tibble() |>
+    rename(estimate = estimates) |>
+    relocate(response_var, lake_data, fixed_effect, .before = estimate)
 }
 
-fixed_effect_retriever(micx_lake, resp_var = "micx", lake_data = "present")
-fixed_effect_retriever(micx_nolake, resp_var = "micx", lake_data = "absent")
+# Extract the effects
+fixed_df <- rbind(
+  fixed_effect_retriever(micx_lake, resp_var = "micx", lake_data = "present"),
+  fixed_effect_retriever(micx_nolake, resp_var = "micx", lake_data = "absent"),
+  fixed_effect_retriever(cyano_lake, resp_var = "cyano", lake_data = "present"),
+  fixed_effect_retriever(cyano_nolake, resp_var = "cyano", lake_data = "absent")
+)
 
-summary(micx_nolake)$coefficients$fixed |>
-  mutate(fixed_effect = names(micx_nolake$coefficients$fixed)) |>
-  mutate(response_var = "micx",
-         lake_data = "absent")
-
-micx_nolake$coefficients$fixed
-
+# Table that includes both response variables and models with and without lake data. Covariates are converted to positive or negative signs with asterisks denoting the associated p-values.
+fixed_df |>
+  filter(!fixed_effect == "(Intercept)") |>
+  mutate(est_sign = ifelse(estimate > 0, "+", "−"),
+         sig = case_when(p >= 0.05 ~ "ns",
+                         p < 0.05 & p >= 0.01 ~ "*",
+                         p < 0.01 & p >= 0.001 ~ "**",
+                         p < 0.001 ~ "***"),
+         est_sig = ifelse(sig == "ns", sig,
+                          paste0(est_sign, " (", sig, ")")),
+         fixed_effect = factor(fixed_effect, 
+                               levels = c("NTL",
+                                          "NITRATE_DET",
+                                          "NITRATE_N",
+                                          "DOC",
+                                          "EVAP_INFL",
+                                          "MAXDEPTH",
+                                          "lakemorpho_fetch",
+                                          "n_farm_inputs",
+                                          "p_farm_inputs",
+                                          "n_dev_inputs",
+                                          "p_dev_inputs",
+                                          "fst_ws",
+                                          "BFIWs",
+                                          "Precip8110Ws",
+                                          "Tmean8110Ws",
+                                          "AG_ECO3PLNLOW",
+                                          "AG_ECO3EHIGH",
+                                          "AG_ECO3WMTNS"
+                               ))) |>
+  select(response_var:fixed_effect, est_sig) |>
+  pivot_wider(names_from = response_var:lake_data,
+              values_from = est_sig,
+              values_fill = " ") |>
+  arrange(fixed_effect) |>
+  relocate(fixed_effect, cyano_present, micx_present, cyano_absent, micx_absent)
+  
+knitr::kable(fixed_df)
 
 ```
-
 
 -   Table of model results/equations (covariates \[intercept, fixed effect, random effect, ie, de, range\],
 
