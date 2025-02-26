@@ -601,7 +601,12 @@ Sys.time()
 micx_sp_withlake_auc <- AUROC(micx_sp_withlake)
 
 # Get bias, MSPE
-micx_sp_withlake_loocv <- loocv(micx_sp_withlake)
+micx_sp_withlake_loocv <- loocv(micx_sp_withlake, cv_predict = TRUE)
+
+# Get AUC from leave one out predictions
+auc <- pROC::roc(micx_sp_withlake$obdata$MICX_DET, micx_sp_withlake_loocv$cv_predict)
+
+micx_sp_withlake_auc <- as.numeric(auc$auc)
 
 Sys.time()
 
@@ -613,7 +618,7 @@ micx_nsp_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, in
                            family = "binomial",
                            data = dat_final,
                            estmethod = "reml",
-                           spcov_initial = spcov_init,
+                           spcov_type = "none",
                            random = ~ DSGN_CYCLE + UNIQUE_ID,
                            local = F)
 
@@ -621,7 +626,12 @@ micx_nsp_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, in
 micx_nsp_withlake_auc <- AUROC(micx_nsp_withlake)
 
 # Get bias, MSPE of non-spatial model
-micx_nsp_withlake_loocv <- loocv(micx_nsp_withlake)
+micx_nsp_withlake_loocv <- loocv(micx_nsp_withlake, cv_predict = TRUE)
+
+# Get AUC from leave one out predictions
+auc <- pROC::roc(micx_nsp_withlake$obdata$MICX_DET, micx_nsp_withlake_loocv$cv_predict)
+
+micx_nsp_withlake_auc <- as.numeric(auc$auc)
 
 # Visualize the results
 # Boxplot of probabilities
@@ -674,14 +684,12 @@ dat_micx <- habs |>
 # Function to run independent error models
 
 # Set the initial covariance to be small. This produces results identifcal to glm()
-spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
-
 run_micx_ie <- function(mod_vars, int = NULL){
   spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
         family = "binomial",
         data = dat_micx,
         estmethod = "ml",
-        spcov_initial = spcov_init,
+        spcov_type = "none",
         random = ~ DSGN_CYCLE + UNIQUE_ID,
         local = T)
 }
@@ -715,7 +723,7 @@ micx_ie_mods <- list(m1, m2, m3, m4, m5, m6)
 micx_ie_auc <- sapply(micx_ie_mods, AUROC)
 
 # Run leave one out cross validation
-micx_ie_loocv <- do.call(rbind, lapply(micx_ie_mods, loocv))
+micx_ie_loocv <- lapply(micx_ie_mods, loocv, cv_predict = TRUE)
 
 # Variables common to all models
 com_vars <- c("BFIWs", "MAXDEPTH", "lakemorpho_fetch")
@@ -770,10 +778,17 @@ micx_sp_mods <- list(m3_sp, m5_sp, m6_sp)
 micx_sp_auc <- sapply(micx_sp_mods, AUROC)
 
 # Run leave one out cross validation
-micx_sp_loocv <- do.call(rbind, lapply(micx_sp_mods, loocv, cv_predict = TRUE))
+micx_sp_loocv <- lapply(micx_sp_mods, loocv, cv_predict = TRUE)
+
+# AUC based on loocv
+micx_sp_auc_loocv <- sapply(1:length(micx_sp_loocv), function(i){
+  preds <- micx_sp_loocv[[i]]$cv_predict
+  calc <- pROC::roc(micx_sp_mods[[i]]$obdata$MICX_DET, preds)
+  return(as.numeric(calc$auc))
+})
 
 # Variables common to all models
-com_vars <- c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3")
+com_vars <- c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3")
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(micx_sp_mods, function(mod){
@@ -783,9 +798,9 @@ dif_vars <- sapply(micx_sp_mods, function(mod){
 })
 
 # Put it all together into a table
-micx_sp_modcomp <- micx_sp_loocv |>
-  mutate(model = c("m3_sp", "m4_sp", "m5_sp"),
-         AUC = micx_sp_auc,
+micx_sp_modcomp <- rbind(micx_sp_loocv[[1]]$stats, micx_sp_loocv[[2]]$stats, micx_sp_loocv[[3]]$stats) |>
+  mutate(model = c("m3_sp", "m5_sp", "m6_sp"),
+         AUC = micx_sp_auc_loocv,
          distinct_vars = dif_vars,
          common_vars = paste(com_vars, collapse = ", ")) |>
   arrange(desc(AUC)) |>
@@ -819,7 +834,9 @@ micx_sp_nolake_auc <- AUROC(micx_sp_nolake)
 micx_sp_nolake_loocv <- loocv(micx_sp_nolake, cv_predict = TRUE)
 
 # Get AUC from leave one out predictions
-pROC::roc(micx_sp_nolake$obdata$MICX_DET, micx_sp_nolake_loocv$cv_predict)
+auc <- pROC::roc(micx_sp_nolake$obdata$MICX_DET, micx_sp_nolake_loocv$cv_predict)
+
+micx_sp_nolake_auc <- as.numeric(auc$auc)
 
 Sys.time()
 
@@ -842,7 +859,9 @@ micx_nsp_nolake_auc <- AUROC(micx_nsp_nolake)
 micx_nsp_nolake_loocv <- loocv(micx_nsp_nolake, cv_predict = TRUE)
 
 # Check AUC for loovc
-pROC::roc(micx_nsp_nolake$obdata$MICX_DET, micx_nsp_nolake_loocv$cv_predict)
+auc <- pROC::roc(micx_nsp_nolake$obdata$MICX_DET, micx_nsp_nolake_loocv$cv_predict)
+
+micx_nsp_nolake_auc <- as.numeric(auc$auc)
 
 # Visualize the results
 # Boxplot of probabilities
@@ -925,14 +944,18 @@ micx_nsp_nolake_loocv
 
 # Comparison table
 micx_spatial_comp <-
-  rbind(micx_sp_withlake_loocv,
-        micx_nsp_withlake_loocv,
-        micx_sp_nolake_loocv,
-        micx_nsp_nolake_loocv) |>
+  rbind(micx_sp_withlake_loocv$stats,
+        micx_nsp_withlake_loocv$stats,
+        micx_sp_nolake_loocv$stats,
+        micx_nsp_nolake_loocv$stats) |>
   mutate(resp_var = "micx",
-         lake_data = c(rep("present", 2), rep("absent", 2)),
+         lake_data = c(rep("present", 2), 
+                       rep("absent", 2)),
          spatial_mod = c(rep(c("spatial", "non-spatial"), 2)), .before = bias,
-         auc = c(micx_sp_withlake_auc, micx_nsp_withlake_auc, micx_sp_nolake_auc, micx_nsp_nolake_auc))
+         auc = c(micx_sp_withlake_auc, 
+                 micx_nsp_withlake_auc, 
+                 micx_sp_nolake_auc, 
+                 micx_nsp_nolake_auc))
 
 # Save the table
 saveRDS(micx_spatial_comp, "./inst/model_objects/spatial_compare_micx.rds")
