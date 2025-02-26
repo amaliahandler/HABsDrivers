@@ -199,6 +199,8 @@ corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.s
 ```
 
 ```{r extract model fixed effects}
+#| label: tbl-fixed_effects
+#| tbl-cap: Model fixed effect coefficient sign (negative or positive) and p-value (* <0.05, ** <0.01, **** < 0.001) for cyanobacteria and microcystin models both where in-lake data was present or absent.
 
 # Function to extract the fixed effects from each model
 fixed_effect_retriever <- function(model_obj, resp_var, lake_data){
@@ -220,7 +222,7 @@ fixed_df <- rbind(
 )
 
 # Table that includes both response variables and models with and without lake data. Covariates are converted to positive or negative signs with asterisks denoting the associated p-values.
-fixed_df |>
+est_and_sign <- fixed_df |>
   filter(!fixed_effect == "(Intercept)") |>
   mutate(est_sign = ifelse(estimate > 0, "+", "−"),
          sig = case_when(p >= 0.05 ~ "ns",
@@ -231,9 +233,11 @@ fixed_df |>
                           paste0(est_sign, " (", sig, ")")),
          fixed_effect = factor(fixed_effect, 
                                levels = c("NTL",
-                                          "NITRATE_DET",
                                           "NITRATE_N",
+                                          "AMMONIA_N",
                                           "DOC",
+                                          "TURB",
+                                          "PH",
                                           "EVAP_INFL",
                                           "MAXDEPTH",
                                           "lakemorpho_fetch",
@@ -247,19 +251,110 @@ fixed_df |>
                                           "Tmean8110Ws",
                                           "AG_ECO3PLNLOW",
                                           "AG_ECO3EHIGH",
-                                          "AG_ECO3WMTNS"
+                                          "NTL:AG_ECO3PLNLOW",
+                                          "NTL:AG_ECO3EHIGH"
                                ))) |>
   select(response_var:fixed_effect, est_sig) |>
   pivot_wider(names_from = response_var:lake_data,
               values_from = est_sig,
-              values_fill = " ") |>
+              values_fill = "") |>
   arrange(fixed_effect) |>
   relocate(fixed_effect, cyano_present, micx_present, cyano_absent, micx_absent)
   
-knitr::kable(fixed_df)
+knitr::kable(est_and_sign)
 
 ```
 
--   Table of model results/equations (covariates \[intercept, fixed effect, random effect, ie, de, range\],
+```{r fitted values maps}
+#| label: fitted-maps
+#| fig-width: 6
+#| fig-height: 6
+#| fig-cap: "Fitted values for the cyanobacteria and microcystin models without in-lake data."
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+cyano_nolake_loocv <- loocv(cyano_nolake, cv_predict = TRUE)
+
+cyano_nolake_aug <- augment(cyano_nolake) |>
+  mutate(preds = cyano_nolake_loocv$cv_predict) |>
+  arrange(preds)
+
+fit_cyano <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = cyano_nolake_aug, 
+          aes(fill = preds), pch = 21, size = 2) +
+  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
+                       name = "Cyanobacteria\nLog10(Count + \n1000)") +
+  theme_void()
+
+micx_sp_nolake_aug <- augment(micx_nolake)
+
+fit_micx <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = micx_sp_nolake_aug, aes(fill = .fitted), pch = 21, size = 2) +
+  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
+                       name = "Microcystin\nFitted \nProbability") +
+  theme_void()
+
+ggpubr::ggarrange(plotlist = list(fit_cyano, fit_micx),
+                  nrow = 2)
+
+```
+
+
+
+```{r model fit comparison}
+#| label: tbl-mod-fit
+#| tbl-cap: Comparison of model fit for model where in-lake data is present or absent and based on spatial of independent error models.
+
+comp_cyan <- readRDS(paste0(here(), "/inst/model_objects/spatial_compare_cyano.rds")) |>
+  rename(fit = cor2)
+
+comp_micx <- readRDS(paste0(here(), "/inst/model_objects/spatial_compare_micx.rds")) |>
+  rename(fit = auc)
+
+fit_comp <- 
+  rbind(comp_cyan, comp_micx) |>
+  select(resp_var, spatial_mod, lake_data, fit) |>
+  pivot_wider(names_from = lake_data,
+              values_from = fit) |>
+  rename(Model = resp_var,
+         Error_Structure = spatial_mod)
+
+knitr::kable(fit_comp, digits = 2)
+
+```
+
+
+
+```{r spatial covariance maps}
+#| label: spcov-maps
+#| fig-width: 6
+#| fig-height: 6
+#| fig-cap: "Spatial covariance for the cyanobacteria and microcystin models without in-lake data."
+
+cyano_aug <- augment(cyano_nolake)
+cyano_aug$.spde <- fitted(cyano_nolake, type = "spcov")$de
+
+spcov_cyano <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = arrange(cyano_aug, .spde), 
+          aes(fill = .spde), pch = 21, size = 2) +
+  colorspace::scale_fill_continuous_divergingx(palette = 'RdBu', mid = 0, rev = TRUE, name = "Spatial \nCovariance") +
+  ggtitle("Cyanobacteria") +
+  theme_void()
+
+micx_aug <- micx_nolake |>
+  augment() |>
+  mutate(.spde = fitted(micx_nolake, type = "spcov")$de, .after = .std.resid)
+
+spcov_micx <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = arrange(micx_aug, .spde), 
+          aes(fill = .spde), pch = 21, size = 2) +
+  colorspace::scale_fill_continuous_divergingx(palette = 'RdBu', mid = 0, rev = TRUE, name = "Spatial \nCovariance") +
+  ggtitle("Microcystin") +
+  theme_void()
+
+ggpubr::ggarrange(plotlist = list(spcov_cyano, spcov_micx),
+                  nrow = 2)
+```
+
