@@ -217,15 +217,15 @@ ggplot(comp_micx, aes(color = drain_level)) +
 
 ggsave("drain_map_final.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 700)
 
-ggplot(comp_micx, aes(x=(drain_ratio), fill = all_pred)) +
+ggplot(comp_micx, aes(x=(drain_manual), fill = all_pred)) +
   geom_density(size = 0.75) +
   facet_wrap(~all_pred, nrow=4, ncol=1) +
-  xlim(0,0.075) +
+  xlim(0,206) +
   labs(y = "Density", x = "Drainage Ratio", fill = 'Class',
        title = 'Drain Ratio - MICX')
 
 ggsave("nutrients_cyano_bi.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 600)
-ggsave("drain_bin.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 700)
+ggsave("drain_micx_final1.jpeg", width = 6, height = 12, device = 'jpeg', dpi = 700)
 
 
 # end drain specifics ----------------------------------------------------------
@@ -235,24 +235,27 @@ comp_micx <- comp_micx |>
 
 # micx_sample <- sample_n(comp_micx, 5000)
 
-plot <- ggplot(comp_micx, aes(x=custom_area, y=MAXDEPTH)) +
+plot <- ggplot(comp_cyano, aes(x=WsAreaHa, y=n_farm_inputs, color = all_pred)) +
   geom_point(alpha = 0.2) +
   geom_smooth(method = 'lm') +
+  facet_wrap(~all_pred)+
   # scale_color_manual(values = fst_cols,
   #                    labels = fst_labels,
   #                    name = "Cover (%)") +
-  labs(y = "ws area", x = "lake area",
-       title = 'wsarea / lake area')
+  labs(y = "n_farm_inputs", x = "WsAreaHa")  +
+  ggpubr::stat_cor(aes(label = after_stat(rr.label)), color = "red", geom = "label")
 
 plot +
-  scale_x_continuous(trans = 'log') +
-  scale_y_continuous(trans = 'log')
+  scale_x_continuous(trans = 'log10') +
+  scale_y_continuous(trans = 'log10')
 
 ggplot(comp_micx, aes(x=ag_eco9, y=WsAreaHa, fill = ag_eco9)) +
   geom_boxplot() +
   ylim(0,250)
 
-ggsave("nutr_wsareaha_plot.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+spmodel::tidy(anova(model_cyano_nolakes))
+
+ggsave("area_nutr_cyano_r^2.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 ggplot(comp_micx, aes(x=drain_ratio, y=nutr_all, color = ag_eco9)) +
   geom_point(alpha = 0.2) +
@@ -939,7 +942,8 @@ comp_cyano <- comp_cyano %>%
   filter(MAXDEPTH > 0)
 
 comp_cyano <- comp_cyano %>%
-  mutate(drain_manual = WsAreaSqKm / area_km)
+  mutate(drain_manual = WsAreaSqKm / area_km,
+         WsAreaHa = WsAreaSqKm * 100)
 
 comp_cyano$Shape <- st_point_on_surface(comp_cyano$Shape)|>
   st_transform(crs=5072)
