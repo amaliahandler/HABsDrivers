@@ -12,7 +12,7 @@ states <- states(cb = TRUE, progress_bar = FALSE)  %>%
 micx_pred <- st_join(wbd_copy, micx_pred_df)
 
 pred_cols <- PredDataMini |>
-  select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
+  dplyr::select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
 
 comp_micx <- left_join(micx_pred, pred_cols, by = 'COMID')
 
@@ -69,8 +69,11 @@ comp_micx <- comp_micx %>%
     (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx >= 0.50 ~ 'LNHM',
     (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx < 0.50 ~ 'HNLM',
     (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx < 0.50 ~ 'LNLM',
-    TRUE ~ 'OTHER'
-  )))
+    TRUE ~ 'OTHER'),
+    levels = c('HNHM','LNHM', 'HNLM','LNLM'))) %>%
+    arrange(all_pred)
+
+
 
 # Ratios --------------------------------------------------------------------
 
@@ -218,7 +221,7 @@ ggplot(comp_micx, aes(color = drain_level)) +
 ggsave("drain_map_final.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 700)
 
 ggplot(comp_micx, aes(x=(drain_manual), fill = all_pred)) +
-  geom_density(size = 0.75) +
+  ggridges::geom_density_ridges2(size = 0.75) +
   facet_wrap(~all_pred, nrow=4, ncol=1) +
   xlim(0,206) +
   labs(y = "Density", x = "Drainage Ratio", fill = 'Class',
@@ -293,13 +296,6 @@ ggsave("AD_ratio_binary3.jpeg", width = 6, height = 12, device = 'jpeg', dpi = 7
 
 cor(comp_micx_filter$ad_ratio, comp_micx_filter$pred_micx,
     method = 'spearman', use = "pairwise.complete.obs")
-
-ggplot(comp_micx, aes(x=(ad_ratio), fill = all_pred)) +
-  geom_density(size = 0.75) +
-  facet_wrap(~all_pred, nrow=4, ncol=1) +
-  xlim(0,0.5) +
-  labs(y = "Density", x = "A:D Ratio", fill = 'Class',
-       title = 'A:D Ratio - MICX')
 
 # Iowa and North Dakota --------------------------------------------------------
 
@@ -817,7 +813,7 @@ ggsave("new_fetch_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi =
 cy_pred <- st_join(wbd_copy, pred_df)
 
 pred_cols <- PredDataMini |>
-  select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
+  dplyr::select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
 
 comp_cyano <- left_join(cy_pred, pred_cols, by = 'COMID')
 
@@ -909,8 +905,9 @@ comp_cyano <- comp_cyano %>%
     (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano >= 5 ~ 'LNHC',
     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano < 5 ~ 'HNLC',
     (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano < 5 ~ 'LNLC',
-    TRUE ~ 'OTHER'
-  )))
+    TRUE ~ 'OTHER'),
+    levels = c('HNHC','LNHC', 'HNLC','LNLC'))) %>%
+  arrange(all_pred)
 
 # ggplot(pred_filter, aes(color = all_pred)) +
 #   geom_sf(size = 0.4) +
@@ -1448,6 +1445,111 @@ ggplot(cyanohabs_grid, aes(color = disc_cyano)) +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme_void() +
   guides(colour = guide_legend(override.aes = list(size=4)))
+
+# Final Density Plots ==========================================================
+
+# Precipitation
+
+micxcat_labels <- c('High Nutrient, High HABs',
+                    'High Nutrient, Low HABs',
+                    'Low Nutrient, High HABs',
+                    'Low Nutrient, Low HABs')
+
+precip_den_micx <- ggplot(comp_micx, aes(x=Precip8110Ws, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85) +
+  scale_fill_manual(values = c("#DC7633","#EDBB99","#5499C7", "#A9CCE3"),
+                    labels = micxcat_labels) +
+  xlim(0,2000) +
+  labs(x = "Precipitation (mm)", fill = 'Class',
+       title = 'Microcystin') +
+  theme(axis.title.y=element_blank())
+
+precip_den_cyano <- ggplot(comp_cyano, aes(x=Precip8110Ws, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85) +
+  scale_fill_manual(values = c("#DC7633","#EDBB99","#5499C7", "#A9CCE3"),
+                    labels = micxcat_labels) +
+  xlim(0,2000) +
+  labs(x = "Precipitation (mm)", y = "Density Distribution",  fill = 'Class',
+       title = 'Cyanobacteria') +
+  theme(axis.title.y=element_blank())
+
+ggpubr::ggarrange(precip_den_cyano, precip_den_micx,
+                  ncol = 2, nrow = 1,
+                  common.legend = TRUE)
+
+ggsave("precip_density_panel.jpeg", width = 12, height = 7, device = 'jpeg', dpi = 500)
+
+# Base Flow
+
+micxcat_labels <- c('High Nutrient, High HABs',
+                    'Low Nutrient, High HABs',
+                    'High Nutrient, Low HABs',
+                    'Low Nutrient, Low HABs')
+
+baseflow_den_micx <- ggplot(comp_micx, aes(x=BFIWs, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#DC7633","#EDBB99","#5499C7", "#A9CCE3"),
+                    labels = micxcat_labels) +
+  xlim(0,100) +
+  labs(x = "BaseFlow (%)", fill = 'Class',
+       title = 'Microcystin') +
+  theme(axis.title.y=element_blank())
+
+baseflow_den_cyano <- ggplot(comp_cyano, aes(x=BFIWs, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#DC7633","#EDBB99","#5499C7", "#A9CCE3"),
+                    labels = micxcat_labels) +
+  xlim(0,100) +
+  labs(x = "BaseFlow (%)", y = "Density Distribution",  fill = 'Class',
+       title = 'Lake Baseflow Index') +
+  theme(axis.title.y=element_blank())
+
+ggpubr::ggarrange(baseflow_den_cyano, baseflow_den_micx,
+                  ncol = 2, nrow = 1,
+                  common.legend = TRUE)
+
+ggsave("BFIW_density_panel.jpeg", width = 12, height = 7, device = 'jpeg', dpi = 500)
+
+# Area:Depth Ratio
+
+ad_den_micx <- ggplot(comp_micx, aes(x=ad_ratio, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85) +
+  scale_fill_manual(values = c("#DC7633","#EDBB99","#5499C7", "#A9CCE3"),
+                    labels = micxcat_labels) +
+  xlim(0,0.5) +
+  labs(x = "Area:Depth Ratio", fill = 'Class',
+       title = 'Microcystin') +
+  theme(axis.title.y=element_blank())
+
+ad_den_cyano <- ggplot(comp_cyano, aes(x=ad_ratio, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#DC7633","#EDBB99","#5499C7", "#A9CCE3"),
+                    labels = micxcat_labels) +
+  xlim(0,0.5) +
+  labs(x = "A:D Ratio", y = "Density Distribution",  fill = 'Class',
+       title = 'Lake Area:Depth Ratio') +
+  theme(axis.title.y=element_blank())
+
+ggpubr::ggarrange(baseflow_den_cyano, ad_den_cyano,
+                  ncol = 2, nrow = 1,
+                  common.legend = TRUE)
+
+ggsave("ad_baseflow_cyano_panel_final.jpeg", width = 12, height = 7, device = 'jpeg', dpi = 500)
 
 
 

@@ -305,31 +305,25 @@ names(PredDataMas)[names(PredDataMas) == 'WsAreaSqKm.x'] <- 'WsAreaSqKm'
 
 lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/lake_met_dir"
 lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "\\.csv$")
-#
+
 #compile files into a single data frame
 lake_met_df <- lake_met_files |>
   map_dfr(read.csv)
-#
+
 met_comids <- lake_met_df$COMID
-#
+
 lake_met_df <- lake_met_df |>
   distinct(COMID, .keep_all = TRUE)
-#
+
 get_morpho_obj <- function(com, df){
   lake_com <- filter(df, COMID == com)
   lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
   lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
   saveRDS(lake_lm, file = paste0('C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/test_depths/', com, ".rds"))
 }
-#
-#
+
 #run function to the missing depths COMIDs
-depths <- lapply(missing_com, get_morpho_obj, missing_depth)
-
-na_ad_coms <- na_ad$COMID
-
-depths <- lapply(na_ad_coms, get_morpho_obj, na_ad)
-
+depths <- lapply(met_comids, get_morpho_obj, lake_met_df)
 
 #load lake morpho object files from folder
 data_dir <- "./private/lake_morpho_objects/"
@@ -350,17 +344,17 @@ morph_it <- function(file_name) {
     message("Skipping file: ", file_name)
   }
 }
-#
+
 l <- lapply(lm_files, morph_it)
-#
+
 #pull metrics data to create final df
 met_dir <- "./private/metrics/"
 met_files <- fs::dir_ls(met_dir, regexp = "\\.rds$")
-#
+
 #compile files into a single data frame
 lake_met_df <- met_files |>
   map_dfr(readRDS)
-#
+
 # save csv with exsiting lake metrics
 # write.csv(lake_met_df, "./private/lake_met_df_9-25.csv")
 
@@ -493,33 +487,61 @@ pred_df <- wbd_pred %>%
 # pred_df <- read_csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/pred_df.csv", col_names = TRUE)
 
 pred_df <- pred_df %>%
-  mutate(disc_cyano = factor(case_when(pred_cyano < 4 ~ 'B1', # under 10k
-                                       pred_cyano >= 4 & pred_cyano < 4.7 ~ 'B2', # 10k - 50k
-                                       pred_cyano >= 4.7 & pred_cyano < 5 ~ 'B3', # 50k - 100k
-                                       pred_cyano >= 5 & pred_cyano < 5.3 ~ 'B4', # 100k - 200k
-                                       pred_cyano >= 5.3 & pred_cyano < 6 ~ 'B5', # 200k - 1 mil
-                                       pred_cyano > 6 ~ 'B6', # above 1 mil
+  mutate(disc_cyano = factor(case_when(pred_cyano < 4.41497 ~ 'B1', # under 25k
+                                       pred_cyano >= 4.41497 & pred_cyano < 4.70757 ~ 'B2', # 25k - 50k
+                                       pred_cyano >= 4.70757 & pred_cyano < 5.00432 ~ 'B3', # 50k - 100k
+                                       pred_cyano >= 5.00432 & pred_cyano < 5.39967 ~ 'B4', # 100k - 250k
+                                       pred_cyano >= 5.39967 & pred_cyano < 5.69984 ~ 'B5', # 250k-500k
+                                       pred_cyano > 5.69984 ~ 'B6', # 500k
                                        TRUE ~ NA),
                              levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
   arrange(disc_cyano)
 
 # summary(pred_df$disc_cyano)
 # sum(is.na(pred_df$disc_cyano))
+sub_25 <- pred_df %>%
+  filter(disc_cyano == 'B1')
 
-cyano_labels <- c('< 10k', '10k - 50k', '50k - 100k', '100k - 200k', '200k - 1 million', ' > 1 million')
 
-ggplot(pred_df, aes(color = disc_cyano)) +
-  geom_sf(size = 0.4) +
-  scale_color_manual(values = c("#9f07f7", "#2B83BA", "#ABDDA4", "#f7d577", "#FDAE61","#D7191C"),
+cyano_labels <- c('< 25k', '25k - 50k', '50k - 100k', '100k - 250k', '250k - 500K', ' > 500K')
+cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
+
+# ggplot(pred_df, aes(color = disc_cyano)) +
+#   geom_sf(size = 0.01,
+#           alpha = 0.8) +
+#   scale_color_manual(values = cyano_colors,
+#                      labels = cyano_labels,
+#                      name = "Cells/mL") +
+#   labs(title = "Cyanobacteria Predictions") +
+#   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+#   theme(plot.title = element_text(size = 12)) +
+#   theme_classic() +
+#   guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggplot() +
+  geom_sf(data = pred_df,
+          aes(color = disc_cyano),
+          size = 0.2,
+          alpha = 0.8) +
+  scale_color_manual(values = cyano_colors,
                      labels = cyano_labels,
                      name = "Cells/mL") +
+  geom_sf(data = sub_25,
+          aes(color = disc_cyano),
+          size = 0.2,
+          alpha = 0.8) +
   labs(title = "Cyanobacteria Predictions") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
+  annotation_north_arrow(location = "bl",
+                         width = unit(1, "cm"), pad_x = unit(0, "cm")) +
+  theme(panel.background = element_blank(),
+        panel.grid.major = element_blank(),
+        plot.title = element_text(size = 12)
+  ) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
 #save plot
-ggsave("final_cyano_pred.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("cyano_pred_updated.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # microcystin ------------------------------------------------------------------
 
@@ -553,21 +575,30 @@ micx_pred_df <- micx_pred_df %>%
 
 labels = c("0-25%", "25-50%", "50-75%", "75-100%")
 breaks <- c(0.25,0.50,0.75,1.0)
-cols <- c("#2B83BA","#ABDDA4", "#FDAE61", "#D7191C")
+#cols <- c("#2B83BA","#ABDDA4", "#FDAE61", "#D7191C")
+micx_colors <- c("#2980b9","#aed6f1","#f0b27a","#d35405")
+micx_colors2 <- c("#5499C7","#A9CCE3","#EDBB99","#DC7633")
+
+
 
 ggplot(micx_pred_df, aes(color = pred_micx)) +
-  geom_sf(size = 0.4) +
-  scale_color_stepsn(colors = cols,
+  geom_sf(size = 0.3) +
+  scale_color_stepsn(colors = micx_colors2,
                      breaks = breaks,
                      labels = labels,
                      name = "Probability (%)") +
   labs(title = "Microcystin Detection at or above 0.1 μg/L") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
+  annotation_north_arrow(location = "bl",
+                         width = unit(1, "cm"), pad_x = unit(0, "cm")) +
+  theme(panel.background = element_blank(),
+        panel.grid.major = element_blank(),
+        plot.title = element_text(size = 12)
+  ) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
 # save the map
-ggsave("final_micx_pred.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("micx_pred_color3.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # individual variable mapping --------------------------------------------------
 
