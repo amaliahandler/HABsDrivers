@@ -58,9 +58,9 @@ mean_group <- function(df){
 }
 
 # Combining variables to main predictor data set, removing repeated columns and merging by COMID
-incorp <- function(df){
+incorp <- function(df, x){
   df <- subset(df, select = -c(CatAreaSqKm,WsAreaSqKm,CatPctFull,WsPctFull,inStreamCat))
-  merge(PredDataMas, df, by = 'COMID')
+  merge(x, df, by = 'COMID')
 }
 
 # Combine 2007 and 2012 Data -----------------------------------------------
