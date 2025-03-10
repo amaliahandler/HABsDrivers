@@ -1551,5 +1551,49 @@ ggpubr::ggarrange(baseflow_den_cyano, ad_den_cyano,
 
 ggsave("ad_baseflow_cyano_panel_final.jpeg", width = 12, height = 7, device = 'jpeg', dpi = 500)
 
+# personal interest analysis ---------------------------------------------------
+
+get_nlcd_2 <- function(coms){
+  lc_get_data(metric = 'Om, WtDep, HydrlCond, Perm',
+              aoi='watershed',
+              comid = coms,
+              showAreaSqKm = TRUE)
+}
+
+hydro <- comp_cyano |>
+  dplyr::select(pred_cyano, COMID, all_pred) |>
+  merge(PredDataVar) |>
+  rename(cyano_grp = all_pred) |>
+  st_drop_geometry()
+
+hydro_all <- comp_micx |>
+  dplyr::select(pred_micx, COMID, Shape, all_pred) |>
+  merge(hydro) |>
+  rename(micx_grp = all_pred)
+rm(hydro)
+
+chunks <- split(hydro_all$COMID, ceiling(seq_along(hydro_all$COMID) / 10000))
+
+ncldMas <- do.call(rbind, lapply(chunks, get_nlcd_2))
+
+hydro_all <- merge(hydro_all, ncldMas, by = 'COMID')
+
+cor(hydro_all$MAXDEPTH, hydro_all$pred_cyano,
+    method = "spearman", use = "pairwise.complete.obs")
+
+
+ggplot(hydro_all, aes(x=PERMWS), fill = cyano_grp) +
+  geom_density() +
+  facet_wrap(~cyano_grp) +
+  labs(x = "Mean permeability (cm/hour) of soils", y = "Density Distribution",  fill = 'Class')
+
+
+
+hydro_all |>
+  filter(cyano_grp == "LNHC") |>
+  summary()
+
+
+
 
 

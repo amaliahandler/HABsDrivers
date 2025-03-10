@@ -503,7 +503,7 @@ sub_25 <- pred_df %>%
   filter(disc_cyano == 'B1')
 
 
-cyano_labels <- c('< 25k', '25k - 50k', '50k - 100k', '100k - 250k', '250k - 500K', ' > 500K')
+cyano_labels <- c('< 25', '25 - 50', '50 - 100', '100 - 250', '250 - 500', ' > 500')
 cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
 
 # ggplot(pred_df, aes(color = disc_cyano)) +
@@ -525,23 +525,19 @@ ggplot() +
           alpha = 0.8) +
   scale_color_manual(values = cyano_colors,
                      labels = cyano_labels,
-                     name = "Cells/mL") +
+                     name = "Cyanobacteria (1000 cells/mL)") +
   geom_sf(data = sub_25,
           aes(color = disc_cyano),
           size = 0.2,
-          alpha = 0.8) +
-  labs(title = "Cyanobacteria Predictions") +
+          alpha = 0.8)  +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  annotation_north_arrow(location = "bl",
-                         width = unit(1, "cm"), pad_x = unit(0, "cm")) +
-  theme(panel.background = element_blank(),
-        panel.grid.major = element_blank(),
-        plot.title = element_text(size = 12)
-  ) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
+  theme(plot.title = element_text(size = 12)) +
+  theme_void() +
+  theme(legend.position = c(0.15, 0.12)) +
+  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
 
 #save plot
-ggsave("cyano_pred_updated.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("cyano_pred_minimal.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # microcystin ------------------------------------------------------------------
 
@@ -573,7 +569,7 @@ micx_pred_df$pred_micx <- boot::inv.logit(micx_pred_df$pred_micx)
 micx_pred_df <- micx_pred_df %>%
   arrange(pred_micx)
 
-labels = c("0-25%", "25-50%", "50-75%", "75-100%")
+labels = c("0-25", "25-50", "50-75", "75-100")
 breaks <- c(0.25,0.50,0.75,1.0)
 #cols <- c("#2B83BA","#ABDDA4", "#FDAE61", "#D7191C")
 micx_colors <- c("#2980b9","#aed6f1","#f0b27a","#d35405")
@@ -583,22 +579,19 @@ micx_colors2 <- c("#5499C7","#A9CCE3","#EDBB99","#DC7633")
 
 ggplot(micx_pred_df, aes(color = pred_micx)) +
   geom_sf(size = 0.3) +
-  scale_color_stepsn(colors = micx_colors2,
+  scale_color_stepsn(colors = micx_colors,
                      breaks = breaks,
                      labels = labels,
-                     name = "Probability (%)") +
-  labs(title = "Microcystin Detection at or above 0.1 μg/L") +
+                     name = "Probability of \nMicrocystin Detection (%)") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  annotation_north_arrow(location = "bl",
-                         width = unit(1, "cm"), pad_x = unit(0, "cm")) +
-  theme(panel.background = element_blank(),
-        panel.grid.major = element_blank(),
-        plot.title = element_text(size = 12)
-  ) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
+  theme(plot.title = element_text(size = 12)) +
+  theme_void() +
+  theme(legend.position = c(0.15, 0.15)) +
+  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
+
 
 # save the map
-ggsave("micx_pred_color3.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("micx_pred_minimal.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # individual variable mapping --------------------------------------------------
 
