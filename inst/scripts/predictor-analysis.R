@@ -909,14 +909,16 @@ comp_cyano <- comp_cyano %>%
     levels = c('HNHC','LNHC', 'HNLC','LNLC'))) %>%
   arrange(all_pred)
 
-# ggplot(pred_filter, aes(color = all_pred)) +
-#   geom_sf(size = 0.4) +
-#   facet_wrap(~all_pred) +
-#   labs(title = "Where are the nutrient/cyano @ 100k cutoff?") +
-#   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-#   theme(plot.title = element_text(size = 12)) +
-#   guides(colour = guide_legend(override.aes = list(size=4)))
-#
+nutr_grp_cols <- c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")
+
+ggplot(comp_cyano, aes(color = all_pred)) +
+  geom_sf(size = 0.5) +
+  scale_color_manual(values = nutr_grp_cols) +
+  labs(title = "Where are the nutrient/cyano @ 100k cutoff?") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
 # ggsave("new_100k_cyano3.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # Ratios --------------------------------------------------------------------
@@ -1458,8 +1460,9 @@ micxcat_labels <- c('High Nutrient, High HABs',
 precip_den_micx <- ggplot(comp_micx, aes(x=Precip8110Ws, y= all_pred)) +
   ggridges::geom_density_ridges(aes(fill = all_pred),
                                 scale = 2,
-                                alpha = 0.85) +
-  scale_fill_manual(values = c("#DC7633","#EDBB99","#5499C7", "#A9CCE3"),
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = micxcat_labels) +
   xlim(0,2000) +
   labs(x = "Precipitation (mm)", fill = 'Class',
@@ -1469,8 +1472,9 @@ precip_den_micx <- ggplot(comp_micx, aes(x=Precip8110Ws, y= all_pred)) +
 precip_den_cyano <- ggplot(comp_cyano, aes(x=Precip8110Ws, y= all_pred)) +
   ggridges::geom_density_ridges(aes(fill = all_pred),
                                 scale = 2,
-                                alpha = 0.85) +
-  scale_fill_manual(values = c("#DC7633","#EDBB99","#5499C7", "#A9CCE3"),
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = micxcat_labels) +
   xlim(0,2000) +
   labs(x = "Precipitation (mm)", y = "Density Distribution",  fill = 'Class',
@@ -1481,7 +1485,7 @@ ggpubr::ggarrange(precip_den_cyano, precip_den_micx,
                   ncol = 2, nrow = 1,
                   common.legend = TRUE)
 
-ggsave("precip_density_panel.jpeg", width = 12, height = 7, device = 'jpeg', dpi = 500)
+ggsave("precip_density_panel_prpgrn.jpeg", width = 12, height = 7, device = 'jpeg', dpi = 500)
 
 # Base Flow
 
@@ -1495,7 +1499,7 @@ baseflow_den_micx <- ggplot(comp_micx, aes(x=BFIWs, y= all_pred)) +
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#DC7633","#EDBB99","#5499C7", "#A9CCE3"),
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = micxcat_labels) +
   xlim(0,100) +
   labs(x = "BaseFlow (%)", fill = 'Class',
@@ -1507,26 +1511,27 @@ baseflow_den_cyano <- ggplot(comp_cyano, aes(x=BFIWs, y= all_pred)) +
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#DC7633","#EDBB99","#5499C7", "#A9CCE3"),
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = micxcat_labels) +
   xlim(0,100) +
   labs(x = "BaseFlow (%)", y = "Density Distribution",  fill = 'Class',
-       title = 'Lake Baseflow Index') +
+       title = 'Cyanobacteria') +
   theme(axis.title.y=element_blank())
 
 ggpubr::ggarrange(baseflow_den_cyano, baseflow_den_micx,
                   ncol = 2, nrow = 1,
                   common.legend = TRUE)
 
-ggsave("BFIW_density_panel.jpeg", width = 12, height = 7, device = 'jpeg', dpi = 500)
+ggsave("BFIW_density_panel_prpgrn.jpeg", width = 12, height = 7, device = 'jpeg', dpi = 500)
 
 # Area:Depth Ratio
 
 ad_den_micx <- ggplot(comp_micx, aes(x=ad_ratio, y= all_pred)) +
   ggridges::geom_density_ridges(aes(fill = all_pred),
                                 scale = 2,
-                                alpha = 0.85) +
-  scale_fill_manual(values = c("#DC7633","#EDBB99","#5499C7", "#A9CCE3"),
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = micxcat_labels) +
   xlim(0,0.5) +
   labs(x = "Area:Depth Ratio", fill = 'Class',
@@ -1538,14 +1543,14 @@ ad_den_cyano <- ggplot(comp_cyano, aes(x=ad_ratio, y= all_pred)) +
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#DC7633","#EDBB99","#5499C7", "#A9CCE3"),
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = micxcat_labels) +
   xlim(0,0.5) +
   labs(x = "A:D Ratio", y = "Density Distribution",  fill = 'Class',
-       title = 'Lake Area:Depth Ratio') +
+       title = 'Cyanobacteria') +
   theme(axis.title.y=element_blank())
 
-ggpubr::ggarrange(baseflow_den_cyano, ad_den_cyano,
+ggpubr::ggarrange(ad_den_micx, ad_den_cyano,
                   ncol = 2, nrow = 1,
                   common.legend = TRUE)
 
