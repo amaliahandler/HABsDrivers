@@ -462,16 +462,12 @@ dat_micx_lake <- habs |>
   drop_na()
 
 # Function to run independent error models with maximum likelihood 
-
-# Set the initial covariance to be small. This produces results identical to glm()
-spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
-
 run_micx_ie <- function(mod_vars, int = NULL){
   spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
         family = "binomial",
         data = dat_micx_lake,
         estmethod = "ml",
-        spcov_initial = spcov_init,
+        spcov_type = "none",
         random = ~ DSGN_CYCLE + UNIQUE_ID,
         local = T)
 }
@@ -502,8 +498,15 @@ glances(mx1, mx2, mx3, mx4, mx5, mx6)
 # Make a list of the independent error models to compare
 mx_ie_mods <- list(mx1, mx2, mx3, mx4, mx5, mx6)
 
-# Review model AUC
-mx_ie_auc <- sapply(mx_ie_mods, AUROC)
+# Run leave one out cross validation
+mx_ie_loovc <- lapply(mx_ie_mods, loocv, cv_predict = TRUE)
+
+# AUC based on loocv
+mx_ie_auc_loocv <- sapply(1:length(mx_ie_loovc), function(i){
+  preds <- mx_ie_loovc[[i]]$cv_predict
+  calc <- pROC::roc(mx_ie_mods[[i]]$obdata$MICX_DET, preds)
+  return(as.numeric(calc$auc))
+})
 
 # Variables common to all models
 com_vars <- c("NTL", "DOC", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
@@ -521,7 +524,7 @@ dif_vars <- sapply(mx_ie_mods, function(mod){
 mx_ie_modcomp <- glances(mx1, mx2, mx3, mx4, mx5, mx6) |>
   arrange(model) |>
   select(-npar, -value, -AICc, -logLik, -pseudo.r.squared) |> 
-  mutate(AUC = mx_ie_auc,
+  mutate(AUC = mx_ie_auc_loocv,
          distinct_vars = dif_vars,
          common_vars = paste(com_vars, collapse = ", ")) |>
   arrange(BIC)
@@ -552,11 +555,17 @@ mx6_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "P
 # Make a list of the models to compare
 mx_lake_sp_mods <- list(mx4_sp, mx5_sp, mx6_sp)
 
-# Review model AUC
-mx_lake_sp_auc <- sapply(mx_lake_sp_mods, AUROC)
-
 # Run leave one out cross validation
-mx_lake_sp_loocv <- do.call(rbind, lapply(mx_lake_sp_mods, loocv))
+mx_lake_sp_loocv <- lapply(mx_lake_sp_mods, loocv, cv_predict = TRUE)
+
+mx_lake_sp_fit <- do.call(rbind, lapply(mx_lake_sp_loocv, function(list.obj){list.obj$stats}))
+
+# AUC based on loocv
+mx_lake_sp_auc <- sapply(1:length(mx_lake_sp_loocv), function(i){
+  preds <- mx_lake_sp_loocv[[i]]$cv_predict
+  calc <- pROC::roc(mx_lake_sp_mods[[i]]$obdata$MICX_DET, preds)
+  return(as.numeric(calc$auc))
+})
 
 # Variables common to all models
 com_vars <- c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
@@ -569,7 +578,7 @@ dif_vars <- sapply(mx_lake_sp_mods, function(mod){
 })
 
 # Put it all together into a table
-mx_lake_sp_modcomp <- mx_lake_sp_loocv |>
+mx_lake_sp_modcomp <- mx_lake_sp_fit |>
   mutate(model = c("mx4_sp", "mx5_sp", "mx6_sp"),
          AUC = mx_lake_sp_auc,
          distinct_vars = dif_vars,
@@ -597,10 +606,8 @@ micx_sp_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, int
                           local = F)
 Sys.time()
 
-# Get AUC of final model
-micx_sp_withlake_auc <- AUROC(micx_sp_withlake)
 
-# Get bias, MSPE
+# Get bias, MSPE, and predictions for AUC
 micx_sp_withlake_loocv <- loocv(micx_sp_withlake, cv_predict = TRUE)
 
 # Get AUC from leave one out predictions
@@ -621,9 +628,6 @@ micx_nsp_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, in
                            spcov_type = "none",
                            random = ~ DSGN_CYCLE + UNIQUE_ID,
                            local = F)
-
-# Get AUC of non-spatial model
-micx_nsp_withlake_auc <- AUROC(micx_nsp_withlake)
 
 # Get bias, MSPE of non-spatial model
 micx_nsp_withlake_loocv <- loocv(micx_nsp_withlake, cv_predict = TRUE)
@@ -930,17 +934,30 @@ Compare models with and without lake data and spatial and independent error mode
 
 # With lake data
 micx_sp_withlake_auc
-micx_sp_withlake_loocv
+micx_sp_withlake_loocv$stats
 
 micx_nsp_withlake_auc
-micx_nsp_withlake_loocv
+micx_nsp_withlake_loocv$stats
+
+# Comparison table
+micx_spatial_comp <-
+  rbind(micx_sp_withlake_loocv$stats,
+        micx_nsp_withlake_loocv$stats) |>
+  mutate(resp_var = "micx",
+         lake_data = c(rep("present", 2)),
+         spatial_mod = c(rep(c("spatial", "non-spatial"), 1)), .before = bias,
+         auc = c(micx_sp_withlake_auc, 
+                 micx_nsp_withlake_auc))
+
+# Save the table
+saveRDS(micx_spatial_comp, "./inst/model_objects/spatial_compare_micx_nolake.rds")
 
 # No lake data
 micx_sp_nolake_auc
-micx_sp_nolake_loocv
+micx_sp_nolake_loocv$stats
 
 micx_nsp_nolake_auc
-micx_nsp_nolake_loocv
+micx_nsp_nolake_loocv$stats
 
 # Comparison table
 micx_spatial_comp <-
