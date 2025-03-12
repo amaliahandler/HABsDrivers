@@ -967,40 +967,6 @@ saveRDS(micx_spatial_comp, "./inst/model_objects/spatial_compare_micx.rds")
 ```
 
 
-Visuals for Merkley visit
-
-```{r}
-# Get the area for the PNW
-pnw <- AOI::aoi_get(state = c("OR", "WA", "ID"))
-
-# Retrieve model
-micx_sp_final_nolake <- readRDS("./inst/model_objects/model_micx_nolakedata.rds")
-
-# Filter data to just the PWN
-pnw_micx <- micx_sp_final_nolake |>
-  augment(type.predict = "response") |>
-  st_transform(st_crs(pnw)) |>
-  st_intersection(pnw) |>
-  arrange(.fitted)
-
-# Map of the PNW
-ggplot() + 
-  geom_sf(data = pnw, fill = "#e2e2e2", color = "black", lwd = 1) +
-  geom_sf(data = pnw_micx, aes(fill = .fitted), pch = 21, size = 2) +
-  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
-                       name = "Estimated \nProbability") +
-  # theme_void() +
-  ggtitle("Fitted Probability of Microcystin Detection")+
-  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
-ggsave("./figures/FittedProbMap_Micx_PNW.png", width = 5, height = 3.5, units = "in", dpi = 600)
-
-# Interactive map version
-mapview::mapview(pnw_micx, z = ".fitted")
-
-```
-
-
-
 Models for microcystin concentration, when present
 
 
