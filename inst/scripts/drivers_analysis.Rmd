@@ -103,9 +103,9 @@ print(c_value)
 
 ```
 
-### Cyanobacteria, With Lake Data
+### Cyanobacteria, With In-Lake Conditions
 
-```{r}
+```{r cyano with lake data}
 
 # Construct the model
 dep_var  <- "B_G_DENS"
@@ -235,9 +235,9 @@ ggsave("./inst/figures/cyano_withlake_sp_final_fitted_preds_map.png", width = 7,
 ```
 
 
-### Cyanobacteria, No Lake Data
+### Cyanobacteria, Without In-Lake Conditions
 
-```{r}
+```{r cyano without lake data}
 # Construct the model
 dep_var  <- "B_G_DENS"
 const    <- 1000
@@ -408,7 +408,7 @@ ggsave("./inst/figures/cyano_nolake_spde_map.png", width = 7, height = 3.5, unit
 
 Comparison of spatial and non-spatial models for cyanobacteria, with and without lake data
 
-```{r}
+```{r cyano spatial and independent error model comparison}
 
 # With lake data
 cyano_withlake_sp_loocv
@@ -436,9 +436,9 @@ saveRDS(cyano_spatial_comp, "./inst/model_objects/spatial_compare_cyano.rds")
 
 ## Microcystin Detection Models
 
-### Microcystin, With Lake Data
+### Microcystin, With In-Lake Conditions
 
-```{r}
+```{r micx with lake data}
 
 # Set the dependent variable
 dep <- "MICX_DET"
@@ -662,9 +662,9 @@ ggsave("./inst/figures/micx_sp_final_withlake_fitted_probs_map.png", width = 5, 
 ```
 
 
-### Microcystin, No Lake Data
+### Microcystin, No In-Lake Conditions
 
-```{r}
+```{r micx no lake data}
 # Set the dependent variable
 dep <- "MICX_DET"
 
@@ -930,7 +930,7 @@ ggsave("./inst/figures/micx_nolake_spde_map.png", width = 7, height = 3.5, units
 
 Compare models with and without lake data and spatial and independent error models
 
-```{r}
+```{r micx spatial and independent error model comparison}
 
 # With lake data
 micx_sp_withlake_auc
