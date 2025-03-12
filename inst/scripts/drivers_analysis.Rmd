@@ -723,11 +723,17 @@ glances(m1, m2, m3, m4, m5, m6)
 # Make a list of the independent error models to compare
 micx_ie_mods <- list(m1, m2, m3, m4, m5, m6)
 
-# Review model AUC
-micx_ie_auc <- sapply(micx_ie_mods, AUROC)
-
 # Run leave one out cross validation
 micx_ie_loocv <- lapply(micx_ie_mods, loocv, cv_predict = TRUE)
+
+micx_nolake_ie_fit <- do.call(rbind, lapply(micx_ie_loocv, function(list.obj){list.obj$stats}))
+
+# AUC based on loocv
+micx_nolake_ie_auc <- sapply(1:length(micx_ie_loocv), function(i){
+  preds <- micx_ie_loocv[[i]]$cv_predict
+  calc <- pROC::roc(micx_ie_mods[[i]]$obdata$MICX_DET, preds)
+  return(as.numeric(calc$auc))
+})
 
 # Variables common to all models
 com_vars <- c("BFIWs", "MAXDEPTH", "lakemorpho_fetch")
@@ -744,9 +750,9 @@ dif_vars <- sapply(micx_ie_mods, function(mod){
 # Put it all together into a table, note that the table is organized by BIC
 micx_ie_modcomp <- glances(m1, m2, m3, m4, m5, m6) |>
   arrange(model) |>
-  cbind(micx_ie_loocv) |>
+  cbind(micx_nolake_ie_fit) |>
   select(-npar, -value, -AICc, -logLik, -pseudo.r.squared) |> 
-  mutate(AUC = micx_ie_auc,
+  mutate(AUC = micx_nolake_ie_auc,
          distinct_vars = dif_vars,
          common_vars = paste(com_vars, collapse = ", ")) |>
   arrange(BIC) |>
@@ -777,9 +783,6 @@ m6_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Pr
 
 # Make a list of the models to compare
 micx_sp_mods <- list(m3_sp, m5_sp, m6_sp)
-
-# Review model AUC
-micx_sp_auc <- sapply(micx_sp_mods, AUROC)
 
 # Run leave one out cross validation
 micx_sp_loocv <- lapply(micx_sp_mods, loocv, cv_predict = TRUE)
@@ -813,7 +816,7 @@ micx_sp_modcomp <- rbind(micx_sp_loocv[[1]]$stats, micx_sp_loocv[[2]]$stats, mic
 # Save the model comparison table
 saveRDS(micx_sp_modcomp, "./inst/model_objects/micx_spmod_compare_nolakedata.rds")
 
-# The final model is model m3_sp due to the highest AUC and lowest MSPE.
+# Two models, m6_sp and m5_sp, had the highest AUC values. Chose to go with m5_sp because if it's slightly simpler forumulation and interpretation (no interactions)
 # The final model should be run using all available observations and with local = F
 mod_vars <- c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3")
 int <- NULL
@@ -832,7 +835,7 @@ micx_sp_nolake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, inter
 Sys.time()
 
 # Get AUC of final model
-micx_sp_nolake_auc <- AUROC(micx_sp_nolake)
+# micx_sp_nolake_auc <- AUROC(micx_sp_nolake)
 
 # Get bias, MSPE
 micx_sp_nolake_loocv <- loocv(micx_sp_nolake, cv_predict = TRUE)
@@ -852,12 +855,9 @@ micx_nsp_nolake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, inte
                            family = "binomial",
                            data = dat_final,
                            estmethod = "reml",
-                           spcov_initial = spcov_init,
+                           spcov_type = "none",
                            random = ~ DSGN_CYCLE + UNIQUE_ID,
                            local = F)
-
-# Get AUC of non-spatial model
-micx_nsp_nolake_auc <- AUROC(micx_nsp_nolake)
 
 # Get bias, MSPE of non-spatial model
 micx_nsp_nolake_loocv <- loocv(micx_nsp_nolake, cv_predict = TRUE)
@@ -938,19 +938,6 @@ micx_sp_withlake_loocv$stats
 
 micx_nsp_withlake_auc
 micx_nsp_withlake_loocv$stats
-
-# Comparison table
-micx_spatial_comp <-
-  rbind(micx_sp_withlake_loocv$stats,
-        micx_nsp_withlake_loocv$stats) |>
-  mutate(resp_var = "micx",
-         lake_data = c(rep("present", 2)),
-         spatial_mod = c(rep(c("spatial", "non-spatial"), 1)), .before = bias,
-         auc = c(micx_sp_withlake_auc, 
-                 micx_nsp_withlake_auc))
-
-# Save the table
-saveRDS(micx_spatial_comp, "./inst/model_objects/spatial_compare_micx_nolake.rds")
 
 # No lake data
 micx_sp_nolake_auc
