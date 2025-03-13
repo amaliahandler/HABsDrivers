@@ -103,9 +103,9 @@ print(c_value)
 
 ```
 
-### Cyanobacteria, With Lake Data
+### Cyanobacteria, With In-Lake Conditions
 
-```{r}
+```{r cyano with lake data}
 
 # Construct the model
 dep_var  <- "B_G_DENS"
@@ -235,9 +235,9 @@ ggsave("./inst/figures/cyano_withlake_sp_final_fitted_preds_map.png", width = 7,
 ```
 
 
-### Cyanobacteria, No Lake Data
+### Cyanobacteria, Without In-Lake Conditions
 
-```{r}
+```{r cyano without lake data}
 # Construct the model
 dep_var  <- "B_G_DENS"
 const    <- 1000
@@ -408,7 +408,7 @@ ggsave("./inst/figures/cyano_nolake_spde_map.png", width = 7, height = 3.5, unit
 
 Comparison of spatial and non-spatial models for cyanobacteria, with and without lake data
 
-```{r}
+```{r cyano spatial and independent error model comparison}
 
 # With lake data
 cyano_withlake_sp_loocv
@@ -436,9 +436,9 @@ saveRDS(cyano_spatial_comp, "./inst/model_objects/spatial_compare_cyano.rds")
 
 ## Microcystin Detection Models
 
-### Microcystin, With Lake Data
+### Microcystin, With In-Lake Conditions
 
-```{r}
+```{r micx with lake data}
 
 # Set the dependent variable
 dep <- "MICX_DET"
@@ -462,16 +462,12 @@ dat_micx_lake <- habs |>
   drop_na()
 
 # Function to run independent error models with maximum likelihood 
-
-# Set the initial covariance to be small. This produces results identical to glm()
-spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
-
 run_micx_ie <- function(mod_vars, int = NULL){
   spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
         family = "binomial",
         data = dat_micx_lake,
         estmethod = "ml",
-        spcov_initial = spcov_init,
+        spcov_type = "none",
         random = ~ DSGN_CYCLE + UNIQUE_ID,
         local = T)
 }
@@ -502,8 +498,15 @@ glances(mx1, mx2, mx3, mx4, mx5, mx6)
 # Make a list of the independent error models to compare
 mx_ie_mods <- list(mx1, mx2, mx3, mx4, mx5, mx6)
 
-# Review model AUC
-mx_ie_auc <- sapply(mx_ie_mods, AUROC)
+# Run leave one out cross validation
+mx_ie_loovc <- lapply(mx_ie_mods, loocv, cv_predict = TRUE)
+
+# AUC based on loocv
+mx_ie_auc_loocv <- sapply(1:length(mx_ie_loovc), function(i){
+  preds <- mx_ie_loovc[[i]]$cv_predict
+  calc <- pROC::roc(mx_ie_mods[[i]]$obdata$MICX_DET, preds)
+  return(as.numeric(calc$auc))
+})
 
 # Variables common to all models
 com_vars <- c("NTL", "DOC", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
@@ -521,7 +524,7 @@ dif_vars <- sapply(mx_ie_mods, function(mod){
 mx_ie_modcomp <- glances(mx1, mx2, mx3, mx4, mx5, mx6) |>
   arrange(model) |>
   select(-npar, -value, -AICc, -logLik, -pseudo.r.squared) |> 
-  mutate(AUC = mx_ie_auc,
+  mutate(AUC = mx_ie_auc_loocv,
          distinct_vars = dif_vars,
          common_vars = paste(com_vars, collapse = ", ")) |>
   arrange(BIC)
@@ -552,11 +555,17 @@ mx6_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "P
 # Make a list of the models to compare
 mx_lake_sp_mods <- list(mx4_sp, mx5_sp, mx6_sp)
 
-# Review model AUC
-mx_lake_sp_auc <- sapply(mx_lake_sp_mods, AUROC)
-
 # Run leave one out cross validation
-mx_lake_sp_loocv <- do.call(rbind, lapply(mx_lake_sp_mods, loocv))
+mx_lake_sp_loocv <- lapply(mx_lake_sp_mods, loocv, cv_predict = TRUE)
+
+mx_lake_sp_fit <- do.call(rbind, lapply(mx_lake_sp_loocv, function(list.obj){list.obj$stats}))
+
+# AUC based on loocv
+mx_lake_sp_auc <- sapply(1:length(mx_lake_sp_loocv), function(i){
+  preds <- mx_lake_sp_loocv[[i]]$cv_predict
+  calc <- pROC::roc(mx_lake_sp_mods[[i]]$obdata$MICX_DET, preds)
+  return(as.numeric(calc$auc))
+})
 
 # Variables common to all models
 com_vars <- c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
@@ -569,7 +578,7 @@ dif_vars <- sapply(mx_lake_sp_mods, function(mod){
 })
 
 # Put it all together into a table
-mx_lake_sp_modcomp <- mx_lake_sp_loocv |>
+mx_lake_sp_modcomp <- mx_lake_sp_fit |>
   mutate(model = c("mx4_sp", "mx5_sp", "mx6_sp"),
          AUC = mx_lake_sp_auc,
          distinct_vars = dif_vars,
@@ -597,10 +606,8 @@ micx_sp_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, int
                           local = F)
 Sys.time()
 
-# Get AUC of final model
-micx_sp_withlake_auc <- AUROC(micx_sp_withlake)
 
-# Get bias, MSPE
+# Get bias, MSPE, and predictions for AUC
 micx_sp_withlake_loocv <- loocv(micx_sp_withlake, cv_predict = TRUE)
 
 # Get AUC from leave one out predictions
@@ -621,9 +628,6 @@ micx_nsp_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, in
                            spcov_type = "none",
                            random = ~ DSGN_CYCLE + UNIQUE_ID,
                            local = F)
-
-# Get AUC of non-spatial model
-micx_nsp_withlake_auc <- AUROC(micx_nsp_withlake)
 
 # Get bias, MSPE of non-spatial model
 micx_nsp_withlake_loocv <- loocv(micx_nsp_withlake, cv_predict = TRUE)
@@ -658,9 +662,9 @@ ggsave("./inst/figures/micx_sp_final_withlake_fitted_probs_map.png", width = 5, 
 ```
 
 
-### Microcystin, No Lake Data
+### Microcystin, No In-Lake Conditions
 
-```{r}
+```{r micx no lake data}
 # Set the dependent variable
 dep <- "MICX_DET"
 
@@ -719,11 +723,17 @@ glances(m1, m2, m3, m4, m5, m6)
 # Make a list of the independent error models to compare
 micx_ie_mods <- list(m1, m2, m3, m4, m5, m6)
 
-# Review model AUC
-micx_ie_auc <- sapply(micx_ie_mods, AUROC)
-
 # Run leave one out cross validation
 micx_ie_loocv <- lapply(micx_ie_mods, loocv, cv_predict = TRUE)
+
+micx_nolake_ie_fit <- do.call(rbind, lapply(micx_ie_loocv, function(list.obj){list.obj$stats}))
+
+# AUC based on loocv
+micx_nolake_ie_auc <- sapply(1:length(micx_ie_loocv), function(i){
+  preds <- micx_ie_loocv[[i]]$cv_predict
+  calc <- pROC::roc(micx_ie_mods[[i]]$obdata$MICX_DET, preds)
+  return(as.numeric(calc$auc))
+})
 
 # Variables common to all models
 com_vars <- c("BFIWs", "MAXDEPTH", "lakemorpho_fetch")
@@ -740,9 +750,9 @@ dif_vars <- sapply(micx_ie_mods, function(mod){
 # Put it all together into a table, note that the table is organized by BIC
 micx_ie_modcomp <- glances(m1, m2, m3, m4, m5, m6) |>
   arrange(model) |>
-  cbind(micx_ie_loocv) |>
+  cbind(micx_nolake_ie_fit) |>
   select(-npar, -value, -AICc, -logLik, -pseudo.r.squared) |> 
-  mutate(AUC = micx_ie_auc,
+  mutate(AUC = micx_nolake_ie_auc,
          distinct_vars = dif_vars,
          common_vars = paste(com_vars, collapse = ", ")) |>
   arrange(BIC) |>
@@ -773,9 +783,6 @@ m6_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Pr
 
 # Make a list of the models to compare
 micx_sp_mods <- list(m3_sp, m5_sp, m6_sp)
-
-# Review model AUC
-micx_sp_auc <- sapply(micx_sp_mods, AUROC)
 
 # Run leave one out cross validation
 micx_sp_loocv <- lapply(micx_sp_mods, loocv, cv_predict = TRUE)
@@ -809,7 +816,7 @@ micx_sp_modcomp <- rbind(micx_sp_loocv[[1]]$stats, micx_sp_loocv[[2]]$stats, mic
 # Save the model comparison table
 saveRDS(micx_sp_modcomp, "./inst/model_objects/micx_spmod_compare_nolakedata.rds")
 
-# The final model is model m3_sp due to the highest AUC and lowest MSPE.
+# Two models, m6_sp and m5_sp, had the highest AUC values. Chose to go with m5_sp because if it's slightly simpler forumulation and interpretation (no interactions)
 # The final model should be run using all available observations and with local = F
 mod_vars <- c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3")
 int <- NULL
@@ -828,7 +835,7 @@ micx_sp_nolake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, inter
 Sys.time()
 
 # Get AUC of final model
-micx_sp_nolake_auc <- AUROC(micx_sp_nolake)
+# micx_sp_nolake_auc <- AUROC(micx_sp_nolake)
 
 # Get bias, MSPE
 micx_sp_nolake_loocv <- loocv(micx_sp_nolake, cv_predict = TRUE)
@@ -848,12 +855,9 @@ micx_nsp_nolake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, inte
                            family = "binomial",
                            data = dat_final,
                            estmethod = "reml",
-                           spcov_initial = spcov_init,
+                           spcov_type = "none",
                            random = ~ DSGN_CYCLE + UNIQUE_ID,
                            local = F)
-
-# Get AUC of non-spatial model
-micx_nsp_nolake_auc <- AUROC(micx_nsp_nolake)
 
 # Get bias, MSPE of non-spatial model
 micx_nsp_nolake_loocv <- loocv(micx_nsp_nolake, cv_predict = TRUE)
@@ -926,21 +930,21 @@ ggsave("./inst/figures/micx_nolake_spde_map.png", width = 7, height = 3.5, units
 
 Compare models with and without lake data and spatial and independent error models
 
-```{r}
+```{r micx spatial and independent error model comparison}
 
 # With lake data
 micx_sp_withlake_auc
-micx_sp_withlake_loocv
+micx_sp_withlake_loocv$stats
 
 micx_nsp_withlake_auc
-micx_nsp_withlake_loocv
+micx_nsp_withlake_loocv$stats
 
 # No lake data
 micx_sp_nolake_auc
-micx_sp_nolake_loocv
+micx_sp_nolake_loocv$stats
 
 micx_nsp_nolake_auc
-micx_nsp_nolake_loocv
+micx_nsp_nolake_loocv$stats
 
 # Comparison table
 micx_spatial_comp <-
@@ -961,641 +965,4 @@ micx_spatial_comp <-
 saveRDS(micx_spatial_comp, "./inst/model_objects/spatial_compare_micx.rds")
 
 ```
-
-
-Visuals for Merkley visit
-
-```{r}
-# Get the area for the PNW
-pnw <- AOI::aoi_get(state = c("OR", "WA", "ID"))
-
-# Retrieve model
-micx_sp_final_nolake <- readRDS("./inst/model_objects/model_micx_nolakedata.rds")
-
-# Filter data to just the PWN
-pnw_micx <- micx_sp_final_nolake |>
-  augment(type.predict = "response") |>
-  st_transform(st_crs(pnw)) |>
-  st_intersection(pnw) |>
-  arrange(.fitted)
-
-# Map of the PNW
-ggplot() + 
-  geom_sf(data = pnw, fill = "#e2e2e2", color = "black", lwd = 1) +
-  geom_sf(data = pnw_micx, aes(fill = .fitted), pch = 21, size = 2) +
-  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
-                       name = "Estimated \nProbability") +
-  # theme_void() +
-  ggtitle("Fitted Probability of Microcystin Detection")+
-  theme(plot.title = element_text(hjust = 0.5, vjust = 1, size = 12))
-ggsave("./figures/FittedProbMap_Micx_PNW.png", width = 5, height = 3.5, units = "in", dpi = 600)
-
-# Interactive map version
-mapview::mapview(pnw_micx, z = ".fitted")
-
-```
-
-
-
-Models for microcystin concentration, when present
-
-
-```{r}
-dep_var  <- "MICX"
-
-run_micxlm <- function(mod_vars, int = NULL){
-  splm(create_formula(dep_var, mod_vars, log = T, interact = int),
-                data = drop_na(habs, all_of(dep_var), all_of(mod_vars)),
-                spcov_type = "exponential",
-                random = ~ DSGN_CYCLE + UNIQUE_ID,
-                local = F)
-}
-
-# Lessons learned
-# Similarly to cyanobacteria cell counts, TP only becomes important when TN is removed as a covariate, signaling that these are colinear. But interesting that turbidity is important with this model in addition to TN. Would have expected these variables to be colinear so as not to overlay with each other.
-
-# E/I has a better relationship to microcystin than d-excess.
-
-# The addition of detected and concentration of nitrate improves the model pseudo R2, but only concentration appears to be important. Also the AIC is lower with inclusion of these variables. The addition of ammonia doesn't improve the model. Similar result with TP. TP was also negatively, which is counterintuitive. When nitrate isn't in the model and TP replaces TN, TP has a positive relationship. 
-
-micxlm1 <- run_micxlm(mod_vars = c("NTL","PTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"))
-
-micxlm2 <- run_micxlm(mod_vars = c("NTL","PTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"), int = "NTL*AG_ECO3")
-
-micxlm3 <- run_micxlm(mod_vars = c("NTL","PTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"), int = "PTL*AG_ECO3")
-
-micxlm4 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"))
-
-micxlm5 <- run_micxlm(mod_vars = c("PTL", "DOC", "PH", "wet_ws", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"))
-
-micxlm6 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "RunoffWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length", "AG_ECO3"))
-
-micxlm7 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "EVAP_INFL", "MAXDEPTH", "lakemorpho_shoreline.length"))
-
-micxlm8 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "TEMPERATURE", "BFIWs", "EVAP_INFL", "MAXDEPTH"))
-
-micxlm9 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "Tmean8110Ws", "BFIWs", "EVAP_INFL", "MAXDEPTH"))
-
-micxlm10 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "Tmean8110Ws", "BFIWs", "EVAP_INFL", "lakemorpho_fetch"))
-
-micxlm11 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
-
-# Best fit model with TN onlu
-micxlm12 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
-
-# Other experiments
-micxlm13 <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "D_EXCESS"))
-
-# Best fit model with TN + nitrate
-micxlm14 <- run_micxlm(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
-
-micxlm15 <- run_micxlm(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
-
-micxlm16 <- run_micxlm(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "PTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
-
-micxlm17 <- run_micxlm(mod_vars = c("PTL", "NITRATE_DET", "NITRATE_N", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
-
-micxlm18 <- run_micxlm(mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "D_EXCESS"))
-
-# Run with local = F
-# micxlm_local_f <- run_micxlm(mod_vars = c("NTL", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL"))
-
-summary(micxlm14)
-varcomp(micxlm18)
-
-# vis_fit(dep_var, micxlm_local_f, file_name = "Model Fit_Micx_Conc.jpg")
-
-mod_vars = c("NTL", "NITRATE_DET", "NITRATE_N", "DOC", "PH", "TURB", "agr_ws", "precip_mean_month", "Tmean8110Ws", "EVAP_INFL")
-
-micx_pred <- filter(drop_na(habs, all_of(dep_var), all_of(mod_vars)))
-
-micx_loocv <- loocv(micxlm14, cv_predict = TRUE)
-
-micx_pred$preds <- micx_loocv$cv_predict
-
-max_val <- max(log10(micx_pred$MICX +1), micx_pred$preds)
-min_val <- min(log10(micx_pred$MICX +1), micx_pred$preds)
-name <- "Log10(Microcystin)"
-
-fig <- ggplot(data = micx_pred, aes(x = preds, y = log10(MICX))) +
-  geom_point(color = "blue", alpha=0.3) +
-  xlim(min_val, max_val) + ylim(min_val, max_val) +
-  ylab("Observed") +
-  xlab("Fitted") +
-  ggtitle(name)
-ggsave(paste0("./figures/", "Model Fit_Micx Conc.jpg"), height = 4, width = 5, dpi = 400, units = "in")
-
-```
-
-
-
-Random forest experimenting
-
-```{r}
-# A good tutorial introducing random forest https://uc-r.github.io/random_forests
-
-# Create a binary for microcystin detections
-# habs <- mutate(habs, MICX_DET = factor(ifelse(is.finite(MICX), 1, 0)))
-
-# Dependent variable 
-dep_var <- "MICX_DET"
-
-# Which set of independent variables will be considered? All available or only those available across CONUS (removing ancillary NLA water phys/chem data)?
-ind_vars <- non_nla_vars
-
-# How much missingness is there in the data?
-missing_data <- habs |>
-  st_drop_geometry() |>
-  summarize_all(~sum(is.na(.))) |>
-  pivot_longer(SITE_ID:MICX_DET, names_to = "variable", values_to = "num_missing")
-
-# Examine if the error stabilizes with the number of trees
-m1 <- randomForest::randomForest(
-  formula = create_formula(dep_var, ind_vars),
-  data = drop_na(habs, all_of(dep_var), all_of(ind_vars)),
-  ntree = 1000
-)
-plot(m1)
-
-# Tune the mTry parameter
-na_free <- drop_na(habs, all_of(dep_var), all_of(ind_vars))
-
-m2 <- randomForest::tuneRF(
-  x          = st_drop_geometry(na_free[ind_vars]),
-  y          = na_free$B_G_DENS,
-  ntreeTry   = 1000,
-  mtryStart  = 2,
-  stepFactor = 1.5,
-  improve    = 0.01,
-  trace      = FALSE      # to not show real-time progress 
-)
-
-# hyperparameter grid search
-hyper_grid <- expand.grid(
-  mtry       = seq(10, 30, by = 2),
-  node_size  = seq(5, 50, by = 5),
-  sampe_size = c(.55, .632, .70, .80),
-  OOB_RMSE   = 0
-)
-
-for(i in 1:nrow(hyper_grid)) {
-  
-  # train model
-  model <- ranger::ranger(
-    formula         = create_formula(dep_var, ind_vars, log = T, const = 1000),
-    data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(ind_vars))), 
-    num.trees       = 1000,
-    mtry            = hyper_grid$mtry[i],
-    min.node.size   = hyper_grid$node_size[i],
-    sample.fraction = hyper_grid$sampe_size[i],
-    seed            = 123
-  )
-  
-  # add OOB error to grid
-  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
-}
-
-# Which set of parameters yields the lowest OOB RMSE?
-hyper_grid %>% 
-  dplyr::arrange(OOB_RMSE) %>%
-  head(10)
-
-# Check expected error for optimal set of hyperparameters
-OOB_RMSE <- vector(mode = "numeric", length = 200)
-
-for(i in seq_along(OOB_RMSE)) {
-
-  optimal_ranger <- ranger::ranger(
-    formula         = create_formula(dep_var, ind_vars, log = T, const = 1000),
-    data            = st_drop_geometry(drop_na(habs, all_of(dep_var), all_of(ind_vars))), 
-    num.trees       = 1000,
-    mtry            = 28,
-    min.node.size   = 50,
-    sample.fraction = .8,
-    importance      = 'impurity'
-  )
-  
-  OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
-}
-
-hist(OOB_RMSE, breaks = 20)
-
-imp <- tibble(var = names(optimal_ranger$variable.importance), var_imp = optimal_ranger$variable.importance)
-
-imp %>% 
-  dplyr::arrange(desc(var_imp)) %>%
-  ggplot(aes(x = reorder(var, var_imp), y = var_imp)) +
-  geom_col() +
-  coord_flip() +
-  xlab("Variable") + ylab("Variable Importance") +
-  ggtitle("Variables available for CONUS (non-NLA)")
-
-# ggsave("./figures/Variable importance_NLA'07,'12,'17_non-NLA vars.png", dpi = 300, width = 5, height = 5)
-
-
-# Given the parameter tuning, now pass the data to spmodel
-modRF <- splmRF(create_formula(dep_var, ind_vars),
-                data = drop_na(habs, all_of(dep_var), all_of(ind_vars)),
-                spcov_type = "exponential",
-                family = "binomial",
-                random = ~ DSGN_CYCLE,
-                local = TRUE,
-                num.trees       = 1000,
-                mtry            = 28,
-                min.node.size   = 50,
-                sample.fraction = .8,
-                importance = "impurity")
-
-modRF.imp <- tibble(var = names(modRF$ranger$variable.importance), var_imp = modRF$ranger$variable.importance)
-
-modRF.imp %>% 
-  dplyr::arrange(desc(var_imp)) %>%
-  dplyr::top_n(25) %>%
-  ggplot(aes(x = reorder(var, var_imp), y = var_imp)) +
-  geom_col() +
-  coord_flip() +
-  xlab("Variable") + ylab("Variable Importance")
-
-# ggsave("./figures/Variable importance_spMod_NLA'07,'12,'17_all.png", dpi = 300, width = 5, height = 5)
-
-obs <- habs |>
-  drop_na(all_of(dep_var), all_of(ind_vars)) |>
-  st_drop_geometry() |>
-  mutate(obs = log10(B_G_DENS + 1000)) |>
-  pull(obs)
-
-plot(optimal_ranger$predictions, obs)
-cor.test(optimal_ranger$predictions, obs)
-
-mod <- modRF$ranger$predictions
-
-plot(obs, mod, ylim = c(3, max(mod, obs)), xlim = c(3, max(mod, obs)))
-cor.test(mod, obs)
-
-  
-```
-
-Experiment for the lake random effect
-
-```{r}
-# Find 50 random observations to hold out
-# Make sure that site that have revisit data isn't included. Want the 50 observations to be unobserved locations in the training set.
-# Since there is a lot of missing data, should pre-filter the dataset to observations that will be included for both
-
-# Variables used in the most recent models for cyanos and microcystin detection
-vars <- unique(c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3", "p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3"))
-
-single_obs <- habs |>
-  st_drop_geometry() |>
-  drop_na(all_of(c("B_G_DENS", "MICX_DET")), all_of(vars)) |>
-  group_by(UNIQUE_ID) |>
-  summarise(obs_count = n()) |>
-  filter(obs_count == 1) |>
-  pull(UNIQUE_ID)
-
-# The above df is organized by UNIQUE ID which is categorized by state. Taking an observation at regular intervals should give good spatial coverage of the US
-length(single_obs)/50
-
-hold_out <- sapply(1:50, function(x){single_obs[21*x]})
-
-# Divide data into training and test sets
-test  <- filter(habs, UNIQUE_ID %in% hold_out)
-train <- filter(habs, !(UNIQUE_ID %in% hold_out))
-
-# Run the models with and without a random effect for lake
-
-# Cyanobacteria
-mod_vars <- c("BFIWs", "Tmean8110Ws", "Precip8110Ws", "n_farm_inputs", "n_dev_inputs", "p_farm_inputs", "lake_dep", "lakemorpho_fetch", "AG_ECO3")
-
-cyano_lakere <- splm(create_formula("B_G_DENS", mod_vars, log = T, const = 1000, 
-                             interact = "n_farm_inputs * AG_ECO3"),
-              data = filter(drop_na(train, all_of("B_G_DENS"), all_of(mod_vars))),
-              spcov_type = "exponential",
-              random = ~ DSGN_CYCLE + UNIQUE_ID,
-              local = T)
-
-cyano_re_nonsp <- splm(create_formula("B_G_DENS", mod_vars, log = T, const = 1000, 
-                             interact = "n_farm_inputs * AG_ECO3"),
-              data = filter(drop_na(train, all_of("B_G_DENS"), all_of(mod_vars))),
-              spcov_type = "none",
-              random = ~ DSGN_CYCLE + UNIQUE_ID,
-              local = T)
-
-cyano_nolakere <- splm(create_formula("B_G_DENS", mod_vars, log = T, const = 1000, 
-                             interact = "n_farm_inputs * AG_ECO3"),
-              data = filter(drop_na(train, all_of("B_G_DENS"), all_of(mod_vars))),
-              spcov_type = "exponential",
-              random = ~ DSGN_CYCLE,
-              local = T)
-
-cyano_nore <- splm(create_formula("B_G_DENS", mod_vars, log = T, const = 1000, 
-                             interact = "n_farm_inputs * AG_ECO3"),
-              data = filter(drop_na(train, all_of("B_G_DENS"), all_of(mod_vars))),
-              spcov_type = "exponential",
-              # random = ~ DSGN_CYCLE,
-              local = T)
-
-cyano_nonsp <- splm(create_formula("B_G_DENS", mod_vars, log = T, const = 1000, 
-                             interact = "n_farm_inputs * AG_ECO3"),
-              data = filter(drop_na(train, all_of("B_G_DENS"), all_of(mod_vars))),
-              spcov_type = "none",
-              # random = ~ DSGN_CYCLE,
-              local = T)
-
-# Compare model fit
-glances(cyano_lakere, cyano_nolakere)
-lakere_loocv   <- loocv(cyano_lakere)
-nolakere_loocv <- loocv(cyano_nolakere)
-
-# Predict for the training set
-test$cyano_relake_preds   <- predict(cyano_lakere, newdata = test)
-test$cyano_re_nonsp_preds <- predict(cyano_re_nonsp, newdata = test)
-test$cyano_norelake_preds <- predict(cyano_nolakere, newdata = test)
-test$cyano_nore_preds     <- predict(cyano_nore, newdata = test)
-test$cyano_nonsp_preds    <- predict(cyano_nonsp, newdata = test)
-
-# Correlations
-cor(test$cyano_relake_preds, log10(test$B_G_DENS + 1000))
-cor(test$cyano_re_nonsp_preds, log10(test$B_G_DENS + 1000))
-cor(test$cyano_norelake_preds, log10(test$B_G_DENS + 1000))
-cor(test$cyano_nore_preds, log10(test$B_G_DENS + 1000))
-cor(test$cyano_nonsp_preds, log10(test$B_G_DENS + 1000))
-
-
-# Plot it out
-ggplot(data = test) +
-  geom_point(aes(x = cyano_relake_preds, y = log10(B_G_DENS + 1000)), color = "blue") +
-  geom_point(aes(x = cyano_norelake_preds, y = log10(B_G_DENS + 1000)), color = "red")
-
-
-# Detection of microcystin
-mod_vars <- c("p_farm_inputs", "N_Surplus", "fst_ws", "Precip_Minus_EVTWs", "lake_dep", "lakemorpho_fetch", "BFIWs", "AG_ECO3")
-int <- "p_farm_inputs * AG_ECO3 + N_Surplus * lake_dep"
-
-micx_lakere <- spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
-                     family = "binomial",
-                     data = drop_na(train, all_of(dep_var), all_of(mod_vars)),
-                     spcov_type = "exponential",
-                     random = ~ DSGN_CYCLE + UNIQUE_ID,
-                     local = T)
-
-micx_nonsp <- spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
-                     family = "binomial",
-                     data = drop_na(train, all_of(dep_var), all_of(mod_vars)),
-                     spcov_type = "none",
-                     random = ~ DSGN_CYCLE + UNIQUE_ID,
-                     local = T)
-
-micx_nolakere <- spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
-                     family = "binomial",
-                     data = drop_na(train, all_of(dep_var), all_of(mod_vars)),
-                     spcov_type = "exponential",
-                     random = ~ DSGN_CYCLE,
-                     local = T)
-
-micx_nore <- spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
-                     family = "binomial",
-                     data = drop_na(train, all_of(dep_var), all_of(mod_vars)),
-                     spcov_type = "exponential",
-                     # random = ~ DSGN_CYCLE,
-                     local = T)
-
-micx_nore_nonsp <- spglm(create_formula(dep_var = "MICX_DET", ind_vars = mod_vars, interact = int),
-                     family = "binomial",
-                     data = drop_na(train, all_of(dep_var), all_of(mod_vars)),
-                     spcov_type = "none",
-                     # random = ~ DSGN_CYCLE,
-                     local = T)
-
-aug_lakere     <- augment(micx_lakere, newdata = test)
-aug_nonsp      <- augment(micx_nonsp, newdata = test)
-aug_nolakere   <- augment(micx_nolakere, newdata = test)
-aug_nore       <- augment(micx_nore, newdata = test)
-aug_nore_nonsp <- augment(micx_nore_nonsp, newdata = test)
-
-pROC::auc(aug_lakere$MICX_DET, aug_lakere$.fitted)
-pROC::auc(aug_nonsp$MICX_DET, aug_nonsp$.fitted)
-pROC::auc(aug_nolakere$MICX_DET, aug_nolakere$.fitted)
-pROC::auc(aug_nore$MICX_DET, aug_nore$.fitted)
-pROC::auc(aug_nore_nonsp$MICX_DET, aug_nore_nonsp$.fitted)
-
-
-pROC::auc(with(aug_nonsp, MICX_DET, .fitted))
-pROC::auc(with(aug_nolakere, MICX_DET, .fitted))
-pROC::auc(with(aug_nore, MICX_DET, .fitted))
-pROC::auc(with(aug_nore_nonsp, MICX_DET, .fitted))
-
-
-test$lakere <- predict(micx_lakere, newdata = test)
-test$nonsp <- predict(micx_nonsp, newdata = test)
-test$nolakere <- predict(micx_nolakere, newdata = test)
-test$nolakere <- predict(micx_nolakere, newdata = test)
-
-
-```
-
-
-
-Try random forest with large collection of data from Robert Sabo
-
-
-```{r}
-# All data from Robert (untransformed)
-nni <- readr::read_csv("NLA07-12_NutrientInventory_Data.csv")
-
-# Have to break out the month and day of the compiled HABs data
-comp <- habs |>
-  mutate(Month = as.numeric(format(as.Date(DATE_COL, format = "%m/%d/%Y"), "%m")),
-         Day = as.numeric(format(as.Date(DATE_COL, format = "%m/%d/%Y"), "%d")),
-         Year = as.numeric(as.character(DSGN_CYCLE))) |>
-  # select(SITE_ID, Year, Month, Day, B_G_DENS, TEMPERATURE, DOC, TURB, PH, EVAP_INFL, lakemorpho_depth, ElevWs, SlopeWs) 
-  # Remove redundant variables
-  select(-NTL, -PTL, -RunoffWs, -LAT_DD83, -LON_DD83, -DATE_COL, -DSGN_CYCLE, -VISIT_NO, -COMID, -MICX, -CHLA_RESULT, -CYLSPER, -UNIQUE_ID)
-
-# Merge with cyanobacteria counts
-comp <- left_join(nni, comp, by = c("SITE_ID", "Year", "Month", "Day"))
-
-# Create a vector of the independent variables
-nni_vars <- colnames(comp)[c(9:91,93:(length(colnames(comp))-1))] #
-
-# Examine if the error stabilizes with the number of trees
-m1 <- randomForest::randomForest(
-  formula = create_formula(dep_var, nni_vars, log = T),
-  data = drop_na(comp, all_of(dep_var), all_of(nni_vars))
-)
-plot(m1)
-
-# Tune the mTry parameter
-na_free <- drop_na(comp, all_of(dep_var), all_of(nni_vars))
-
-m2 <- randomForest::tuneRF(
-  x          = st_drop_geometry(na_free[nni_vars]),
-  y          = log10(na_free$B_G_DENS + 1),
-  ntreeTry   = 500,
-  mtryStart  = 4,
-  stepFactor = 1.5,
-  improve    = 0.01,
-  trace      = FALSE      # to not show real-time progress 
-)
-
-# hyperparameter grid search
-hyper_grid <- expand.grid(
-  mtry       = seq(25, 35, by = 2),
-  node_size  = seq(3, 9, by = 2),
-  sampe_size = c(.55, .632, .70, .80),
-  OOB_RMSE   = 0
-)
-
-for(i in 1:nrow(hyper_grid)) {
-  
-  # train model
-  model <- ranger::ranger(
-    formula         = create_formula(dep_var, nni_vars, log = T),
-    data            = st_drop_geometry(drop_na(comp, all_of(dep_var), all_of(nni_vars))), 
-    num.trees       = 500,
-    mtry            = hyper_grid$mtry[i],
-    min.node.size   = hyper_grid$node_size[i],
-    sample.fraction = hyper_grid$sampe_size[i],
-    seed            = 123,
-    num.threads     = 8
-  )
-  
-  # add OOB error to grid
-  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
-}
-
-# Which set of parameters yields the lowest OOB RMSE?
-hyper_grid %>% 
-  dplyr::arrange(OOB_RMSE) %>%
-  head(15)
-
-# Check expected error for optimal set of hyperparameters
-OOB_RMSE <- vector(mode = "numeric", length = 100)
-
-for(i in seq_along(OOB_RMSE)) {
-
-  optimal_ranger <- ranger::ranger(
-    formula         = create_formula(dep_var, nni_vars, log = T),
-    data            = st_drop_geometry(drop_na(comp, all_of(dep_var), all_of(nni_vars))), 
-    num.trees       = 500,
-    mtry            = 29,
-    min.node.size   = 3,
-    sample.fraction = .8,
-    num.threads     = 8, 
-    importance      = 'impurity'
-  )
-  
-  OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
-}
-
-hist(OOB_RMSE, breaks = 20)
-
-optimal_ranger <- ranger::ranger(
-  formula         = create_formula(dep_var, nni_vars, log = T),
-  data            = drop_na(comp, all_of(dep_var), all_of(nni_vars)), 
-  num.trees       = 500,
-  mtry            = 29,
-  min.node.size   = 3,
-  sample.fraction = .8,
-  num.threads     = 8, 
-  importance      = 'impurity')
-
-imp <- tibble(var = names(optimal_ranger$variable.importance), var_imp = optimal_ranger$variable.importance)
-
-imp %>% 
-  dplyr::arrange(desc(var_imp)) %>%
-  dplyr::top_n(25) %>%
-  ggplot(aes(x = reorder(var, var_imp), y = var_imp)) +
-  geom_col() +
-  coord_flip() +
-  xlab("Variable") + ylab("Variable Importance") +
-  ggtitle("NLA '07,'12_All Variables")
-
-ggsave("./figures/Variable importance_NLA'07,'12_all.png", dpi = 300, width = 5, height = 5)
-
-########################################################
-
-# Have to break out the month and day of the compiled HABs data
-comp <- habs |>
-  mutate(Month = as.numeric(format(as.Date(DATE_COL, format = "%m/%d/%Y"), "%m")),
-         Day = as.numeric(format(as.Date(DATE_COL, format = "%m/%d/%Y"), "%d")),
-         Year = as.numeric(as.character(DSGN_CYCLE))) |>
-  select(-NTL, -PTL, -RunoffWs) |>
-  right_join(nni, by = c("SITE_ID", "Year", "Month", "Day")) # |>
-  # filter(!duplicated(UNIQUE_ID)) # If running with unique observations
-
-# Investigate how the year random effect interacts with some data that is specific to the sample year
-nni_sub <- c(all_vars, "LSTAnomaly_YrMean", "NPP_YrMean", "Precip_YrMean", "Tmean_YrMean")
-
-nni_no_re_no_sp <- splm(create_formula(dep_var, nni_sub, log = T),
-                     data = drop_na(comp, all_of(dep_var), all_of(nni_sub)),
-                     spcov_type = "none", 
-                     local = TRUE)
-
-nni_no_re <- splm(create_formula(dep_var, nni_sub, log = T),
-                     data = drop_na(comp, all_of(dep_var), all_of(nni_sub)),
-                     spcov_type = "exponential", 
-                     local = TRUE)
-
-nni_re_site <- splm(create_formula(dep_var, nni_sub, log = T),
-                         data = drop_na(comp, all_of(dep_var), all_of(nni_sub)),
-                         spcov_type = "exponential",
-                         random = ~  UNIQUE_ID,
-                         local = TRUE)
-
-nni_re_year <- splm(create_formula(dep_var, nni_sub, log = T),
-                         data = drop_na(comp, all_of(dep_var), all_of(nni_sub)),
-                         spcov_type = "exponential",
-                         random = ~  DSGN_CYCLE,
-                         local = TRUE)
-
-nni_unnest_re <- splm(create_formula(dep_var, nni_sub, log = T),
-                       data = drop_na(comp, all_of(dep_var), all_of(nni_sub)),
-                       spcov_type = "exponential",
-                       random = ~ DSGN_CYCLE + UNIQUE_ID,
-                       local = TRUE)
-
-nni_nest_re <- splm(create_formula(dep_var, nni_sub, log = T),
-                       data = drop_na(comp, all_of(dep_var), all_of(nni_sub)),
-                       spcov_type = "exponential",
-                       random = ~ (DSGN_CYCLE / UNIQUE_ID),
-                       local = TRUE)
-
-# Compare model with no spatial component, with spatial component, random effect for site alone, random effect for year along, random effect for site and year unnested, random effect for site nested within year.
-# How does the AIC and R2 change with these model configurations
-glances(nni_no_re_no_sp,
-        nni_no_re,
-        nni_re_site,
-        nni_re_year,
-        nni_unnest_re,
-        nni_nest_re)
-# Nested random effects had the lowest AIC and R2 followed by unnested random effects
-# About the same amount of variation is explained with no random effects
-
-optimal_ranger <- ranger::ranger(
-  formula         = create_formula(dep_var, nni_sub, log = T),
-  data            = drop_na(comp, all_of(dep_var), all_of(nni_sub)), 
-  num.trees       = 500,
-  mtry            = 8,
-  min.node.size   = 3,
-  sample.fraction = .8,
-  num.threads     = 8, 
-  importance      = 'impurity')
-
-imp <- tibble(var = names(optimal_ranger$variable.importance), var_imp = optimal_ranger$variable.importance)
-
-imp %>% 
-  dplyr::arrange(desc(var_imp)) %>%
-  dplyr::top_n(25) %>%
-  ggplot(aes(x = reorder(var, var_imp), y = var_imp)) +
-  geom_col() +
-  coord_flip() +
-  xlab("Variable") + ylab("Variable Importance") +
-  ggtitle("NLA '07,'12_All Variables")
-
-ggsave("./figures/Variable importance_NLA'07,'12_with annual.png", dpi = 300, width = 5, height = 5)
-
-
-```
-
 
