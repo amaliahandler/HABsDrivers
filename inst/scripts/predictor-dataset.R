@@ -477,7 +477,8 @@ wbd_pred <- wbd_copy %>%
 
 Sys.time()
 Pred <- predict(object = model_cyano_nolakes, newdata = wbd_pred,
-                local = list(method = 'all', parallel = TRUE, ncores = 6))
+                local = list(method = 'all', parallel = TRUE, ncores = 6),
+                interval = "prediction")
 Sys.time()
 
 pred_df <- wbd_pred %>%
