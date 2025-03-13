@@ -21,6 +21,7 @@ library(tigris)
 library(knitr)
 library(here)
 library(corrplot)
+library(flextable)
 
 # Do not include code chunks in document
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -54,8 +55,6 @@ micx_nolake  <- readRDS(paste0(here(), "/inst/model_objects/model_micx_nolakedat
 
 Note: Should this map be restricted to only the observations used in the model development?
 
-Note: Check the NARS flags associated with NA microcystin values. Be sure that all flags are MDL and not some other type of missing data.
-
 ```{r nla map compilation, message = FALSE}
 # CONUS with state outlines
 conus <- tigris::states(cb = TRUE, progress_bar = FALSE) |>
@@ -64,7 +63,7 @@ conus <- tigris::states(cb = TRUE, progress_bar = FALSE) |>
 
 nla_map <- ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
-  geom_sf(data = habs, shape = 24, fill = "blue", size = 1, stroke = .2, alpha = 0.5) +
+  geom_sf(data = habs, shape = 24, fill = "grey39", size = 1, stroke = .2) +
   theme_void() +
   theme(legend.position = "bottom")
 
@@ -222,6 +221,8 @@ fixed_df <- rbind(
 )
 
 # Table that includes both response variables and models with and without lake data. Covariates are converted to positive or negative signs with asterisks denoting the associated p-values.
+pal <- RColorBrewer::brewer.pal(9, "RdBu")
+
 est_and_sign <- fixed_df |>
   filter(!fixed_effect == "(Intercept)") |>
   mutate(est_sign = ifelse(estimate > 0, "+", "−"),
@@ -229,8 +230,7 @@ est_and_sign <- fixed_df |>
                          p < 0.05 & p >= 0.01 ~ "*",
                          p < 0.01 & p >= 0.001 ~ "**",
                          p < 0.001 ~ "***"),
-         est_sig = ifelse(sig == "ns", sig,
-                          paste0(est_sign, " (", sig, ")")),
+         est_sig = paste0(est_sign, " (", sig, ")"),
          fixed_effect = factor(fixed_effect, 
                                levels = c("NTL",
                                           "NITRATE_N",
@@ -252,16 +252,65 @@ est_and_sign <- fixed_df |>
                                           "AG_ECO3PLNLOW",
                                           "AG_ECO3EHIGH",
                                           "NTL:AG_ECO3PLNLOW",
-                                          "NTL:AG_ECO3EHIGH"
-                               ))) |>
+                                          "NTL:AG_ECO3EHIGH"))
+         ) |>
   select(response_var:fixed_effect, est_sig) |>
   pivot_wider(names_from = response_var:lake_data,
               values_from = est_sig,
               values_fill = "") |>
   arrange(fixed_effect) |>
-  relocate(fixed_effect, cyano_present, micx_present, cyano_absent, micx_absent)
-  
-knitr::kable(est_and_sign)
+  relocate(fixed_effect, cyano_present, micx_present, cyano_absent, micx_absent) # |>
+  # mutate(fixed_effect = c("Total N", 
+  #                      "Nitrate", 
+  #                      "Ammonium", 
+  #                      "DOC", 
+  #                      "Turbidity",
+  #                      "pH",
+  #                      "Evaporation/Inflow",
+  #                      "Lake Depth",
+  #                      "Lake Fetch",
+  #                      "Farm N Inputs",
+  #                      "Farm P Inputs",
+  #                      "Developed N Inputs", 
+  #                      "Developed P Inputs",
+  #                      "Forest Cover", 
+  #                      "Baseflow Index",
+  #                      "Annual Precip", 
+  #                      "Annual Air Temp",
+  #                      "Ecoregion PLNLOW",
+  #                      "Ecoregion EHIGH",
+  #                      "Total N * PLNLOW",
+  #                      "Total N * EHIGH")
+  #           ) |>
+  # rename(Covariates = fixed_effect)
+
+colorer <- function(i){
+  hex <- case_when(i == "+ (***)" ~ pal[1],
+                   i == "+ (**)" ~  pal[2],
+                   i == "+ (*)" ~   pal[3],
+                   i == "+ (ns)" ~  pal[4],
+                   i == "" ~        pal[5],
+                   i == "− (ns)" ~  pal[6],
+                   i == "− (*)" ~   pal[7],
+                   i == "− (**)" ~  pal[8],
+                   i == "− (***)" ~ pal[9])
+}
+
+est_and_sign |>
+  flextable() |>
+  bg(bg = colorer,
+     j = ~ . -Corvariates,
+     part = "body")
+
+
+as.data.frame(matrix(runif(5*5), ncol = 5)) %>% 
+  flextable() %>% 
+  colformat_double() %>% 
+  autofit() %>% 
+  align(align = "center", part = "all") %>% 
+  bg(bg = "black", part = "header") %>% 
+  color(color = "white", part = "all") %>% 
+  bg(bg = scales::col_numeric(palette = "viridis", domain = c(0, 1)))
 
 ```
 
@@ -299,8 +348,6 @@ ggpubr::ggarrange(plotlist = list(fit_cyano, fit_micx),
 
 ```
 
-
-
 ```{r model fit comparison}
 #| label: tbl-mod-fit
 #| tbl-cap: Comparison of model fit for model where in-lake data is present or absent and based on spatial of independent error models.
@@ -322,8 +369,6 @@ fit_comp <-
 knitr::kable(fit_comp, digits = 2)
 
 ```
-
-
 
 ```{r spatial covariance maps}
 #| label: spcov-maps
@@ -357,4 +402,3 @@ spcov_micx <- ggplot() +
 ggpubr::ggarrange(plotlist = list(spcov_cyano, spcov_micx),
                   nrow = 2)
 ```
-
