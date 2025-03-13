@@ -199,7 +199,7 @@ corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.s
 
 ```{r extract model fixed effects}
 #| label: tbl-fixed_effects
-#| tbl-cap: Model fixed effect coefficient sign (negative or positive) and p-value (* <0.05, ** <0.01, **** < 0.001) for cyanobacteria and microcystin models both where in-lake data was present or absent.
+#| tbl-cap: Model fixed effect coefficient sign (negative or positive) and p-value (* <0.05, ** <0.01, **** < 0.001) for cyanobacteria and microcystin models both where in-lake data was present or absent. Grey cells are in-lake conditions covariates that were excluded from model development 
 
 # Function to extract the fixed effects from each model
 fixed_effect_retriever <- function(model_obj, resp_var, lake_data){
@@ -222,6 +222,8 @@ fixed_df <- rbind(
 
 # Table that includes both response variables and models with and without lake data. Covariates are converted to positive or negative signs with asterisks denoting the associated p-values.
 pal <- RColorBrewer::brewer.pal(9, "RdBu")
+
+pal <- c("#B2182B", "#db1d35", "#e54155", "#eb6a7a", "#F7F7F7", "#72abe4", "#4c94dd", "#287dd2", "#2166AC")
 
 est_and_sign <- fixed_df |>
   filter(!fixed_effect == "(Intercept)") |>
@@ -313,7 +315,7 @@ est_and_sign |>
   bg(bg = colorer,
      j = ~ . -Covariates, # All columns in the body except for the first one
      part = "body") |>
-  bg(j = c(4:5), i = c(1:7), bg = "#606060") |>
+  bg(j = c(4:5), i = c(1:7), bg = "#606060") |> # Covariates that weren't available to the models
   theme_box() |>
   align(align = "center", part = "header") |>
   autofit(add_w = 0, add_h = 0)
