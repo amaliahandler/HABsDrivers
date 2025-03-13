@@ -282,7 +282,12 @@ est_and_sign <- fixed_df |>
                        "Ecoregion PLNLOW",
                        "Ecoregion EHIGH",
                        "Total N * PLNLOW",
-                       "Total N * EHIGH")
+                       "Total N * EHIGH"),
+         Type = c(rep("In-Lake Conditions", 7),
+                  rep("Lake Geometry", 2),
+                  rep("Nutrient Inputs", 5),
+                  rep("Geographic Setting", 5),
+                  rep("Interactions", 2)), .before = fixed_effect
             ) |>
   rename(Covariates = fixed_effect)
 
@@ -300,22 +305,22 @@ colorer <- function(i){
 
 est_header <- data.frame(
   col_keys = colnames(est_and_sign),
-  line2 = c("Model", rep("In-Lake Conditions", 4)),
-  line3 = c("Model", c(rep("Present", 2), rep("Absent", 2))),
-  line4 = c("Corvariates", rep(c("Cyanobacteria", "Microcystin"), 2))
+  line2 = c(rep("Model", 2), rep("In-Lake Conditions", 4)),
+  line3 = c(rep("Model", 2), c(rep("Present", 2), rep("Absent", 2))),
+  line4 = c("Type", "Corvariates", rep(c("Cyanobacteria", "Microcystin"), 2))
 )
 
 est_and_sign |>
   flextable() |>
   set_header_df(mapping = est_header, key = "col_keys" ) |>
-  merge_v(part = "header", j = 1) |> 
-  merge_h(part = "header", i = 1) |> 
-  merge_h(part = "header", i = 2) |> 
+  merge_v(part = "header", j = c(1:2)) |> 
+  merge_v(part = "body", j = 1) |> 
+  merge_h(part = "header", i = c(1:2)) |> 
   theme_booktabs(bold_header = TRUE) |>
   bg(bg = colorer,
-     j = ~ . -Covariates, # All columns in the body except for the first one
+     j = 3:6, # All columns in the body except for the first one
      part = "body") |>
-  bg(j = c(4:5), i = c(1:7), bg = "#606060") |> # Covariates that weren't available to the models
+  bg(j = c(5:6), i = c(1:7), bg = "#606060") |> # Covariates that weren't available to the models
   theme_box() |>
   align(align = "center", part = "header") |>
   autofit(add_w = 0, add_h = 0)
