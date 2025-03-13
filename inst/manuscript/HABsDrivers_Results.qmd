@@ -259,30 +259,30 @@ est_and_sign <- fixed_df |>
               values_from = est_sig,
               values_fill = "") |>
   arrange(fixed_effect) |>
-  relocate(fixed_effect, cyano_present, micx_present, cyano_absent, micx_absent) # |>
-  # mutate(fixed_effect = c("Total N", 
-  #                      "Nitrate", 
-  #                      "Ammonium", 
-  #                      "DOC", 
-  #                      "Turbidity",
-  #                      "pH",
-  #                      "Evaporation/Inflow",
-  #                      "Lake Depth",
-  #                      "Lake Fetch",
-  #                      "Farm N Inputs",
-  #                      "Farm P Inputs",
-  #                      "Developed N Inputs", 
-  #                      "Developed P Inputs",
-  #                      "Forest Cover", 
-  #                      "Baseflow Index",
-  #                      "Annual Precip", 
-  #                      "Annual Air Temp",
-  #                      "Ecoregion PLNLOW",
-  #                      "Ecoregion EHIGH",
-  #                      "Total N * PLNLOW",
-  #                      "Total N * EHIGH")
-  #           ) |>
-  # rename(Covariates = fixed_effect)
+  relocate(fixed_effect, cyano_present, micx_present, cyano_absent, micx_absent) |>
+  mutate(fixed_effect = c("Total N",
+                       "Nitrate",
+                       "Ammonium",
+                       "DOC",
+                       "Turbidity",
+                       "pH",
+                       "Evaporation/Inflow",
+                       "Lake Depth",
+                       "Lake Fetch",
+                       "Farm N Inputs",
+                       "Farm P Inputs",
+                       "Developed N Inputs",
+                       "Developed P Inputs",
+                       "Forest Cover",
+                       "Baseflow Index",
+                       "Annual Precip",
+                       "Annual Air Temp",
+                       "Ecoregion PLNLOW",
+                       "Ecoregion EHIGH",
+                       "Total N * PLNLOW",
+                       "Total N * EHIGH")
+            ) |>
+  rename(Covariates = fixed_effect)
 
 colorer <- function(i){
   hex <- case_when(i == "+ (***)" ~ pal[1],
@@ -296,21 +296,27 @@ colorer <- function(i){
                    i == "− (***)" ~ pal[9])
 }
 
+est_header <- data.frame(
+  col_keys = colnames(est_and_sign),
+  line2 = c("Model", rep("In-Lake Conditions", 4)),
+  line3 = c("Model", c(rep("Present", 2), rep("Absent", 2))),
+  line4 = c("Corvariates", rep(c("Cyanobacteria", "Microcystin"), 2))
+)
+
 est_and_sign |>
   flextable() |>
+  set_header_df(mapping = est_header, key = "col_keys" ) |>
+  merge_v(part = "header", j = 1) |> 
+  merge_h(part = "header", i = 1) |> 
+  merge_h(part = "header", i = 2) |> 
+  theme_booktabs(bold_header = TRUE) |>
   bg(bg = colorer,
-     j = ~ . -Corvariates,
-     part = "body")
-
-
-as.data.frame(matrix(runif(5*5), ncol = 5)) %>% 
-  flextable() %>% 
-  colformat_double() %>% 
-  autofit() %>% 
-  align(align = "center", part = "all") %>% 
-  bg(bg = "black", part = "header") %>% 
-  color(color = "white", part = "all") %>% 
-  bg(bg = scales::col_numeric(palette = "viridis", domain = c(0, 1)))
+     j = ~ . -Covariates, # All columns in the body except for the first one
+     part = "body") |>
+  bg(j = c(4:5), i = c(1:7), bg = "#606060") |>
+  theme_box() |>
+  align(align = "center", part = "header") |>
+  autofit(add_w = 0, add_h = 0)
 
 ```
 
