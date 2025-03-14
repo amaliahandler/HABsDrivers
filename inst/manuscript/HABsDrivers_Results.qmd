@@ -198,9 +198,6 @@ corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.s
 ```
 
 ```{r extract model fixed effects}
-#| label: tbl-fixed_effects
-#| tbl-cap: Model fixed effect coefficient sign (negative or positive) and p-value (* <0.05, ** <0.01, **** < 0.001) for cyanobacteria and microcystin models both where in-lake data was present or absent. Grey cells are in-lake conditions covariates that were excluded from model development 
-
 # Function to extract the fixed effects from each model
 fixed_effect_retriever <- function(model_obj, resp_var, lake_data){
   summary(model_obj)$coefficients$fixed |>
@@ -310,7 +307,7 @@ est_header <- data.frame(
   line4 = c("Type", "Corvariates", rep(c("Cyanobacteria", "Microcystin"), 2))
 )
 
-est_and_sign |>
+covar_tbl <- est_and_sign |>
   flextable() |>
   set_header_df(mapping = est_header, key = "col_keys" ) |>
   merge_v(part = "header", j = c(1:2)) |> 
@@ -326,6 +323,13 @@ est_and_sign |>
   autofit(add_w = 0, add_h = 0)
 
 ```
+
+```{r covariate table}
+#| label: tbl-fixed_effects
+#| tbl-cap: Model fixed effect coefficient sign (negative or positive) and p-value (* <0.05, ** <0.01, **** < 0.001) for cyanobacteria and microcystin models both where in-lake data was present or absent. Grey cells are in-lake conditions covariates that were excluded from model development 
+covar_tbl
+```
+
 
 ```{r fitted values maps}
 #| label: fitted-maps
