@@ -909,17 +909,27 @@ comp_cyano <- comp_cyano %>%
     levels = c('HNHC','LNHC', 'HNLC','LNLC'))) %>%
   arrange(all_pred)
 
-nutr_grp_cols <- c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")
-
-ggplot(comp_cyano, aes(color = all_pred)) +
-  geom_sf(size = 0.5) +
-  scale_color_manual(values = nutr_grp_cols) +
-  labs(title = "Where are the nutrient/cyano @ 100k cutoff?") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-# ggsave("new_100k_cyano3.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+# nutr_grp_cols <- c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")
+# high_low <- c("#9c0082", "#8bd1a5")
+# high_low_labels <- c("High Nutrient", "Low Nutrient")
+#
+# ggplot(comp_cyano, aes(color = alln_class)) +
+#   geom_sf(size = 0.5) +
+#   scale_color_manual(values = high_low,
+#                      labels = high_low_labels ,
+#                      name = "Nutrient Levels") +
+#   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+#   theme(plot.title = element_text(size = 12)) +
+#   theme_void() +
+#   theme(legend.position = c(0.15, 0.12)) +
+#   guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
+#
+# #   scale_color_manual(values = cyano_colors,
+# #                      labels = cyano_labels,
+# #                      name = "Cells/mL") +
+#
+#
+# ggsave("nutrient_biplot.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # Ratios --------------------------------------------------------------------
 

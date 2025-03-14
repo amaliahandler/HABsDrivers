@@ -478,7 +478,7 @@ wbd_pred <- wbd_copy %>%
 Sys.time()
 Pred <- predict(object = model_cyano_nolakes, newdata = wbd_pred,
                 local = list(method = 'all', parallel = TRUE, ncores = 6),
-                interval = "prediction")
+                interval = 'confidence', level = 0.95)
 Sys.time()
 
 pred_df <- wbd_pred %>%
@@ -526,19 +526,20 @@ ggplot() +
           alpha = 0.8) +
   scale_color_manual(values = cyano_colors,
                      labels = cyano_labels,
-                     name = "Cyanobacteria (1000 cells/mL)") +
+                     name = "Abundance (1000 cells/mL)") +
   geom_sf(data = sub_25,
           aes(color = disc_cyano),
           size = 0.2,
           alpha = 0.8)  +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
   theme_void() +
-  theme(legend.position = c(0.15, 0.12)) +
+  theme(legend.position = c(0.80, 0.90),
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=16)) +
   guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
 
 #save plot
-ggsave("cyano_pred_minimal.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("cyano_pred_3-13.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # microcystin ------------------------------------------------------------------
 
@@ -556,7 +557,8 @@ micx_pred <- wbd_copy %>%
 
 Sys.time()
 Pred <- predict(object = model_micx_nolakes, newdata = micx_pred,
-                local = list(method = 'all', parallel = TRUE, ncores = 48))
+                local = list(method = 'all', parallel = TRUE, ncores = 12),
+                interval = 'prediction', level = 0.95)
 Sys.time()
 
 micx_pred_df <- micx_pred %>%
@@ -564,6 +566,10 @@ micx_pred_df <- micx_pred %>%
          micx_transform = 10^Pred - 1000)
 
 micx_pred_df$pred_micx <- boot::inv.logit(micx_pred_df$pred_micx)
+
+micx_summary <- micx_pred_df |>
+  dplyr::select(where(is.numeric)) |>
+
 
 # mapping the data
 
@@ -574,8 +580,7 @@ labels = c("0-25", "25-50", "50-75", "75-100")
 breaks <- c(0.25,0.50,0.75,1.0)
 #cols <- c("#2B83BA","#ABDDA4", "#FDAE61", "#D7191C")
 micx_colors <- c("#2980b9","#aed6f1","#f0b27a","#d35405")
-micx_colors2 <- c("#5499C7","#A9CCE3","#EDBB99","#DC7633")
-
+#micx_colors2 <- c("#5499C7","#A9CCE3","#EDBB99","#DC7633")
 
 
 ggplot(micx_pred_df, aes(color = pred_micx)) +
@@ -583,16 +588,17 @@ ggplot(micx_pred_df, aes(color = pred_micx)) +
   scale_color_stepsn(colors = micx_colors,
                      breaks = breaks,
                      labels = labels,
-                     name = "Probability of \nMicrocystin Detection (%)") +
+                     name = "Probability of Detection (%)") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
   theme_void() +
-  theme(legend.position = c(0.15, 0.15)) +
+  theme(legend.position = c(0.80, 0.90),
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=16)) +
   guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
 
 
 # save the map
-ggsave("micx_pred_minimal.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("micx_pred_3-13.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # individual variable mapping --------------------------------------------------
 
