@@ -132,7 +132,21 @@ vec_list <- list(
   c("Tmean8110Ws", "Mean Annual Temperature", "millimeters", "Watershed", "LakeCat")
 )
 
-summary_covariate_table <- do.call(rbind, lapply(vec_list, summerizer))
+summary_covariate_table <- do.call(rbind, lapply(vec_list, summerizer)) |>
+  mutate(Type = c(rep("In-Lake Conditions", 10), 
+                  rep("Lake Geometry", 2), 
+                  rep("Nutrient Inputs", 14), 
+                  rep("Geographic Setting", 5)), .before = "Variable")
+
+options(digits = 1)
+covar_sum_table <- summary_covariate_table |>
+  flextable() |>
+  colformat_num(j = c("Min","Med","Mean","Max"), digits = 2, part = "body") |>
+  merge_v(part = "body", j = 1) |> 
+  theme_booktabs(bold_header = TRUE) |>
+  theme_box() |>
+  align(align = "center", part = "header") |>
+  align(align = "center", j = 1, part = "body")
 
 ```
 
@@ -140,11 +154,7 @@ summary_covariate_table <- do.call(rbind, lapply(vec_list, summerizer))
 #| label: tbl-var-summary
 #| 
 #| tbl-cap: Summary statistics for response variable and covariates in the model.
-
-kable(summary_covariate_table,
-      digits = 2,
-      format.args = list(scientific = FALSE))
-
+covar_sum_table
 ```
 
 ```{r setup correlation plot}
@@ -172,10 +182,10 @@ var_names <- c("Total N",
                "Forest Cover", 
                "Wetland Cover",
                "Soil Erodability",
-               "Farm N",
-               "Farm P",
-               "Developed N", 
-               "Developed P",
+               "Farm N Inputs",
+               "Farm P Inputs",
+               "Developed N Inputs", 
+               "Developed P Inputs",
                "Deposition N", 
                "Monthly Precip",
                "Monthly Temp",
@@ -218,9 +228,9 @@ fixed_df <- rbind(
 )
 
 # Table that includes both response variables and models with and without lake data. Covariates are converted to positive or negative signs with asterisks denoting the associated p-values.
-pal <- RColorBrewer::brewer.pal(9, "RdBu")
-
-pal <- c("#B2182B", "#db1d35", "#e54155", "#eb6a7a", "#F7F7F7", "#72abe4", "#4c94dd", "#287dd2", "#2166AC")
+# pal <- RColorBrewer::brewer.pal(9, "RdBu")
+# pal <- c("#B2182B", "#db1d35", "#e54155", "#eb6a7a", "#F7F7F7", "#72abe4", "#4c94dd", "#287dd2", "#2166AC")
+pal <- c("#eb6a7a", "#f08f9b", "#f5b4bc", "#fadade", "#F7F7F7", "#dceaf8", "#b8d5f1", "#95c0eb", "#72abe4")
 
 est_and_sign <- fixed_df |>
   filter(!fixed_effect == "(Intercept)") |>
@@ -330,12 +340,11 @@ covar_tbl <- est_and_sign |>
 covar_tbl
 ```
 
-
-```{r fitted values maps}
+```{r standarized residual maps}
 #| label: fitted-maps
 #| fig-width: 6
 #| fig-height: 6
-#| fig-cap: "Fitted values for the cyanobacteria and microcystin models without in-lake data."
+#| fig-cap: "Standardized residuals for the cyanobacteria and microcystin models without in-lake conditions."
 
 cyano_nolake_loocv <- loocv(cyano_nolake, cv_predict = TRUE)
 
