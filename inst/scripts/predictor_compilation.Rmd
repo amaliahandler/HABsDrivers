@@ -253,7 +253,7 @@ PredData <- PredData |>
 
 # fetch data
 
-fetch <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/lake_fetch_lm.csv")
+fetch <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/fetch_df_21.csv")
 
 PredData <- left_join(PredData, fetch, by = 'COMID')
 
@@ -311,6 +311,6 @@ PredData <- PredData |>
 ```{r}
 
 # Save the data as part of the package
-usethis::use_data(PredData, overwrite = F)
+usethis::use_data(PredData, overwrite = T)
 
 ```
