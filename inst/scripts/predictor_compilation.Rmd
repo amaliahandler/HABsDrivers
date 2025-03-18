@@ -77,7 +77,7 @@ PredData <- left_join(PredData, dplyr::select(PRISM, Tmean9120Ws, Precip9120Ws, 
 
 ```
 
-Three aggregated ecoregions, derived from NLA , Omernick et al 
+Three aggregated ecoregions, derived from NLA , Omernick et al
 
 ```{r}
 
@@ -88,7 +88,7 @@ eco3 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (
 eco3 <- eco3 |>
   rename(COMID = comid)
 
-# join ecoregion data to exisiting predictor data
+# join ecoregion data to existing predictor data
 PredData <- left_join(PredData, dplyr::select(eco3, ag_eco3, COMID), by = 'COMID')
 
 ```
@@ -117,7 +117,7 @@ chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 10000))
 # using lapply function to pull NLCD data fro each chunk by COMID
 ncldMas <- do.call(rbind, lapply(chunks, get_nlcd))
 
-# simplify and aggregdate variables
+# simplify and aggregate variables
 ncldMas <- ncldMas |>
   mutate(agr_ws = PCTCROP2016WS + PCTHAY2016WS,
          dev_ws = PCTURBLO2016WS + PCTURBMD2016WS + PCTURBOP2016WS + PCTURBHI2016WS,
@@ -127,7 +127,7 @@ ncldMas <- ncldMas |>
          .keep = 'unused')
 
 # selecting land cover metric necessary for the model, forest cover (fst_ws) 
-# and merging with exisitng predictor dataset by COMID 
+# and merging with existing predictor dataset by COMID 
 PredData <- ncldMas |>
   dplyr::select(COMID, fst_ws, WSAREASQKM) |>
   merge(PredData, by = 'COMID')
@@ -306,13 +306,13 @@ Lake fetch data, calculated using Lakemorpho
 # read in fetch data populated from lakemorpho
 fetch <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/fetch_df_21.csv")
 
-# join fetch data with exisiting predictor data set 
+# join fetch data with existing predictor data set 
 PredData <- left_join(PredData, fetch, by = 'COMID')
 
 # replace NA fetch values with 0
 PredData$fetch <- replace(PredData$fetch, which(PredData$fetch <= 0), NA)
 
-# replace missing fetch values in exisiting predictor dataset with ones populated from lakemorpho
+# replace missing fetch values in existing predictor data set with ones populated from lakemorpho
 PredData$fetch <- coalesce(PredData$fetch, PredData$max_length)
 
 # remove any rows with missing fetch values
