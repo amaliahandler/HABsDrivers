@@ -1,6 +1,6 @@
 # HABS Predictor Dataset =======================================================
 
-# install packainges, load libraries
+# install packages, load libraries
 
 library(devtools)
 library(dplyr)
