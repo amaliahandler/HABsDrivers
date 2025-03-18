@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 The purpose of this document is so compile the dataset to predict cyanoHABs risk of lakes across the conterminous United states.
 
-```{r, include = FALSE, warning = FALSE, message = FALSE}
+```{r Libraries, message=FALSE, warning=FALSE, include=FALSE}
 # Load required packages
 # install if needed
 
@@ -38,11 +38,11 @@ library(readr)
 
 ```
 
-**National Nutrient Inventory**
+## National Nutrient Inventory
 
 Nutrient input data, lake characteristics, and base flow metrics
 
-```{r}
+```{r Nutrient inventory, message=FALSE}
 
 # pull in files
 nutr_inv_directory <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/nutr_inventory"
@@ -65,9 +65,9 @@ PredData <- PredData |>
 
 ```
 
-PRISM climate Datat derived from StreamCat
+## PRISM climate Datat derived from StreamCat
 
-```{r}
+```{r PRISM data, message=FALSE}
 
 # read in data file 
 PRISM <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/PRISM_1991_2020.csv")
@@ -77,12 +77,12 @@ PredData <- left_join(PredData, dplyr::select(PRISM, Tmean9120Ws, Precip9120Ws, 
 
 ```
 
-Three aggregated ecoregions, derived from NLA , Omernick et al
+## Three aggregated ecoregions, derived from NLA , Omernick et al
 
-```{r}
+```{r Ecoregion, message=FALSE}
 
 # read in data file 
-eco3 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/NLA_SampleFrame_L3L4Ecoregions 1.csv")
+eco3 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/NLA_SampleFrame_L3L4Ecoregions1.csv")
 
 # rename COMID variable for consistency 
 eco3 <- eco3 |>
@@ -93,11 +93,11 @@ PredData <- left_join(PredData, dplyr::select(eco3, ag_eco3, COMID), by = 'COMID
 
 ```
 
-**Land Cover Data**
+## Land Cover Data
 
 Watershed land cover metrics, derived from the National Land Cover Dataset
 
-```{r}
+```{r NLCD, message=FALSE}
 
 # create function to pull relevant land cover metrics, specifying desired year and watershed scale  
 
@@ -134,11 +134,11 @@ PredData <- ncldMas |>
 
 ```
 
-**Watershed Boundary Data**
+## Watershed Boundary Data
 
 Lake metrics and geographic derived from National Hydrography Dataset Plus
 
-```{r}
+```{r WBD, message=FALSE}
 
 # create key for path to data
 loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
@@ -157,9 +157,9 @@ PredData <- merge(PredData, wbd_copy, by = 'COMID')
 
 ```
 
-**LakeCat Aggregated Nutrients**
+## LakeCat Aggregated Nutrients
 
-```{r}
+```{r Nutrients, StreamCat, message=FALSE}
 
 # load files from folder
 data_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/nutrient_inputs"
@@ -196,11 +196,11 @@ PredData <- PredData |>
 
 ```
 
-\*\* Lake Morphology \*\*
+## Lake Morphology
 
 Lake morphology metrics populated through lakemorpho and elevatr packages. Lake metric creation in following code block if needed.
 
-```{r}
+```{r Lake Depths, message=FALSE}
 
 # pull lake depth files from folder for lakes without NHD or LAGOS metrics 
 lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/lake_metrics"
@@ -220,7 +220,7 @@ PredData <- left_join(PredData, lake_met_df, by = 'COMID')
 
 ```
 
-```{r}
+```{r Lakemorpho function, eval=FALSE}
 
 # Depth Creation 
 # this code was used to populate lake depths and fetch for lakes that were missing that information 
@@ -276,7 +276,7 @@ lake_met_df <- met_files |>
 
 ```
 
-```{r}
+```{r Depth Ranking, message=FALSE}
 
 PredData$LAGOSLakeDepth <- replace(PredData$LAGOSLakeDepth, which(PredData$LAGOSLakeDepth <= 0), NA)
 PredData$NHDLakeDepth <- replace(PredData$NHDLakeDepth, which(PredData$NHDLakeDepth <= 0), NA)
@@ -299,9 +299,9 @@ PredData <- PredData |>
 
 ```
 
-Lake fetch data, calculated using Lakemorpho
+## Lake fetch data, calculated using Lakemorpho
 
-```{r}
+```{r Fetch, message=FALSE}
 
 # read in fetch data populated from lakemorpho
 fetch <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/fetch_df_21.csv")
@@ -321,9 +321,9 @@ PredData <- PredData |>
 
 ```
 
-Compiling and cleaning aggregated data set for model fit.
+## Compiling and cleaning aggregated data set for model fit.
 
-```{r}
+```{r Final model, message=FALSE}
 
 # combining nutrient data to create final nutrient covariates 
 # remove unnecessary columns 
@@ -378,6 +378,8 @@ PredData <- PredData |>
   drop_na()
 
 ```
+
+# Save data to package
 
 ```{r}
 
