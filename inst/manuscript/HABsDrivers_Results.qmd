@@ -346,18 +346,29 @@ covar_tbl
 #| fig-height: 6
 #| fig-cap: "Standardized residuals for the cyanobacteria and microcystin models without in-lake conditions."
 
-cyano_nolake_loocv <- loocv(cyano_nolake, cv_predict = TRUE)
-
 cyano_nolake_aug <- augment(cyano_nolake) |>
-  mutate(preds = cyano_nolake_loocv$cv_predict) |>
-  arrange(preds)
+  mutate(resp = "Cyanobacteria") |>
+  select(resp, .std.resid)
+micx_nolake_aug  <- augment(micx_nolake) |>
+  mutate(resp = "Microcystin") |>
+  select(resp, .std.resid) |>
+  st_transform(st_crs(cyano_nolake_aug))
 
-fit_cyano <- ggplot() + 
+std_resid_comb <- rbind(cyano_nolake_aug, micx_nolake_aug) |>
+  mutate(rank = case_when(.std.resid > 4 ~ 4,
+                          .std.resid > 3 & .std.resid < 4 ~ 3,
+                          .std.resid < -2 ~ 2,
+                          TRUE ~ 1)) |>
+  arrange(rank)
+
+ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = cyano_nolake_aug, 
-          aes(fill = preds), pch = 21, size = 2) +
-  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
-                       name = "Cyanobacteria\nLog10(Count + \n1000)") +
+  geom_sf(data = std_resid_comb, 
+          aes(fill = .std.resid), pch = 21, size = 2) +
+  # scale_fill_gradientn(colors = RColorBrewer::brewer.pal(8, 'BrBG'),
+  #                      name = "Standardized\nResidual") +
+  facet_wrap(~ resp, ncol = 1, nrow = 2) +
+  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", mid = 0, name = "Standardized\nResidual") |>
   theme_void()
 
 micx_sp_nolake_aug <- augment(micx_nolake)
@@ -365,7 +376,7 @@ micx_sp_nolake_aug <- augment(micx_nolake)
 fit_micx <- ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
   geom_sf(data = micx_sp_nolake_aug, aes(fill = .fitted), pch = 21, size = 2) +
-  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
+  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'PiYG'),
                        name = "Microcystin\nFitted \nProbability") +
   theme_void()
 
