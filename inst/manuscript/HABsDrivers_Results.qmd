@@ -12,6 +12,7 @@ editor_options:
 devtools::load_all()
 
 # Load packages
+library(here)
 library(spmodel)
 library(dplyr)
 library(tidyr)
@@ -78,86 +79,6 @@ nla_map <- ggplot() +
 #| fig-cap: "Lakes sampled in the 2007, 2012, and 2017 National Lakes Assessment. Darker points represent lakes sampled multiple times."
 nla_map
 
-```
-
-### Table of model variables
-
-```{r construct variable summary table}
-# Each variable that was considered in the modeling process
-# Note that some of these values were excluded from the model development process because of suspected unreasonable outliers. Will need to update this once I determine where in the pipeline to trim these data.
-
-summerizer <- function(var){
-  colnum <- match(var[1], colnames(habs))
-  dat    <- pull(habs, colnum)
-  tibble(Variable = var[2],
-         Units = var[3],
-         Min = min(dat, na.rm = TRUE),
-         Med = median(dat, na.rm = TRUE),
-         Mean = mean(dat, na.rm = TRUE),
-         Max = max(dat, na.rm = TRUE),
-         Scale = var[4],
-         Source = var[5]
-         )
-}
-
-vec_list <- list(
-  c("B_G_DENS", "Cyanobacteria", "cells/mL", "Lake", "NLA"),
-  c("MICX", "Microcystin", "ug/L", "Lake", "NLA"),
-  c("PTL", "Total Phosphorus", "ug/L", "Lake", "NLA"),
-  c("NTL", "Total Nitrogen", "mg N/L", "Lake", "NLA"),
-  c("NITRATE_N", "Nitrate", "mg N/L", "Lake", "NLA"),
-  c("AMMONIA_N", "Ammonium", "mg N/L", "Lake", "NLA"),
-  c("DOC", "Dissolved Organic Carbon", "mg/L", "Lake", "NLA"),
-  c("PH", "pH", "Std. Units", "Lake", "NLA"),
-  c("TURB", "Tubidty", "NTU", "Lake", "NLA"),
-  c("EVAP_INFL", "Evaporation:Inflow", "unitless", "Lake", "NLA"),
-  c("MAXDEPTH", "Maximum Lake Depth", "meters", "Lake", "NLA"),
-  c("lakemorpho_fetch", "Lake Fetch", "meters", "Lake", "Lakemorpho"),
-  c("N_Fert_Farm", "Farm Fertilizer N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("N_livestock_Waste", "Livestock Waste N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("N_CBNF", "Cultivated Crop Biological Nitrogen Fixation", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("P_f_fertilizer", "Farm Fertilizer P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("P_livestock_Waste", "Livestock Waste P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("N_Human_Waste", "Human Waste N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("N_Fert_Urban", "Non-Farm Fertilizer N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("P_human_waste_kg", "Human Waste P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("P_nf_fertilizer", "Non-Farm Fertilizer P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("n_farm_inputs", "Total Farm N Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-   c("p_farm_inputs", "Total Farm P Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-   c("n_dev_inputs", "Total Developed N Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-   c("p_dev_inputs", "Total Developed P Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("fst_ws", "Forested Land Cover", "percent", "Watershed", "NLCD 2011"),
-  c("BFIWs", "Baseflow Index", "unitless", "Watershed", "LakeCat"),
-  c("precip_mean_month", "Month Mean Precipitation", "millimeters", "Watershed", "LakeCat"),
-  c("temp_mean_month", "Month Mean Temperature", "degC", "Watershed", "LakeCat"),
-  c("Precip8110Ws", "Mean Annual Precipitation", "millimeters", "Watershed", "LakeCat"),
-  c("Tmean8110Ws", "Mean Annual Temperature", "millimeters", "Watershed", "LakeCat")
-)
-
-summary_covariate_table <- do.call(rbind, lapply(vec_list, summerizer)) |>
-  mutate(Type = c(rep("In-Lake Conditions", 10), 
-                  rep("Lake Geometry", 2), 
-                  rep("Nutrient Inputs", 14), 
-                  rep("Geographic Setting", 5)), .before = "Variable")
-
-options(digits = 1)
-covar_sum_table <- summary_covariate_table |>
-  flextable() |>
-  colformat_num(j = c("Min","Med","Mean","Max"), digits = 2, part = "body") |>
-  merge_v(part = "body", j = 1) |> 
-  theme_booktabs(bold_header = TRUE) |>
-  theme_box() |>
-  align(align = "center", part = "header") |>
-  align(align = "center", j = 1, part = "body") |>
-  fontsize(size = 10, part = "body") |>
-  fontsize(size = 10, part = "header")
-
-```
-
-```{r varable summary table}
-#| label: tbl-var-summary
-#| tbl-cap: Summary statistics for response variable and covariates in the model.
-covar_sum_table
 ```
 
 ```{r setup correlation plot}
@@ -446,3 +367,133 @@ ggplot() +
     theme_void()
 
 ```
+
+## Supplemental Material
+
+### Table of model variables
+
+```{r construct variable summary table}
+# Each variable that was considered in the modeling process
+# Note that some of these values were excluded from the model development process because of suspected unreasonable outliers. Will need to update this once I determine where in the pipeline to trim these data.
+
+summerizer <- function(var){
+  colnum <- match(var[1], colnames(habs))
+  dat    <- pull(habs, colnum)
+  tibble(Variable = var[2],
+         Units = var[3],
+         Min = min(dat, na.rm = TRUE),
+         Med = median(dat, na.rm = TRUE),
+         Mean = mean(dat, na.rm = TRUE),
+         Max = max(dat, na.rm = TRUE),
+         Scale = var[4],
+         Source = var[5]
+         )
+}
+
+vec_list <- list(
+  c("B_G_DENS", "Cyanobacteria", "cells/mL", "Lake", "NLA"),
+  c("MICX", "Microcystin", "ug/L", "Lake", "NLA"),
+  c("PTL", "Total Phosphorus", "ug/L", "Lake", "NLA"),
+  c("NTL", "Total Nitrogen", "mg N/L", "Lake", "NLA"),
+  c("NITRATE_N", "Nitrate", "mg N/L", "Lake", "NLA"),
+  c("AMMONIA_N", "Ammonium", "mg N/L", "Lake", "NLA"),
+  c("DOC", "Dissolved Organic Carbon", "mg/L", "Lake", "NLA"),
+  c("PH", "pH", "Std. Units", "Lake", "NLA"),
+  c("TURB", "Tubidty", "NTU", "Lake", "NLA"),
+  c("EVAP_INFL", "Evaporation:Inflow", "unitless", "Lake", "NLA"),
+  c("MAXDEPTH", "Maximum Lake Depth", "meters", "Lake", "NLA"),
+  c("lakemorpho_fetch", "Lake Fetch", "meters", "Lake", "Lakemorpho"),
+  c("N_Fert_Farm", "Farm Fertilizer N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("N_livestock_Waste", "Livestock Waste N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("N_CBNF", "Cultivated Crop Biological Nitrogen Fixation", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("P_f_fertilizer", "Farm Fertilizer P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("P_livestock_Waste", "Livestock Waste P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("N_Human_Waste", "Human Waste N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("N_Fert_Urban", "Non-Farm Fertilizer N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("P_human_waste_kg", "Human Waste P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("P_nf_fertilizer", "Non-Farm Fertilizer P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("n_farm_inputs", "Total Farm N Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+   c("p_farm_inputs", "Total Farm P Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+   c("n_dev_inputs", "Total Developed N Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+   c("p_dev_inputs", "Total Developed P Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("fst_ws", "Forested Land Cover", "percent", "Watershed", "NLCD 2011"),
+  c("BFIWs", "Baseflow Index", "unitless", "Watershed", "LakeCat"),
+  c("precip_mean_month", "Month Mean Precipitation", "millimeters", "Watershed", "LakeCat"),
+  c("temp_mean_month", "Month Mean Temperature", "degC", "Watershed", "LakeCat"),
+  c("Precip8110Ws", "Mean Annual Precipitation", "millimeters", "Watershed", "LakeCat"),
+  c("Tmean8110Ws", "Mean Annual Temperature", "millimeters", "Watershed", "LakeCat")
+)
+
+summary_covariate_table <- do.call(rbind, lapply(vec_list, summerizer)) |>
+  mutate(Type = c(rep("In-Lake Conditions", 10), 
+                  rep("Lake Geometry", 2), 
+                  rep("Nutrient Inputs", 14), 
+                  rep("Geographic Setting", 5)), .before = "Variable")
+
+options(digits = 1)
+covar_sum_table <- summary_covariate_table |>
+  flextable() |>
+  colformat_num(j = c("Min","Med","Mean","Max"), digits = 2, part = "body") |>
+  merge_v(part = "body", j = 1) |> 
+  theme_booktabs(bold_header = TRUE) |>
+  theme_box() |>
+  align(align = "center", part = "header") |>
+  align(align = "center", j = 1, part = "body") |>
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header")
+
+```
+
+```{r varable summary table}
+#| label: tbl-var-summary
+#| tbl-cap: Summary statistics for response variable and covariates in the model.
+covar_sum_table
+```
+
+```{r model selection tables}
+
+# Create a table of model comparison process
+tabs <- c("cyano_mod_compare_withlakedata.rds",
+          "cyano_mod_compare_nolakedata.rds",
+          "micx_iemod_compare_withlakedata.rds",
+          "micx_iemod_compare_nolakedata.rds",
+          "micx_spmod_compare_withlakedata.rds",
+          "micx_spmod_compare_nolakedata.rds")
+
+mod_comp_tabs <- lapply(tabs, function(tab){
+  in_lake_conditions <- ifelse(grepl("withlakedata", tab), "Present", "Absent")
+  error_structure    <- ifelse(grepl("cyano_mod", tab), "Spatial",
+                               ifelse(grepl("iemod", tab), "Independent", "Spatial"))
+  resp_var           <- ifelse(grepl("cyano", tab), "Cyanobacteria", "Microcystin")
+  
+  readRDS(paste0(here(), "./inst/model_objects/", tab)) |>
+    mutate(resp_var = resp_var,
+           error_structure = error_structure,
+           inlake_conditions = in_lake_conditions, .before = 1) |>
+    mutate(distinct_vars = gsub(", ", " \n", distinct_vars),
+           common_vars = gsub(", ", " \n", common_vars))
+})
+
+# Combine cyanobacteria models
+cyano_mod_select <- rbind(mod_comp_tabs[[1]], mod_comp_tabs[[2]]) |>
+  arrange(model) |>
+  select(resp_var, error_structure, inlake_conditions, common_vars, distinct_vars, p, BIC, bias, RMSPE, cor2) |>
+  mutate(inlake_conditions = factor(inlake_conditions, levels = c("Present", "Absent"))) |>
+  arrange(inlake_conditions)
+
+micx_iemod_select <- rbind(mod_comp_tabs[[3]], mod_comp_tabs[[4]]) |>
+  mutate(inlake_conditions = factor(inlake_conditions, levels = c("Present", "Absent"))) |>
+  arrange(inlake_conditions, model) |>
+  select(resp_var, error_structure, inlake_conditions, common_vars, distinct_vars, p, BIC, AUC) |>
+  flextable()
+  
+micx_spmod_select <- rbind(mod_comp_tabs[[5]], mod_comp_tabs[[6]]) |>
+  mutate(inlake_conditions = factor(inlake_conditions, levels = c("Present", "Absent"))) |>
+  arrange(inlake_conditions, model) |>
+  select(resp_var, error_structure, inlake_conditions, common_vars, distinct_vars, bias, RMSPE, AUC) |>
+  flextable()
+
+  
+
+```
+
