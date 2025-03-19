@@ -22,6 +22,8 @@ library(knitr)
 library(here)
 library(corrplot)
 library(flextable)
+library(officer)
+library(officedown)
 
 # Do not include code chunks in document
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -146,13 +148,14 @@ covar_sum_table <- summary_covariate_table |>
   theme_booktabs(bold_header = TRUE) |>
   theme_box() |>
   align(align = "center", part = "header") |>
-  align(align = "center", j = 1, part = "body")
+  align(align = "center", j = 1, part = "body") |>
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header")
 
 ```
 
 ```{r varable summary table}
 #| label: tbl-var-summary
-#| 
 #| tbl-cap: Summary statistics for response variable and covariates in the model.
 covar_sum_table
 ```
@@ -330,7 +333,8 @@ covar_tbl <- est_and_sign |>
   bg(j = c(5:6), i = c(1:7), bg = "#606060") |> # Covariates that weren't available to the models
   theme_box() |>
   align(align = "center", part = "header") |>
-  autofit(add_w = 0, add_h = 0)
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header")
 
 ```
 
@@ -341,7 +345,7 @@ covar_tbl
 ```
 
 ```{r standarized residual maps}
-#| label: fitted-maps
+#| label: std-resid-maps
 #| fig-width: 6
 #| fig-height: 6
 #| fig-cap: "Standardized residuals for the cyanobacteria and microcystin models without in-lake conditions."
@@ -364,24 +368,12 @@ std_resid_comb <- rbind(cyano_nolake_aug, micx_nolake_aug) |>
 ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
   geom_sf(data = std_resid_comb, 
-          aes(fill = .std.resid), pch = 21, size = 2) +
-  # scale_fill_gradientn(colors = RColorBrewer::brewer.pal(8, 'BrBG'),
-  #                      name = "Standardized\nResidual") +
+          aes(fill = .std.resid), pch = 21, size = 1.5) +
   facet_wrap(~ resp, ncol = 1, nrow = 2) +
-  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", mid = 0, name = "Standardized\nResidual") |>
-  theme_void()
-
-micx_sp_nolake_aug <- augment(micx_nolake)
-
-fit_micx <- ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = micx_sp_nolake_aug, aes(fill = .fitted), pch = 21, size = 2) +
-  scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'PiYG'),
-                       name = "Microcystin\nFitted \nProbability") +
-  theme_void()
-
-ggpubr::ggarrange(plotlist = list(fit_cyano, fit_micx),
-                  nrow = 2)
+  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
+                                               mid = 0, 
+                                               name = "Standardized\nResidual") +
+    theme_void()
 
 ```
 
@@ -395,15 +387,32 @@ comp_cyan <- readRDS(paste0(here(), "/inst/model_objects/spatial_compare_cyano.r
 comp_micx <- readRDS(paste0(here(), "/inst/model_objects/spatial_compare_micx.rds")) |>
   rename(fit = auc)
 
-fit_comp <- 
-  rbind(comp_cyan, comp_micx) |>
-  select(resp_var, spatial_mod, lake_data, fit) |>
-  pivot_wider(names_from = lake_data,
-              values_from = fit) |>
-  rename(Model = resp_var,
-         Error_Structure = spatial_mod)
-
-knitr::kable(fit_comp, digits = 2)
+options(digits = 2)
+rbind(comp_cyan, comp_micx) |>
+  select(-MSPE) |>
+  mutate(resp_var = case_when(resp_var == "cyano" ~ "Cyanobacteria",
+                              resp_var == "micx" ~ "Microcystin"),
+         lake_data = case_when(lake_data == "present" ~ "Present",
+                               lake_data == "absent" ~ "Absent"),
+         spatial_mod = case_when(spatial_mod == "spatial" ~ "Spatial",
+                                 spatial_mod == "non-spatial" ~ "Independent")) |>
+  flextable() |>
+  set_header_labels(values = list(
+    resp_var = "Response Variable",
+    lake_data = "In-Lake Conditions",
+    spatial_mod = "Error Structure",
+    bias = "Bias",
+    RMSPE = "RMSPE",
+    fit = "Fit")) |>
+  merge_v(part = "body", j = c(1:2)) |> 
+  footnote(i = 1, j = 6,
+           value = as_paragraph("Fit is R^2 for cyanobacteria models and AUC for microcystin models."), ref_symbols = "a", part = "header") |>
+  theme_booktabs(bold_header = TRUE) |>
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header") |>
+  fontsize(size = 9, part = "footer") |>
+  theme_box() |>
+  align(align = "center", part = "header")
 
 ```
 
@@ -413,29 +422,27 @@ knitr::kable(fit_comp, digits = 2)
 #| fig-height: 6
 #| fig-cap: "Spatial covariance for the cyanobacteria and microcystin models without in-lake data."
 
-cyano_aug <- augment(cyano_nolake)
-cyano_aug$.spde <- fitted(cyano_nolake, type = "spcov")$de
+cyano_aug <- augment(cyano_nolake) |>
+  mutate(spde = fitted(cyano_nolake, type = "spcov")$de,
+         resp = "Cyanobacteria") |>
+  select(resp, spde)
 
-spcov_cyano <- ggplot() + 
+micx_aug <- augment(micx_nolake) |>
+  mutate(spde = fitted(micx_nolake, type = "spcov")$de,
+         resp = "Microcystin") |>
+  select(resp, spde) |>
+  st_transform(st_crs(cyano_aug))
+  
+spde <- rbind(cyano_aug, micx_aug)
+
+ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = arrange(cyano_aug, .spde), 
-          aes(fill = .spde), pch = 21, size = 2) +
-  colorspace::scale_fill_continuous_divergingx(palette = 'RdBu', mid = 0, rev = TRUE, name = "Spatial \nCovariance") +
-  ggtitle("Cyanobacteria") +
-  theme_void()
+  geom_sf(data = spde, 
+          aes(fill = spde), pch = 21, size = 1.5) +
+  facet_wrap(~ resp, ncol = 1, nrow = 2) +
+  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
+                                               mid = 0, 
+                                               name = "Spatial\nAutocorrelation") +
+    theme_void()
 
-micx_aug <- micx_nolake |>
-  augment() |>
-  mutate(.spde = fitted(micx_nolake, type = "spcov")$de, .after = .std.resid)
-
-spcov_micx <- ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = arrange(micx_aug, .spde), 
-          aes(fill = .spde), pch = 21, size = 2) +
-  colorspace::scale_fill_continuous_divergingx(palette = 'RdBu', mid = 0, rev = TRUE, name = "Spatial \nCovariance") +
-  ggtitle("Microcystin") +
-  theme_void()
-
-ggpubr::ggarrange(plotlist = list(spcov_cyano, spcov_micx),
-                  nrow = 2)
 ```
