@@ -1,20 +1,6 @@
----
-title: "predictors_compilation"
-output: html_document
-date: "2024-07-16"
----
+# HABS Predictor Dataset =======================================================
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-## Script background
-
-The purpose of this document is so compile the dataset to predict cyanoHABs risk of lakes across the conterminous United states.
-
-```{r Libraries, message=FALSE, warning=FALSE, include=FALSE}
-# Load required packages
-# install if needed
+# install packages, load libraries
 
 library(devtools)
 library(dplyr)
@@ -36,26 +22,15 @@ library(units)
 library(fs)
 library(readr)
 
-```
+# compile 2007 and 2012 nutrient inventory data --------------------------------
 
-## National Nutrient Inventory
-
-Nutrient input data, lake characteristics, and base flow metrics
-
-```{r Nutrient inventory, message=FALSE}
-
-# pull in files
 nutr_inv_directory <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/nutr_inventory"
-
-# compile file paths using fs package 
 nutr_pred_data <- fs::dir_ls(nutr_inv_directory, regexp = "\\.csv$")
 
-# compile individual files into one
+#compile files into a single data frame
 PredData <- nutr_pred_data |>
   map_dfr(read.csv)
 
-# clean and aggregate data based on year and variable 
-# select columns necessary for the model 
 PredData <- PredData |>
   group_by(across(wbCOMID)) |>
   summarise(across(where(is.numeric), mean)) |>
@@ -63,43 +38,22 @@ PredData <- PredData |>
   dplyr::select(-catCOMID) |>
   dplyr::select(c(N_Fert_Farm_2007,N_CBNF_2007, BFIWs, LAGOSLakeDepth, NHDLakeDepth, COMID))
 
-```
+# Combine Datasets -------------------------------------------------------------
 
-## PRISM climate Datat derived from StreamCat
-
-```{r PRISM data, message=FALSE}
-
-# read in data file 
+# PRISM data derived from Stream Cat ------
 PRISM <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/PRISM_1991_2020.csv")
 
-# join data file to existing predictor data
 PredData <- left_join(PredData, dplyr::select(PRISM, Tmean9120Ws, Precip9120Ws, COMID), by = 'COMID')
 
-```
-
-## Three aggregated ecoregions, derived from NLA , Omernick et al
-
-```{r Ecoregion, message=FALSE}
-
-# read in data file 
+# Ecoregions data, derived from NLA ------
 eco3 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/NLA_SampleFrame_L3L4Ecoregions1.csv")
 
-# rename COMID variable for consistency 
 eco3 <- eco3 |>
   rename(COMID = comid)
 
-# join ecoregion data to existing predictor data
 PredData <- left_join(PredData, dplyr::select(eco3, ag_eco3, COMID), by = 'COMID')
 
-```
-
-## Land Cover Data
-
-Watershed land cover metrics, derived from the National Land Cover Dataset
-
-```{r NLCD, message=FALSE}
-
-# create function to pull relevant land cover metrics, specifying desired year and watershed scale  
+# Land Cover Data --------------------------------------------------------------
 
 get_nlcd <- function(coms){
   lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
@@ -110,14 +64,13 @@ get_nlcd <- function(coms){
               showAreaSqKm = TRUE)
 }
 
-# divide existing predictor dataset into groups of 10,000 by COMID 
-# increasing efficiency in pulling NLCD data
 chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 10000))
 
-# using lapply function to pull NLCD data fro each chunk by COMID
 ncldMas <- do.call(rbind, lapply(chunks, get_nlcd))
 
-# simplify and aggregate variables
+# ncldMas <- ncldMas |>
+#   dplyr::select(-WSAREASQKM)
+
 ncldMas <- ncldMas |>
   mutate(agr_ws = PCTCROP2016WS + PCTHAY2016WS,
          dev_ws = PCTURBLO2016WS + PCTURBMD2016WS + PCTURBOP2016WS + PCTURBHI2016WS,
@@ -126,40 +79,24 @@ ncldMas <- ncldMas |>
          COMID = COMID,
          .keep = 'unused')
 
-# selecting land cover metric necessary for the model, forest cover (fst_ws) 
-# and merging with existing predictor dataset by COMID 
 PredData <- ncldMas |>
   dplyr::select(COMID, fst_ws, WSAREASQKM) |>
   merge(PredData, by = 'COMID')
 
-```
+# Water Body Data --------------------------------------------------------------
 
-## Watershed Boundary Data
-
-Lake metrics and geographic derived from National Hydrography Dataset Plus
-
-```{r WBD, message=FALSE}
-
-# create key for path to data
 loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
 
-# pull in watershed boundary dataset using the key and desired data layer
 wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") |>
   st_transform(5072)
 
-# select only relevant COMIDs to the predictor data and select necessary variables 
 wbd_copy <- wbd |>
   subset(COMID %in% PredData$COMID) |>
   dplyr::select(COMID, MaxDepth, Shape)
 
-# merge water boundary data with exisiting predictor data
 PredData <- merge(PredData, wbd_copy, by = 'COMID')
 
-```
-
-## LakeCat Aggregated Nutrients
-
-```{r Nutrients, StreamCat, message=FALSE}
+# Nutrient Data Compiling ------------------------------------------------------
 
 # load files from folder
 data_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/nutrient_inputs"
@@ -169,9 +106,6 @@ csv_files <- fs::dir_ls(data_dir)
 nutrMas <- csv_files |>
   map_dfr(read_csv)
 
-# remove all varibales with metrics aggregated at the catchment scale
-# mean nutrient data from 2002, 2007, and 2012 to create averaged value for nutrient inputs
-# keeping only new variables and ones exisiting already in predictor dataset
 nutrMas <- nutrMas |>
   dplyr::select(-contains(c('Cat'))) |>
   rowwise() |>
@@ -186,147 +120,99 @@ nutrMas <- nutrMas |>
          p_nf_fert = mean(c(P_nf_fertilizer_kg_Urb_2002Ws, P_nf_fertilizer_kg_Urb_2007Ws, P_nf_fertilizer_kg_Urb_2012Ws)),
          .keep = 'none')
 
-# merge nutrient data with exisitng predictor data set 
 PredData <- merge(PredData, nutrMas, by = 'COMID')
 
-# mean cbnf values from stream cat and natrional nutrient inventory 
 PredData <- PredData |>
   mutate(n_cbnf = ((n_cbnf + N_CBNF_2007)/2),
          .keep = 'unused')
 
-```
+# Lake Depth -------------------------------------------------------------------
 
-## Lake Morphology
-
-Lake morphology metrics populated through lakemorpho and elevatr packages. Lake metric creation in following code block if needed.
-
-```{r Lake Depths, message=FALSE}
-
-# pull lake depth files from folder for lakes without NHD or LAGOS metrics 
 lake_met_dir <- "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/lake_metrics"
-# compile file paths 
 lake_met_files <- fs::dir_ls(lake_met_dir, regexp = "\\.csv$")
 
-# compile files into a single data frame
+#compile files into a single data frame
 lake_met_df <- lake_met_files |>
   map_dfr(read.csv)
 
-# remove any duplicates 
 lake_met_df <- lake_met_df |>
   distinct(COMID, .keep_all = TRUE)
 
-# join lake metrics to exisitng predictor data set 
+# Depth Creation
+
+# met_comids <- lake_met_df$COMID
+#
+#
+# get_morpho_obj <- function(com, df){
+#   lake_com <- filter(df, COMID == com)
+#   lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
+#   lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
+#   saveRDS(lake_lm, file = paste0('C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/test_depths/', com, ".rds"))
+# }
+#
+# #run function to the missing depths COMIDs
+# depths <- lapply(met_comids, get_morpho_obj, lake_met_df)
+#
+# #load lake morpho object files from folder
+# data_dir <- "./private/lake_morpho_objects/"
+# lm_files <- dir_ls(data_dir, regexp = "\\.rds$")
+#
+# #function to pull files from lake morpho objects into metrics to compile into df
+# morph_it <- function(file_name) {
+#   morpho_obj <- readRDS(file_name)
+#
+#   if (class(morpho_obj) == 'lakeMorpho') {
+#     max_depth <- lakemorpho::lakeMaxDepth(morpho_obj, correctFactor = 0.6)
+#     lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
+#     COMID <- morpho_obj$lake$COMID
+#
+#     output <- data.frame(COMID = COMID, depth = max_depth)
+#     saveRDS(output, file = paste0('./private/friday_metrics/lake_metric', COMID, ".rds"))
+#   } else {
+#     message("Skipping file: ", file_name)
+#   }
+# }
+#
+# l <- lapply(lm_files, morph_it)
+#
+# #pull metrics data to create final df
+# met_dir <- "./private/metrics/"
+# met_files <- fs::dir_ls(met_dir, regexp = "\\.rds$")
+#
+# #compile files into a single data frame
+# lake_met_df <- met_files |>
+#   map_dfr(readRDS)
+
+#compile depths into one column using hierarchy to give preference to LAGOS and NHD populated depths
+
 PredData <- left_join(PredData, lake_met_df, by = 'COMID')
-
-```
-
-```{r Lakemorpho function, eval=FALSE}
-
-# Depth Creation 
-# this code was used to populate lake depths and fetch for lakes that were missing that information 
-# from the NHD or LAGOS data sets
-# do not run if compiling this predictor data set only 
-
-# create separate df with just desired COMIDs 
-met_comids <- lake_met_df$COMID
-
-# function to create lakemorpho objects from list of COMIDs and geographic information
-# function saves lakemorpho objects to new r objects within the working directory
-get_morpho_obj <- function(com, df){
-  lake_com <- filter(df, COMID == com)
-  lake_elev <- get_elev_raster(lake_com, z = 13, prj = st_crs(df), expand = 100, override_size_check = TRUE)
-  lake_lm <- lakeSurroundTopo(lake_com, lake_elev)
-  saveRDS(lake_lm, file = paste0('C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/test_depths/', com, ".rds"))
-}
-
-# run function to the missing depths using lapply 
-depths <- lapply(met_comids, get_morpho_obj, lake_met_df)
-
-# load lakemorpho object files from folder
-data_dir <- "./private/lake_morpho_objects/"
-lm_files <- dir_ls(data_dir, regexp = "\\.rds$")
-
-# function to pull files from lake morpho objects into metrics to compile into df
-morph_it <- function(file_name) {
-  morpho_obj <- readRDS(file_name)
-
-  if (class(morpho_obj) == 'lakeMorpho') {
-    max_depth <- lakemorpho::lakeMaxDepth(morpho_obj, correctFactor = 0.6)
-    lake_fetch <- lakeMaxLength(morpho_obj, pointDens = 50)
-    COMID <- morpho_obj$lake$COMID
-
-    output <- data.frame(COMID = COMID, depth = max_depth)
-    saveRDS(output, file = paste0('./private/friday_metrics/lake_metric', COMID, ".rds"))
-  } else {
-    message("Skipping file: ", file_name)
-  }
-}
-
-# function ultimately saved lake metrics to a folder in the working directory
-# create object to save this information to / in order to run the function 
-l <- lapply(lm_files, morph_it)
-
-# pull metrics data to create final df
-met_dir <- "./private/metrics/"
-met_files <- fs::dir_ls(met_dir, regexp = "\\.rds$")
-
-#compile files into a single data frame
-lake_met_df <- met_files |>
-  map_dfr(readRDS)
-
-```
-
-```{r Depth Ranking, message=FALSE}
 
 PredData$LAGOSLakeDepth <- replace(PredData$LAGOSLakeDepth, which(PredData$LAGOSLakeDepth <= 0), NA)
 PredData$NHDLakeDepth <- replace(PredData$NHDLakeDepth, which(PredData$NHDLakeDepth <= 0), NA)
 PredData$MaxDepth <- replace(PredData$MaxDepth, which(PredData$MaxDepth <= 0), NA)
 
-# compile depths into one column using hierarchy to give preference to LAGOS and NHD populated depths
-# create new column that will hold the final lake depths 
 PredData$lake_m_depth <- PredData$LAGOSLakeDepth
-
-# fill in missing LAGOS depths with existing NHD/lakemorpho depths from StreamCat
 PredData$lake_m_depth <- coalesce(PredData$lake_m_depth, PredData$NHDLakeDepth)
-
-# fill in any remaining gaps with depths populated from function in code block above
 PredData$lake_m_depth <- coalesce(PredData$lake_m_depth, PredData$depth)
 
-# remove any duplicates and filter rows without depths
 PredData <- PredData |>
   distinct(COMID, .keep_all = TRUE) |>
   filter(!is.na(lake_m_depth))
 
-```
+# fetch data
 
-## Lake fetch data, calculated using Lakemorpho
-
-```{r Fetch, message=FALSE}
-
-# read in fetch data populated from lakemorpho
 fetch <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/fetch_df_21.csv")
 
-# join fetch data with existing predictor data set 
 PredData <- left_join(PredData, fetch, by = 'COMID')
 
-# replace NA fetch values with 0
 PredData$fetch <- replace(PredData$fetch, which(PredData$fetch <= 0), NA)
-
-# replace missing fetch values in existing predictor data set with ones populated from lakemorpho
 PredData$fetch <- coalesce(PredData$fetch, PredData$max_length)
 
-# remove any rows with missing fetch values
 PredData <- PredData |>
   filter(!is.na(fetch))
 
-```
+# Modeling ---------------------------------------------------------------------
 
-## Compiling and cleaning aggregated data set for model fit.
-
-```{r Final model, message=FALSE}
-
-# combining nutrient data to create final nutrient covariates 
-# remove unnecessary columns 
 PredData <- PredData |>
   mutate(n_farm_inputs = n_livestock + n_cbnf + N_Fert_Farm_2007,
          n_dev_inputs = n_human + n_fert_urb,
@@ -335,32 +221,19 @@ PredData <- PredData |>
          .keep = 'unused') |>
   dplyr::select(-c(X.x,X.y))
 
-# create design cycle column, fill in with value 2017
 PredData$DSGN_CYCLE <- 2017
-
-# make it a factor
 PredData <- mutate(PredData, DSGN_CYCLE = factor(DSGN_CYCLE))
 
-# read in UNIQUE ID data set
 unique_ids <- read_csv('C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/NLA071217-COMID_crosswalk(in).csv')
 
-# left join to exisiting predictor data set 
 PredData <- left_join(PredData, unique_ids, by = 'COMID')
-
-# replace all NA values with a 0
 PredData$UNIQUE_ID[is.na(PredData$UNIQUE_ID)] <- 0
 
-# remove any duplicates
 PredData <- PredData %>%
   distinct(COMID, .keep_all = TRUE)
 
-# remove unnecessary column
 PredData <- subset(PredData, select = -c(...1))
 
-# scale nutrient input data to the watershed level in hectares
-# renaming covariates to match the names in the model framework
-# select on necessary covariates for the model run
-# drop any NA rows
 PredData <- PredData |>
   mutate(WSAREAHA = WSAREASQKM * 100,
          n_dev_inputs = n_dev_inputs / WSAREAHA,
@@ -377,13 +250,8 @@ PredData <- PredData |>
                   fst_ws, ag_eco3)) |>
   drop_na()
 
-```
 
-# Save data to package
 
-```{r}
 
-# Save the data as part of the package
-usethis::use_data(PredData, overwrite = T)
 
-```
+
