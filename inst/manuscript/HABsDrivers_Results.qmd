@@ -112,7 +112,7 @@ var_names <- c("Total N",
                "Developed P Inputs",
                "Deposition N", 
                "Monthly Precip",
-               "Monthly Temp",
+               "Monthly Air Temp",
                "Annual Precip", 
                "Annual Air Temp",
                "Annual Precip-ET",
@@ -475,25 +475,86 @@ mod_comp_tabs <- lapply(tabs, function(tab){
 })
 
 # Combine cyanobacteria models
+options(digits = 3)
 cyano_mod_select <- rbind(mod_comp_tabs[[1]], mod_comp_tabs[[2]]) |>
   arrange(model) |>
   select(resp_var, error_structure, inlake_conditions, common_vars, distinct_vars, p, BIC, bias, RMSPE, cor2) |>
   mutate(inlake_conditions = factor(inlake_conditions, levels = c("Present", "Absent"))) |>
-  arrange(inlake_conditions)
+  arrange(inlake_conditions) |>
+  mutate(common_vars = c(rep("Nitrate \nAmmonium \nDOC \npH \nTurbidity \nEvaporation/Inflow \nLake Depth \nLake Fetch", 6),
+                         rep("Farm N Inputs \nDeveloped P Inputs \nBaseflow Index \nLake Depth \nLake Fetch", 6)),
+         distinct_vars = c("Total N \nAnnual Precip \nAnnual Air Temp",
+                           "Total P \nAnnual Precip \nAnnual Air Temp",
+                           "Total N \nMonthly Precip \nMonthly Air Temp",
+                           "Total N \nAnnual Precip \nAnnual Air Temp \nEcoregion",
+                           "Total N \nAnnual Precip \nAnnual Air Temp \nTotal N * Lake Depth",
+                           "Total N \nAnnual Precip \nAnnual Air Temp \nEcoregion \nTotal N * Ecoregion",
+                           "Annual Precip \nAnnual Air Temp",
+                           "Annual Precip \nAnnual Air Temp \nForest Cover",
+                           "Monthly Precip \nMonthly Air Temp \nForest Cover",
+                           "Annual Precip \nAnnual Air Temp \nForest Cover \nEcoregion",
+                           "Annual Precip \nAnnual Air Temp \nForest Cover \nEcoregion \nFarm N Inputs * Lake Depth",
+                           "Annual Precip \nAnnual Air Temp \nForest Cover \nEcoregion \nFarm N Inputs * Ecoregion"))
 
-micx_iemod_select <- rbind(mod_comp_tabs[[3]], mod_comp_tabs[[4]]) |>
+micx_iemod_select <- rbind(mod_comp_tabs[[3]], select(mod_comp_tabs[[4]], -bias, -MSPE, -RMSPE)) |>
   mutate(inlake_conditions = factor(inlake_conditions, levels = c("Present", "Absent"))) |>
   arrange(inlake_conditions, model) |>
   select(resp_var, error_structure, inlake_conditions, common_vars, distinct_vars, p, BIC, AUC) |>
-  flextable()
+  mutate(common_vars = c(rep("Nitrate \nDOC \nEvaporation/Inflow \nLake Depth \nLake Fetch", 6),
+                         rep("Farm N Inputs \nDeveloped P Inputs \nBaseflow Index \nLake Depth \nLake Fetch", 6)),
+         distinct_vars = c("Monthly Precip \nWater Temp",
+                           "Annual Precip \nAnnual Air Temp",
+                           "Annual Precip \nAnnual Air Temp \nNitrate",
+                           "Annual Precip \nAnnual Air Temp \nNitrate \nFarm P Inputs",
+                           "Annual Precip \nAnnual Air Temp \nNitrate \nFarm P Inputs \nEcoregion",
+                           "Annual Precip \nAnnual Air Temp \nNitrate \nFarm P Inputs \nEcoregion \nTotal N * Lake Depth",
+                           "Annual Precip \nAnnual Air Temp \nFarm N Inputs \nDeveloped P Inputs",
+                           "Annual Precip \nAnnual Air Temp \nFarm P Inputs \nDeveloped N Inputs",
+                           "Annual Precip \nAnnual Air Temp \nFarm P Inputs \nDeveloped N Inputs \nEcoregion",
+                           "Monthly Precip \nMonthly Air Temp \nFarm P Inputs \nDeveloped N Inputs \nEcoregion",
+                           "Annual Precip \nAnnual Air Temp \nFarm P Inputs \nDeveloped N Inputs \nForest Cover \nEcoregion",
+                           "Annual Precip \nAnnual Air Temp \nFarm P Inputs \nDeveloped N Inputs \nForest Cover \nEcoregion \nFarm P Inputs * Ecoregion"))
   
 micx_spmod_select <- rbind(mod_comp_tabs[[5]], mod_comp_tabs[[6]]) |>
   mutate(inlake_conditions = factor(inlake_conditions, levels = c("Present", "Absent"))) |>
   arrange(inlake_conditions, model) |>
   select(resp_var, error_structure, inlake_conditions, common_vars, distinct_vars, bias, RMSPE, AUC) |>
-  flextable()
+  mutate(common_vars = c(rep("Total N \nNitrate \nDOC \nEvaporation/Inflow \nLake Depth \nLake Fetch \nFarm P Inputs", 3),
+                         rep("Farm P Inputs \nDeveloped N Inputs \nLake Depth \nLake Fetch \nAnnual Precip \nAnnual Air Temp \nBaseflow Index \nEcoregion", 3)),
+         distinct_vars = c("",
+                           "Ecoregion",
+                           "Eocregion \nTotal N * Lake Depth",
+                           "Ecoregion",
+                           "Ecoregon \nForest Cover",
+                           "Ecoregon \nForest Cover \nFarm P Inputs * Ecoregion"))
 
   
+
+```
+
+```{r cyano model selection table}
+#| label: tbl-cyano-selection
+#| tbl-cap: Summary statistics for response variable and covariates in the model.
+
+cyano_header <- data.frame(
+  col_keys = colnames(cyano_mod_select),
+  line2 = c(rep("Model", 3), rep("Fixed Effects", 3),  "BIC", "Bias", "RMSPE", "R^2"),
+  line3 = c("Response Variable", "Error Structure", "In-Lake Conditions", "Common", "Distinct", "Number", "BIC", "Bias", "RMSPE", "R^2")
+)
+
+cyano_mod_select |>
+  flextable() |>
+  set_header_df(mapping = cyano_header, key = "col_keys" ) |>
+  merge_v(part = "header", j = c(7:10)) |> 
+  merge_h(part = "header", i = 1) |>
+  merge_v(part = "body", j = c(1:3)) |>
+  theme_booktabs(bold_header = TRUE) |>
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header") |>
+  theme_box() |>
+  align(align = "center", part = "header")
+
+
 
 ```
 
