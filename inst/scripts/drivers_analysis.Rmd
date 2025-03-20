@@ -134,7 +134,7 @@ cy1 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "
 cy2 <- run_cyano_ml(mod_vars = c("PTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
 
 # Monthly mean temperature and precipitation or climate normals?
-cy3 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "precip_mean_month", "temp_mean_month", "EVAP_INFL", "MAXDEPTH"), interact = NULL)
+cy3 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "precip_mean_month", "temp_mean_month", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
 
 # Are there ecoregional differences?
 cy4 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
@@ -759,7 +759,7 @@ micx_ie_modcomp <- glances(m1, m2, m3, m4, m5, m6) |>
   tibble()
 
 # Save the model comparison table
-saveRDS(micx_ie_modcomp, "./inst/model_objects/micx_iemod_compare_nolakedata_run3.rds")
+saveRDS(micx_ie_modcomp, "./inst/model_objects/micx_iemod_compare_nolakedata.rds")
 
 # Based on the above analysis, models m3, m4, and m5 have the lower AIC/BIC and will be run with spatial covariance for final model selection
 
