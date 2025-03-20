@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Script background
 
-The purpose of this document is so compile the dataset to predict cyanoHABs risk of lakes across the conterminous United states.
+The purpose of this document is so compile the data set to predict cyanoHABs risk of lakes across the conterminous United states.
 
 ```{r Libraries, message=FALSE, warning=FALSE, include=FALSE}
 # Load required packages

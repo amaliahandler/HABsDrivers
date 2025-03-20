@@ -247,7 +247,7 @@ PredData <- PredData |>
   dplyr::select(c(COMID, n_dev_inputs, n_farm_inputs, p_dev_inputs, p_farm_inputs,
                   BFIWs, MAXDEPTH,lakemorpho_fetch,
                   Precip8110Ws, Tmean8110Ws,
-                  fst_ws, ag_eco3)) |>
+                  fst_ws, ag_eco3, DSGN_CYCLE)) |>
   drop_na()
 
 
