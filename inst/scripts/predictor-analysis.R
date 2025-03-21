@@ -1,3 +1,35 @@
+# DMAP run 3/21
+library(devtools)
+library(dplyr)
+library(stars)
+library(tidyverse)
+library(tidyr)
+library(sf)
+library(ggplot2)
+library(spmodel)
+library(remotes)
+library(units)
+library(fs)
+library(readr)
+
+variables <- c(names(model_cyano_nolakes$coefficients$fixed), 'DSGN_CYCLE', 'UNIQUE_ID', 'COMID', 'AG_ECO3')
+variables <- variables[!variables %in% c('(Intercept)', 'AG_ECO3PLNLOW', 'AG_ECO3EHIGH')]
+
+final_pred <- wbd_copy %>%
+  st_point_on_surface() %>%
+  dplyr::select(COMID) %>%
+  inner_join(PredData, by = 'COMID') %>%
+  dplyr::select(-COMID) %>%
+  rename(AG_ECO3 = ag_eco3) %>%
+  drop_na()
+
+Sys.time()
+Pred <- predict(object = model_cyano_nolakes, newdata = final_pred,
+                local = list(method = 'all', parallel = TRUE, ncores = 48),
+                interval = 'prediction')
+Sys.time()
+
+## ----
 
 # Micx/Cyano Predictors comparison analysis
 # 11-21-2024
@@ -812,8 +844,8 @@ ggsave("new_fetch_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi =
 
 cy_pred <- st_join(wbd_copy, pred_df)
 
-pred_cols <- PredDataMini |>
-  dplyr::select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
+pred_cols <- ncldMas |>
+  dplyr::select(c(COMID, WSAREASQKM))
 
 comp_cyano <- left_join(cy_pred, pred_cols, by = 'COMID')
 
@@ -1602,13 +1634,52 @@ ggplot(hydro_all, aes(x=PERMWS), fill = cyano_grp) +
   facet_wrap(~cyano_grp) +
   labs(x = "Mean permeability (cm/hour) of soils", y = "Density Distribution",  fill = 'Class')
 
-
-
 hydro_all |>
   filter(cyano_grp == "LNHC") |>
   summary()
 
+# farm vs development nutrient maps --------------------------------------------
 
+final_pred <- wbd_copy %>%
+  st_point_on_surface() %>%
+  dplyr::select(COMID) %>%
+  inner_join(PredData, by = 'COMID') %>%
+  dplyr::select(-COMID) %>%
+  drop_na()
 
+compiled_nutr <- final_pred %>%
+  mutate(farm_class = factor(case_when(n_farm_inputs < 10 | p_farm_inputs < 4 ~ "LF",
+                                       n_farm_inputs >= 10 | p_farm_inputs >= 4 ~ "HF",
+                                      TRUE ~ NA)),
+         dev_class = factor(case_when(n_dev_inputs < 10 | p_dev_inputs < 4 ~ 'LD',
+                                      n_dev_inputs >= 10 | p_dev_inputs >= 4 ~ 'HD',
+                                      TRUE ~ NA))) |>
+  dplyr::select(n_dev_inputs, n_farm_inputs, p_dev_inputs, p_farm_inputs, farm_class, dev_class, Shape)
+
+class_labels <- c('High Inputs', 'Low Inputs')
+class_cols <- c("darkorange","lightblue")
+
+ggplot() +
+  geom_sf(data = compiled_nutr,
+          aes(color = farm_class),
+          size = 0.2,
+          alpha = 0.8) +
+  scale_color_manual(values = class_cols,
+                     labels = class_labels,
+                     name = "Farm Input Levels") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme_void() +
+  theme(legend.position = c(0.80, 0.90),
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=16)) +
+  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
+
+ggsave("farm_nutrients.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+
+ggplot(compiled_nutr) +
+  geom_sf(data = compiled_nutr,
+          aes(color = dev_class),
+          size = 0.2,
+          alpha = 0.8) +
 
 

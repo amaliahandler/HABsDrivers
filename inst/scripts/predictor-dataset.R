@@ -477,8 +477,8 @@ wbd_pred <- wbd_copy %>%
 
 Sys.time()
 Pred <- predict(object = model_cyano_nolakes, newdata = wbd_pred,
-                local = list(method = 'all', parallel = TRUE, ncores = 6),
-                interval = 'confidence', level = 0.95)
+                local = list(method = 'all', parallel = TRUE, ncores = 12),
+                interval = 'prediction')
 Sys.time()
 
 pred_df <- wbd_pred %>%
@@ -506,18 +506,6 @@ sub_25 <- pred_df %>%
 
 cyano_labels <- c('< 25', '25 - 50', '50 - 100', '100 - 250', '250 - 500', ' > 500')
 cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
-
-# ggplot(pred_df, aes(color = disc_cyano)) +
-#   geom_sf(size = 0.01,
-#           alpha = 0.8) +
-#   scale_color_manual(values = cyano_colors,
-#                      labels = cyano_labels,
-#                      name = "Cells/mL") +
-#   labs(title = "Cyanobacteria Predictions") +
-#   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-#   theme(plot.title = element_text(size = 12)) +
-#   theme_classic() +
-#   guides(colour = guide_legend(override.aes = list(size=4)))
 
 ggplot() +
   geom_sf(data = pred_df,
