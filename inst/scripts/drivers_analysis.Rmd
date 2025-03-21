@@ -37,7 +37,7 @@ habs <- habs |>
   mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
          n_dev_inputs = N_Human_Waste + N_Fert_Urban,
          p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
-         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer)
+         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer, .after = P_nf_fertilizer)
 
 # There is a MAXDEPTH measurement that is close to 1000 m that is not believable
 # There are also some extreme values for the nutrient inputs. Could this be an issue with the watershed area?
