@@ -508,6 +508,8 @@ mx_ie_auc_loocv <- sapply(1:length(mx_ie_loovc), function(i){
   return(as.numeric(calc$auc))
 })
 
+mx_withlake_ie_fit <- do.call(rbind, lapply(mx_ie_loovc, function(list.obj){list.obj$stats}))
+
 # Variables common to all models
 com_vars <- c("NTL", "DOC", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
 
@@ -523,6 +525,7 @@ dif_vars <- sapply(mx_ie_mods, function(mod){
 # Put it all together into a table, note that the table is organized by BIC
 mx_ie_modcomp <- glances(mx1, mx2, mx3, mx4, mx5, mx6) |>
   arrange(model) |>
+  cbind(mx_withlake_ie_fit) |>
   select(-npar, -value, -AICc, -logLik, -pseudo.r.squared) |> 
   mutate(AUC = mx_ie_auc_loocv,
          distinct_vars = dif_vars,
@@ -736,7 +739,7 @@ micx_nolake_ie_auc <- sapply(1:length(micx_ie_loocv), function(i){
 })
 
 # Variables common to all models
-com_vars <- c("BFIWs", "MAXDEPTH", "lakemorpho_fetch")
+com_vars <- c("BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3PLNLOW", "AG_ECO3EHIGH")
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(micx_ie_mods, function(mod){
