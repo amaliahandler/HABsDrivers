@@ -498,6 +498,8 @@ cyano_labs   <- c("BIC", "Bias", "RMSPE", "R^2")
 micx_ie_labs <- c("BIC", "Bias", "RMSPE", "AUC")
 micx_sp_labs <- c("Bias", "RMSPE", "AUC")
 
+# Construct the tables
+options(digits = 2)
 mod_comp_tabs <- lapply(tabs, function(tab){
 
   # Columns to display in the table
@@ -526,6 +528,12 @@ mod_comp_tabs <- lapply(tabs, function(tab){
     line3 = c("Common Set", "Test Set", cols_sel[[2]])
   )
   
+  # Table caption builder
+  inlake <- ifelse(grepl("nolakedata", tab), "absent", "present")
+  error  <- ifelse(grepl("iemod", tab), "independent", "spatial")
+  resp   <- ifelse(grepl("cyano", tab), "cyanobacteria", "microcystin")
+  cap    <- paste("Model selection for the", resp, "model with in-lake conditions", inlake, "and a", error, "error structure. Fixed effects that are common to all candidate models are listed under Common Set and those that are unique to the model are listed under Test Set.")
+  
   # Format the table
   flex_dat <- dat |>
     flextable() |>
@@ -539,7 +547,7 @@ mod_comp_tabs <- lapply(tabs, function(tab){
     theme_box() |>
     align(align = "center", part = "header") |>
     autofit(add_w = 0, add_h = 0) |>
-    set_caption(caption = tab)
+    set_caption(caption = as_paragraph(cap), autonum = TRUE)
     
     return(flex_dat)
 })
@@ -547,8 +555,12 @@ mod_comp_tabs <- lapply(tabs, function(tab){
 
 ```
 
-```{r cyano model selection table}
-#| label: tbl-cyano-selection
-#| tbl-cap: Summary statistics for response variable and covariates in the model.
+```{r print model selection tables}
+mod_comp_tabs[[1]]
+mod_comp_tabs[[2]]
+mod_comp_tabs[[3]]
+mod_comp_tabs[[4]]
+mod_comp_tabs[[5]]
+mod_comp_tabs[[6]]
 
 ```
