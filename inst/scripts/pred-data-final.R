@@ -243,11 +243,13 @@ PredData <- PredData |>
   rename(Tmean8110Ws = Tmean9120Ws,
          Precip8110Ws = Precip9120Ws,
          MAXDEPTH = lake_m_depth,
-         lakemorpho_fetch = fetch) |>
+         lakemorpho_fetch = fetch,
+         AG_ECO3 = ag_eco3) |>
   dplyr::select(c(COMID, n_dev_inputs, n_farm_inputs, p_dev_inputs, p_farm_inputs,
                   BFIWs, MAXDEPTH,lakemorpho_fetch,
                   Precip8110Ws, Tmean8110Ws,
-                  fst_ws, ag_eco3)) |>
+                  fst_ws, AG_ECO3,
+                  DSGN_CYCLE, UNIQUE_ID)) |>
   drop_na()
 
 
