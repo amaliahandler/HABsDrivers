@@ -41,12 +41,12 @@ states <- states(cb = TRUE, progress_bar = FALSE)  %>%
 
 # Microcystin ==================================================================
 
-micx_pred <- st_join(wbd_copy, micx_pred_df)
+comp_micx <- st_join(wbd_copy, micx_pred_df)
 
-pred_cols <- PredDataMini |>
-  dplyr::select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
-
-comp_micx <- left_join(micx_pred, pred_cols, by = 'COMID')
+# pred_cols <- PredDataMini |>
+#   dplyr::select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
+#
+# comp_micx <- left_join(micx_pred, pred_cols, by = 'COMID')
 
 comp_micx <- comp_micx |>
   drop_na(pred_micx)
@@ -135,9 +135,9 @@ comp_micx <- comp_micx %>%
          ad_ratio = (sqrt(area_km)) / MAXDEPTH) %>%
   filter(MAXDEPTH > 0)
 
-comp_micx <- comp_micx %>%
-  mutate(drain_manual = WsAreaSqKm / area_km,
-         WsAreaHa = WsAreaSqKm * 100)
+# comp_micx <- comp_micx %>%
+#   mutate(drain_manual = WsAreaSqKm / area_km,
+#          WsAreaHa = WsAreaSqKm * 100)
 
 # Only run after area has been calculated
 comp_micx$Shape <- st_point_on_surface(comp_micx$Shape)|>
@@ -842,12 +842,12 @@ ggsave("new_fetch_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi =
 
 # Cyanobacteria ================================================================
 
-cy_pred <- st_join(wbd_copy, pred_df)
-
-pred_cols <- ncldMas |>
-  dplyr::select(c(COMID, WSAREASQKM))
-
-comp_cyano <- left_join(cy_pred, pred_cols, by = 'COMID')
+comp_cyano <- st_join(wbd_copy, pred_df)
+#
+# pred_cols <- ncldMas |>
+#   dplyr::select(c(COMID, WSAREASQKM))
+#
+# comp_cyano <- left_join(cy_pred, pred_cols, by = 'COMID')
 
 comp_cyano <- comp_cyano |>
   drop_na(pred_cyano)
@@ -933,10 +933,10 @@ comp_cyano <- comp_cyano %>%
    #   TRUE ~ 'OTHER'
    # ))) %>%
   mutate(all_pred = factor(case_when(
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano >= 5 ~ 'HNHC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano >= 5 ~ 'LNHC',
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano < 5 ~ 'HNLC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano < 5 ~ 'LNLC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano[, "fit"] >= 5 ~ 'HNHC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano[, "fit"] >= 5 ~ 'LNHC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano[, "fit"] < 5 ~ 'HNLC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano[, "fit"] < 5 ~ 'LNLC',
     TRUE ~ 'OTHER'),
     levels = c('HNHC','LNHC', 'HNLC','LNLC'))) %>%
   arrange(all_pred)
@@ -982,9 +982,9 @@ comp_cyano <- comp_cyano %>%
          ad_ratio = sqrt(area_km) / MAXDEPTH) %>%
   filter(MAXDEPTH > 0)
 
-comp_cyano <- comp_cyano %>%
-  mutate(drain_manual = WsAreaSqKm / area_km,
-         WsAreaHa = WsAreaSqKm * 100)
+# comp_cyano <- comp_cyano %>%
+#   mutate(drain_manual = WsAreaSqKm / area_km,
+#          WsAreaHa = WsAreaSqKm * 100)
 
 comp_cyano$Shape <- st_point_on_surface(comp_cyano$Shape)|>
   st_transform(crs=5072)
@@ -1564,7 +1564,7 @@ ggpubr::ggarrange(baseflow_den_cyano, baseflow_den_micx,
                   ncol = 2, nrow = 1,
                   common.legend = TRUE)
 
-ggsave("BFIW_density_panel_prpgrn.jpeg", width = 12, height = 7, device = 'jpeg', dpi = 500)
+ggsave("BFIW_density_panel_prpgrn.jpeg", width = 12, height = 7, device = 'jpeg', dpi = 700)
 
 # Area:Depth Ratio
 
@@ -1573,8 +1573,7 @@ ad_den_micx <- ggplot(comp_micx, aes(x=ad_ratio, y= all_pred)) +
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
-                    labels = micxcat_labels) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
   xlim(0,0.5) +
   labs(x = "Area:Depth Ratio", fill = 'Class',
        title = 'Microcystin') +
@@ -1585,8 +1584,7 @@ ad_den_cyano <- ggplot(comp_cyano, aes(x=ad_ratio, y= all_pred)) +
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
-                    labels = micxcat_labels) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
   xlim(0,0.5) +
   labs(x = "A:D Ratio", y = "Density Distribution",  fill = 'Class',
        title = 'Cyanobacteria') +
@@ -1596,7 +1594,7 @@ ggpubr::ggarrange(ad_den_micx, ad_den_cyano,
                   ncol = 2, nrow = 1,
                   common.legend = TRUE)
 
-ggsave("ad_baseflow_cyano_panel_final.jpeg", width = 12, height = 7, device = 'jpeg', dpi = 500)
+ggsave("cyano_ad.jpeg", width = 8, height = 10, device = 'jpeg', dpi = 500)
 
 # personal interest analysis ---------------------------------------------------
 
