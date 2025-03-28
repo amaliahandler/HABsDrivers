@@ -143,17 +143,18 @@ Lake metrics and geographic derived from National Hydrography Dataset Plus
 # create key for path to data
 loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
 
-# pull in watershed boundary dataset using the key and desired data layer
+# pull in watershed boundary data set using the key and desired data layer
 wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") |>
   st_transform(5072)
 
 # select only relevant COMIDs to the predictor data and select necessary variables 
 wbd_copy <- wbd |>
   subset(COMID %in% PredData$COMID) |>
-  dplyr::select(COMID, MaxDepth, Shape)
+  dplyr::select(COMID, MaxDepth, Shape) |>
+  st_point_on_surface()
 
-# merge water boundary data with exisiting predictor data
-PredData <- merge(PredData, wbd_copy, by = 'COMID')
+# merge water boundary data with existing predictor data
+PredData <- merge(wbd_copy, PredData, by = 'COMID')
 
 ```
 
@@ -169,7 +170,7 @@ csv_files <- fs::dir_ls(data_dir)
 nutrMas <- csv_files |>
   map_dfr(read_csv)
 
-# remove all varibales with metrics aggregated at the catchment scale
+# remove all variables with metrics aggregated at the catchment scale
 # mean nutrient data from 2002, 2007, and 2012 to create averaged value for nutrient inputs
 # keeping only new variables and ones exisiting already in predictor dataset
 nutrMas <- nutrMas |>
@@ -371,13 +372,70 @@ PredData <- PredData |>
          Precip8110Ws = Precip9120Ws,
          MAXDEPTH = lake_m_depth,
          lakemorpho_fetch = fetch,
-         AGO_ECO3 = ag_eco3) |>
+         AG_ECO3 = ag_eco3) |>
   dplyr::select(c(COMID, n_dev_inputs, n_farm_inputs, p_dev_inputs, p_farm_inputs,
                   BFIWs, MAXDEPTH,lakemorpho_fetch,
                   Precip8110Ws, Tmean8110Ws,
                   fst_ws, AG_ECO3,
-                  DSGN_CYCLE, UNIQUE_ID)) |>
+                  DSGN_CYCLE, UNIQUE_ID, geometry)) |>
   drop_na()
+
+```
+
+```{r, eval=FALSE}
+
+# use spmodel function to run cyano model
+# add system time stamps to record processing time
+Sys.time()
+Pred <- predict(object = model_cyano_nolakes, newdata = PredData, 
+                local = list(method = 'all', parallel = TRUE, ncores = 48),
+                interval = 'prediction') # run with 95% prediction intervals
+Sys.time()
+
+# perform log transformation on cyano data
+pred_df <- final_pred %>%
+  mutate(pred_cyano = Pred,
+         cyano_transform = 10^Pred - 1000)
+
+# run the micx model
+Sys.time()
+MicxPred <- predict(object = model_micx_nolakes, newdata = PredData, 
+                local = list(method = 'all', parallel = TRUE, ncores = 48),
+                interval = 'prediction') # run with 95% prediction intervals
+Sys.time()
+
+# perform transformation on the micx data 
+micx_pred_df <- final_pred %>%
+  mutate(pred_micx = MicxPred,
+         micx_transform = 10^Pred - 1000)
+
+micx_pred_df$pred_micx <- boot::inv.logit(micx_pred_df$pred_micx)
+
+```
+
+```{r}
+
+# for easier data use / analysis, pulling in predictions that were run in the cloud
+# load cyano predictions
+load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/cyano_preds.rda")
+
+# load micx predictions
+load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/micx_preds.rda")
+
+```
+
+```{r}
+
+PredData <- pred_df |>
+  dplyr::select(Shape, pred_cyano, cyano_transform) |>
+  st_join(PredData) |>
+  drop_na()
+
+PredData <- micx_pred_df |>
+  dplyr::select(Shape, pred_micx, micx_transform) |>
+  st_join(PredData) |>
+  drop_na() |>
+  distinct(COMID, .keep_all = TRUE)
 
 ```
 

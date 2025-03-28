@@ -11,6 +11,8 @@ library(remotes)
 library(units)
 library(fs)
 library(readr)
+library(rstatix)
+library(ggpubr)
 
 variables <- c(names(model_cyano_nolakes$coefficients$fixed), 'DSGN_CYCLE', 'UNIQUE_ID', 'COMID', 'AG_ECO3')
 variables <- variables[!variables %in% c('(Intercept)', 'AG_ECO3PLNLOW', 'AG_ECO3EHIGH')]
@@ -1719,10 +1721,10 @@ ggplot(micx_pred_df, aes(color = change)) +
 
 # ANOVA? -----------------------------------------------------------------------
 
-cyano_a <- comp_cyano |>
+cyano_a <- pred_df |>
   st_drop_geometry()
 
-micx_a <- comp_micx |>
+micx_a <- micx_pred_df |>
   st_drop_geometry()
 
 micx_a |>
@@ -1749,14 +1751,17 @@ oneway.test(Precip8110Ws ~ all_pred, micx_a, var.equal = FALSE)
 # building model for spatial analysis
 
 bf_model <- splm(BFIWs ~ all_pred, pred_df, spcov_type = "exponential")
-ggqqplot(residuals(bf_model))
+ggpubr::ggqqplot(residuals(bf_model))
+
+anova(bf_model)
+residuals(bf_model, type = "standardized")
 
 pred_df <- comp_cyano |>
   dplyr::select(COMID, ad_ratio) |>
   st_drop_geometry() |>
   merge(pred_df)
 
-ad_model <- splm(ad_ratio)
+ad_model <- splm(ad_ratio ~ all_pred, micx_pred_df, spcov_type = "exponential")
 
 
 

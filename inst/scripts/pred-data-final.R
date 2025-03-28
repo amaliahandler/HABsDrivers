@@ -252,8 +252,7 @@ PredData <- PredData |>
                   DSGN_CYCLE, UNIQUE_ID)) |>
   drop_na()
 
-#save to rda file
-save(wbd_copy, file = "wbd_copy.rda")
+
 
 
 
