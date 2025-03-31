@@ -5,10 +5,11 @@
 \alias{PredData}
 \title{Compiled data for the lake HABs risk modeling project}
 \format{
-A data frame with 124529 rows and 12 variables:
+A data frame with 124529 rows and 19 variables:
 \describe{
 \item{COMID}{A site ID assigned to a lake (character)}
 \item{DSGN_CYCLE}{The year of the NLA survey cycle (2007, 2012, 2017)}
+\item{UNIQUE_ID}{A unique ID assigned to each lake sampled across NLAs (NLA_STATE-NUMBER)}
 \item{n_dev_inputs}{Annual total nitrogen inputs from development (non-farm) into the watershed, mean of 2002, 2007,
 and 2012 National Nutrient Inventory (kg N/ha)}
 \item{n_farm_inputs}{Annual total nitrogen inputs from agricultural activities into the watershed, mean of 2002, 2007,
@@ -28,8 +29,12 @@ Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011,
 NLA 2017 - NLCD 2016 (percent)}
 \item{MAXDEPTH}{Estimated lake maximum depth from lakemorpho package, NHD+, and LAGOS-US (m)}
 \item{lakemorpho_fetch}{Estimated lake fetch from lakemorpho package (m)}
-\item{ag_eco3}{The aggregated 3 ecoregional location of the lake (character)}
-\item{geometry}{The centroid of the lake (point)}
+\item{AG_ECO3}{The aggregated 3 ecoregional location of the lake (character)}
+\item{Shape}{The centroid of the lake (point)}
+\item{pred_cyano}{Predicted cyanobacteria cell abundance (cells/mL) log transformed: log10(cyano+1000)}
+\item{cyano_transform}{Predicted cyanobacteria cell abundance (cells/mL)}
+\item{pred_micx}{Predicted risk of microcystin concentration detection above 0.1 ug/L in percent}
+\item{micx_transform}{Predicted risk of microcystin concentration detection above 0.1 ug/L transformed by 10^(micx) - 1000}
 }
 }
 \source{
