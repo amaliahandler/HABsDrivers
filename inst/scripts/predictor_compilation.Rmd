@@ -407,7 +407,7 @@ Sys.time()
 # perform transformation on the micx data 
 micx_pred_df <- final_pred %>%
   mutate(pred_micx = MicxPred,
-         micx_transform = 10^Pred - 1000)
+         micx_transform = 10^(Pred) - 1000)
 
 micx_pred_df$pred_micx <- boot::inv.logit(micx_pred_df$pred_micx)
 
