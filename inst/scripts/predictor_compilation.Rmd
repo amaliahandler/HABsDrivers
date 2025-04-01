@@ -407,7 +407,7 @@ Sys.time()
 # perform transformation on the micx data 
 micx_pred_df <- final_pred %>%
   mutate(pred_micx = MicxPred,
-         micx_transform = 10^(Pred) - 1000)
+         micx_transform = 10^Pred - 1000)
 
 micx_pred_df$pred_micx <- boot::inv.logit(micx_pred_df$pred_micx)
 
@@ -417,10 +417,10 @@ micx_pred_df$pred_micx <- boot::inv.logit(micx_pred_df$pred_micx)
 
 # for easier data use / analysis, pulling in predictions that were run in the cloud
 # load cyano predictions
-load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/cyano_preds.rda")
+load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/cyano_preds.rda")
 
 # load micx predictions
-load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/micx_preds.rda")
+load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/micx_preds.rda")
 
 ```
 
