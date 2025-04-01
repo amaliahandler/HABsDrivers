@@ -1,37 +1,3 @@
-# DMAP run 3/21
-library(devtools)
-library(dplyr)
-library(stars)
-library(tidyverse)
-library(tidyr)
-library(sf)
-library(ggplot2)
-library(spmodel)
-library(remotes)
-library(units)
-library(fs)
-library(readr)
-library(rstatix)
-library(ggpubr)
-
-variables <- c(names(model_cyano_nolakes$coefficients$fixed), 'DSGN_CYCLE', 'UNIQUE_ID', 'COMID', 'AG_ECO3')
-variables <- variables[!variables %in% c('(Intercept)', 'AG_ECO3PLNLOW', 'AG_ECO3EHIGH')]
-
-final_pred <- wbd_copy %>%
-  st_point_on_surface() %>%
-  dplyr::select(COMID) %>%
-  inner_join(PredData, by = 'COMID') %>%
-  dplyr::select(-COMID) %>%
-  rename(AG_ECO3 = ag_eco3) %>%
-  drop_na()
-
-Sys.time()
-Pred <- predict(object = model_cyano_nolakes, newdata = final_pred,
-                local = list(method = 'all', parallel = TRUE, ncores = 48),
-                interval = 'prediction')
-Sys.time()
-
-## ----
 
 # Micx/Cyano Predictors comparison analysis
 # 11-21-2024
@@ -62,7 +28,7 @@ comp_micx <- comp_micx |>
 
 comp_micx$nutr_all <- comp_micx$p_farm_inputs + comp_micx$n_dev_inputs
 
-micx_pred_df <- micx_pred_df %>%
+comp_micx <- comp_micx %>%
   # mutate(micx_class = factor(case_when(
   #   pred_micx >= 0.50 ~ 'HM',
   #   pred_micx < 0.50 ~'LM',
@@ -82,7 +48,7 @@ micx_pred_df <- micx_pred_df %>%
   #   n_dev_inputs >= 10 | p_farm_inputs >= 4 ~ 'HN',
   #   n_dev_inputs < 10 | p_farm_inputs < 4 ~ 'LN',
   #   TRUE ~ 'OTHER'
-  # ))) %>%
+  #))) %>%
   # mutate(check_nutr = factor(case_when(
   #   n_class == "HN" | p_class == "HP" ~ 'HC',
   #   n_class == "LN" | p_class == "LP" ~ 'LC',
@@ -104,7 +70,7 @@ micx_pred_df <- micx_pred_df %>%
     (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx[, "fit"] < 0.50 ~ 'HNLM',
     (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx[, "fit"] < 0.50 ~ 'LNLM',
     TRUE ~ 'OTHER'),
-    levels = c('HNHM','LNHM', 'HNLM','LNLM'))) %>%
+    levels = c('HNHM','HNLM','LNHM','LNLM'))) %>%
     arrange(all_pred)
 
 
@@ -898,7 +864,7 @@ comp_cyano$nutr_all <- comp_cyano$n_farm_inputs + comp_cyano$p_dev_inputs
 #                                        nutr_all >= 10 & pred_cyano >= 5 ~ 'HNHC',
 #                                        nutr_all <= 10 & pred_cyano <= 5 ~ 'LNLC')))
 
-pred_df <- pred_df %>%
+comp_cyano <- comp_cyano %>%
    # mutate(cyano_class = factor(case_when(
    #   pred_cyano >= 5 ~ 'HC',
    #   pred_cyano < 5 ~'LC',
@@ -914,11 +880,11 @@ pred_df <- pred_df %>%
    #   n_farm_inputs < 10 ~ 'LN',
    #   TRUE ~ 'OTHER'
    # ))) %>%
-   # mutate(alln_class = factor(case_when(
-   #   n_farm_inputs >= 10 | p_dev_inputs >= 4 ~ 'HN',
-   #   n_farm_inputs < 10 | p_dev_inputs < 4 ~ 'LN',
-   #   TRUE ~ 'OTHER'
-   # ))) %>%
+   mutate(alln_class = factor(case_when(
+     n_farm_inputs >= 10 | p_dev_inputs >= 4 ~ 'HN',
+     n_farm_inputs < 10 | p_dev_inputs < 4 ~ 'LN',
+     TRUE ~ 'OTHER'
+   ))) %>%
    # mutate(check_nutr = factor(case_when(
    #   n_class == "HN" | p_class == "HP" ~ 'HC',
    #   n_class == "LN" | p_class == "LP" ~ 'LC',
@@ -940,7 +906,7 @@ pred_df <- pred_df %>%
     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano[, "fit"] < 5 ~ 'HNLC',
     (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano[, "fit"] < 5 ~ 'LNLC',
     TRUE ~ 'OTHER'),
-    levels = c('HNHC','LNHC', 'HNLC','LNLC'))) %>%
+    levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
   arrange(all_pred)
 
 # nutr_grp_cols <- c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")
@@ -1302,146 +1268,31 @@ ggplot(comp_cyano_filter, aes(color = disc_fst)) +
 
 ggsave("fst_100k_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
+# comparison mapping all nutrients ---------------------------------------------
 
-# agricultural erodability -----------------------------------------------------
+PredData <- PredData %>%
+  mutate(alln_class = factor(case_when(
+    n_farm_inputs >= 10 | p_dev_inputs >= 4 | n_dev_inputs >= 10 | p_farm_inputs >= 4 ~ 'HN',
+    n_farm_inputs < 10 | p_dev_inputs < 4 | n_dev_inputs < 10 | p_farm_inputs < 4 ~ 'LN',
+    TRUE ~ 'OTHER'),
+    levels = c('LN','HN'))) %>%
+  arrange(alln_class)
 
-ggplot(comp_cyano_filter, aes(color = AgKffactWs)) +
+labels <- c('Low Nutrient',
+            'Low Nutrient')
+
+ggplot(PredData, aes(color = alln_class)) +
   geom_sf(size = 0.5) +
-  facet_wrap(~nutr_class) +
-  labs(title = "Ag Erode with 100k Cyano threshold") +
+  scale_color_manual(values = c("#8bd1a5","#9c0082"),
+                     labels = labels,
+                     name = "") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
+  theme_void() +
+  theme(legend.position = c(0.75, 0.90),
+        legend.text=element_text(size=14)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
-ggsave("eco_100k_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
-#  -------------------------------------------------------------------
-
-ggplot(LNHM, aes(color = fst_ws)) +
-  geom_sf(size = 1)
-
-ggplot(HNLM, aes(color = fst_ws)) +
-  geom_sf(size = 1)
-
-ggplot(pred_filter, aes(x=fst_ws, fill = all_pred)) +
-  geom_density(size = 0.75, alpha = 0.5) +
-  facet_wrap(~all_pred, nrow=4, ncol=1) +
-  xlim(0,50) +
-  labs(y = "Density", x = "Forest Cover %", fill = 'Class',
-       title = 'Forest Cover - Cyano')
-
-ggsave("new_fst_cyano.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
-
-ggplot(pred_filter, aes(x=Tmean8110Ws, fill=all_pred)) +
-  geom_density(size = 0.75, alpha = 0.5) +
-  facet_wrap(~all_pred, nrow = 4, ncol =1) +
-  labs(y = "Density", x = "30 Year Temp Average", fill = 'Class',
-       title = "Temperature - Cyano")
-
-ggsave("new_temp_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
-ggplot(pred_filter, aes(x=Precip8110Ws, fill = all_pred)) +
-  geom_density(size = 0.75, alpha = 0.5) +
-  facet_wrap(~all_pred, nrow = 4, ncol =1) +
-  xlim(0,2000) +
-  labs(y = "Density", x = "30 Year Precip Average", fill = 'Class',
-       title = 'Precipitation - Cyano')
-
-ggsave("new_precip_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
-ggplot(pred_filter, aes(x=BFIWs, fill = all_pred)) +
-  geom_density(size = 0.75, alpha = 0.5) +
-  facet_wrap(~all_pred, nrow = 4, ncol =1) +
-  labs(y = "Density", x = "% of Flow that is Base Flow", fill = 'Class',
-       title = "Base Flow - Cyano")
-
-ggsave("new_BFIW_cyano2.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
-
-ggplot(pred_filter, aes(x=Runoff.Str, fill = all_pred)) +
-  geom_density(size = 0.75, alpha = 0.5) +
-  facet_wrap(~all_pred, nrow = 4, ncol =1) +
-  xlim(0,1000) +
-  labs(y = "Density", x = "Runoff", fill = 'Class',
-       title = "Runoff - Cyano")
-
-ggsave("new_runoff_cyano.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
-
-ggplot(pred_filter, aes(lakemorpho_fetch, fill = all_pred)) +
-  geom_density(size = 0.75, alpha = 0.5) +
-  facet_wrap(~all_pred, nrow = 4, ncol =1) +
-  xlim(0,1000) +
-  labs(y = "Density", x = "Fetch (m)", fill = 'Class',
-       title = "Lake Fetch - Cyano")
-
-ggsave("new_fetch_cyano.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
-
-
-# Print the result
-print(result_base_R)
-
-ggplot(comp_cyano_filter, aes(x=AG_ECO3, fill = nutr_class)) +
-  geom_histogram(position="dodge", stat = "count") +
-  labs(y = "Count", x = "Ecoregion", fill = 'Class',
-       title = "Ecoregions - Cyano")
-
-ggplot(comp_cyano_filter, aes(fill=nutr_class))
-
-# comparison mapping the nutrients and cyano risk ------------------------------
-
-library(cowplot)
-library(biscale)
-
-cyano_sample <- sample_n(comp_cyano, 20000)
-
-cyano_sample <- bi_class(cyano_sample, x = pred_cyano, y = nutr_all, style = "quantile", dim = 2)
-
-cyano_sample <- cyano_sample |>
-  mutate(bi_class = factor(bi_class))
-
-# comp_data <- comp_data |>
-#   arrange(desc(bi_class))
-#
-# comp_micx |>
-#   filter(bi_class == '2-1') |>
-#   pull(pred_micx) |>
-#   summary()
-
-custom_pal <- c(
-  "1-1" = "#d3d3d3", # low x, low y
-  "2-1" = "#c9461e", # high x, low y
-  "1-2" = "#6d9709", # low x, high y
-  "2-2" = "#6b487d" # high x, high y
-)
-
-# create map
-cyano_nutr_map <- ggplot() +
-   geom_sf(data = cyano_sample,
-           mapping = aes(color = bi_class),
-           size = 2,
-           alpha = 0.2,
-           shape = 16,
-           show.legend = FALSE) +
-  bi_scale_color(pal = "BlueGold", dim = 2) +
-  labs(title = "Nutrients vs Cyanobacteria") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  bi_theme(base_size = 12)
-
-cyano_nutr_legend <- bi_legend(pal = "PinkGrn",
-                               dim = 2,
-                               xlab = "Higher Cyano Levels ",
-                               ylab = "Higher Nutrient Levels",
-                               size = 6)
-
-# combine map with legend
-cyano_map <- ggdraw() +
-  draw_plot(cyano_nutr_map) +
-  draw_plot(cyano_nutr_legend, 0.1, 0.07, 0.2, 0.2)
-
-Sys.time()
-cyano_map
-Sys.time()
-
-ggsave("cyano_nutr_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("all_nutrient.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1600)
 
 grid <- states %>%
   st_make_grid(n = c(150,150),
@@ -1497,23 +1348,22 @@ ggplot(cyanohabs_grid, aes(color = disc_cyano)) +
 # Precipitation
 
 micxcat_labels <- c('High Nutrient, High HABs',
-                    'Low Nutrient, High HABs',
                     'High Nutrient, Low HABs',
+                    'Low Nutrient, High HABs',
                     'Low Nutrient, Low HABs')
 
-precip_den_micx <- ggplot(comp_micx, aes(x=Precip8110Ws, y= all_pred)) +
+precip_den_micx <- ggplot(comp_cyano, aes(x=ad_ratio, y= all_pred)) +
   ggridges::geom_density_ridges(aes(fill = all_pred),
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
   scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = micxcat_labels) +
-  xlim(0,2000) +
-  labs(x = "Precipitation (mm)", fill = 'Class',
+  xlim(0,0.5) +
+  labs(x = "ad:ratio", fill = 'Class',
        title = 'Microcystin') +
   theme(axis.title.y=element_blank(),
-        legend.text=element_text(size=12),
-        legend.title= element_blank())
+        legend.position = "none")
 
 
 precip_den_cyano <- ggplot(comp_cyano, aes(x=Precip8110Ws, y= all_pred)) +
@@ -1528,8 +1378,7 @@ precip_den_cyano <- ggplot(comp_cyano, aes(x=Precip8110Ws, y= all_pred)) +
        title = 'Cyanobacteria') +
   guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15))) +
   theme(axis.title.y=element_blank(),
-        legend.text=element_text(size=12),
-        legend.title= element_blank())
+        legend.position = "none")
 
 
 p <- ggpubr::ggarrange(precip_den_cyano, precip_den_micx,
@@ -1539,7 +1388,7 @@ p <- ggpubr::ggarrange(precip_den_cyano, precip_den_micx,
 obj <- ggpubr::get_legend(p)
 ggpubr::as_ggplot(obj)
 
-ggsave("legend2.jpeg", width = 5, height = 3, device = 'jpeg', dpi = 800)
+ggsave("ad_micx.jpeg", width = 7, height = 10, device = 'jpeg', dpi = 1600)
 
 # Base Flow
 
@@ -1553,7 +1402,7 @@ baseflow_den_micx <- ggplot(comp_micx, aes(x=BFIWs, y= all_pred)) +
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
+  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5"),
                     labels = micxcat_labels) +
   xlim(0,100) +
   labs(x = "BaseFlow (%)", fill = 'Class',
@@ -1565,7 +1414,7 @@ baseflow_den_cyano <- ggplot(comp_cyano, aes(x=BFIWs, y= all_pred)) +
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
+  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5"),
                     labels = micxcat_labels) +
   xlim(0,100) +
   labs(x = "BaseFlow (%)", y = "Density Distribution",  fill = 'Class',
@@ -1586,7 +1435,7 @@ ad_den_micx <- ggplot(comp_micx, aes(x=ad_ratio, y= all_pred)) +
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
+  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5")) +
   xlim(0,0.5) +
   labs(x = "Area:Depth Ratio", fill = 'Class',
        title = 'Microcystin') +
@@ -1597,7 +1446,7 @@ ad_den_cyano <- ggplot(comp_cyano, aes(x=ad_ratio, y= all_pred)) +
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
+  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5")) +
   xlim(0,0.5) +
   labs(x = "A:D Ratio", y = "Density Distribution",  fill = 'Class',
        title = 'Cyanobacteria') +
@@ -1696,28 +1545,60 @@ ggplot(compiled_nutr) +
 # fit anlysis ------------------------------------------------------------------
 
 micx_pred_df <- micx_pred_df |>
-  mutate(diff = (pred_micx[, "upr"] - pred_micx[, "lwr"]),
-         change = (pred_micx[, "fit"] / diff)
-  )
+  mutate(range = (pred_micx[, "upr"] - pred_micx[, "lwr"]))
 
-labels = c("0-25", "25-50", "50-75", "75-100")
-breaks <- c(0.25,0.50,0.75,1.0)
-#cols <- c("#2B83BA","#ABDDA4", "#FDAE61", "#D7191C")
-micx_colors <- c("#2980b9","#aed6f1","#f0b27a","#d35405")
-#micx_colors2 <- c("#5499C7","#A9CCE3","#EDBB99","#DC7633")
+labels = c("0-25", "25-40", "40-60", "60-75", "75-100")
+breaks <- c(0.25,0.4,0.60,0.75,1.0)
+micx_colors <- rev(RColorBrewer::brewer.pal(5, "RdYlGn"))
 
-ggplot(micx_pred_df, aes(color = change)) +
+ggplot(micx_pred_df, aes(color = range)) +
   geom_sf(size = 0.3) +
   scale_color_stepsn(colors = micx_colors,
                      breaks = breaks,
                      labels = labels,
-                     name = "% range deviation from fit") +
+                     name = "Range") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme_void() +
   theme(legend.position = c(0.80, 0.90),
         legend.text=element_text(size=14),
         legend.title=element_text(size=16)) +
-  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
+  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15))) +
+  labs(title = 'Prediction Interval Range - Micx')
+
+ggsave("micx_fit.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1200)
+
+# cyano fit
+
+pred_df <- pred_df |>
+  mutate(range = (cyano_transform[, "upr"] - cyano_transform[, "lwr"]))
+
+pred_df <- pred_df %>%
+  mutate(disc_range = factor(case_when(range < 1622000 ~ 'B1',
+                                       range >= 1622000 & range < 2586000 ~ 'B2',
+                                       range >= 2586000 & range < 4239000 ~ 'B3',
+                                       range >= 4239000 & range < 50000000 ~ 'B4',
+                                       range > 50000000 ~ 'B5',
+                                       TRUE ~ NA),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5'))) %>%
+  arrange(disc_range)
+
+labels = c('<Q1','Q1-Q2','Q2-Q3', 'Q3-50mil', '>50mil')
+cyano_colors <- rev(RColorBrewer::brewer.pal(5, "RdYlGn"))
+
+ggplot(pred_df, aes(color = disc_range)) +
+  geom_sf(size = 0.3) +
+  scale_color_manual(values = cyano_colors,
+                     labels = labels,
+                     name = "Range") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme_void() +
+  theme(legend.position = c(0.80, 0.90),
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=16)) +
+  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15))) +
+  labs(title = 'Prediction Interval Range - Cyano')
+
+ggsave("cyano_fit.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1200)
 
 # ANOVA? -----------------------------------------------------------------------
 
@@ -1750,29 +1631,15 @@ oneway.test(Precip8110Ws ~ all_pred, micx_a, var.equal = FALSE)
 
 # building model for spatial analysis
 
-bf_model <- splm(BFIWs ~ all_pred, pred_df, spcov_type = "exponential")
+bf_model_log <- splm(BFIWs ~ all_pred, comp_cyano, spcov_type = "exponential")
 ggpubr::ggqqplot(residuals(bf_model))
 
 anova(bf_model)
-residuals(bf_model, type = "standardized")
+ggqqplot(residuals(bf_model, type = "standardized"))
 
-pred_df <- comp_cyano |>
-  dplyr::select(COMID, ad_ratio) |>
-  st_drop_geometry() |>
-  merge(pred_df)
+ad_model <- splm(log10(ad_ratio) ~ all_pred, comp_cyano, spcov_type = "exponential")
+anova(ad_model)
 
-ad_model <- splm(ad_ratio ~ all_pred, micx_pred_df, spcov_type = "exponential")
-
-
-
-
-
-
-
-
-
-
-
-
-
+precip <- splm(log10(Precip8110Ws) ~ all_pred, comp_cyano, spcov_type = "exponential")
+anova(precip)
 
