@@ -488,12 +488,12 @@ pred_df <- wbd_pred %>%
 # pred_df <- read_csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/pred_df.csv", col_names = TRUE)
 
 pred_df <- pred_df %>%
-  mutate(disc_cyano = factor(case_when(pred_cyano < 4.41497 ~ 'B1', # under 25k
-                                       pred_cyano >= 4.41497 & pred_cyano < 4.70757 ~ 'B2', # 25k - 50k
-                                       pred_cyano >= 4.70757 & pred_cyano < 5.00432 ~ 'B3', # 50k - 100k
-                                       pred_cyano >= 5.00432 & pred_cyano < 5.39967 ~ 'B4', # 100k - 250k
-                                       pred_cyano >= 5.39967 & pred_cyano < 5.69984 ~ 'B5', # 250k-500k
-                                       pred_cyano > 5.69984 ~ 'B6', # 500k
+  mutate(disc_cyano = factor(case_when(pred_cyano[, "fit"] < 4.41497 ~ 'B1', # under 25k
+                                       pred_cyano[, "fit"] >= 4.41497 & pred_cyano[, "fit"] < 4.70757 ~ 'B2', # 25k - 50k
+                                       pred_cyano[, "fit"] >= 4.70757 & pred_cyano[, "fit"] < 5.00432 ~ 'B3', # 50k - 100k
+                                       pred_cyano[, "fit"] >= 5.00432 & pred_cyano[, "fit"] < 5.39967 ~ 'B4', # 100k - 250k
+                                       pred_cyano[, "fit"] >= 5.39967 & pred_cyano[, "fit"] < 5.69984 ~ 'B5', # 250k-500k
+                                       pred_cyano[, "fit"] > 5.69984 ~ 'B6', # 500k
                                        TRUE ~ NA),
                              levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
   arrange(disc_cyano)
@@ -510,24 +510,26 @@ cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
 ggplot() +
   geom_sf(data = pred_df,
           aes(color = disc_cyano),
-          size = 0.2,
+          size = 0.3,
           alpha = 0.8) +
   scale_color_manual(values = cyano_colors,
                      labels = cyano_labels,
                      name = "Abundance (1000 cells/mL)") +
   geom_sf(data = sub_25,
           aes(color = disc_cyano),
-          size = 0.2,
+          size = 0.3,
           alpha = 0.8)  +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme_void() +
-  theme(legend.position = c(0.80, 0.90),
-        legend.text=element_text(size=14),
-        legend.title=element_text(size=16)) +
-  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
+  # theme(legend.position = c(0.80, 0.90),
+  #       legend.text=element_text(size=14),
+  #       legend.title=element_text(size=16)) +
+  # guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
 
 #save plot
-ggsave("cyano_pred_3-13.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("cyano_pred_noleg.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1100)
 
 # microcystin ------------------------------------------------------------------
 
@@ -562,7 +564,7 @@ micx_summary <- micx_pred_df |>
 # mapping the data
 
 micx_pred_df <- micx_pred_df %>%
-  arrange(pred_micx)
+  arrange(pred_micx[, "fit"])
 
 labels = c("0-25", "25-50", "50-75", "75-100")
 breaks <- c(0.25,0.50,0.75,1.0)
@@ -571,7 +573,7 @@ micx_colors <- c("#2980b9","#aed6f1","#f0b27a","#d35405")
 #micx_colors2 <- c("#5499C7","#A9CCE3","#EDBB99","#DC7633")
 
 
-ggplot(micx_pred_df, aes(color = pred_micx)) +
+ggplot(micx_pred_df, aes(color = pred_micx[, "fit"])) +
   geom_sf(size = 0.3) +
   scale_color_stepsn(colors = micx_colors,
                      breaks = breaks,
@@ -579,14 +581,16 @@ ggplot(micx_pred_df, aes(color = pred_micx)) +
                      name = "Probability of Detection (%)") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme_void() +
-  theme(legend.position = c(0.80, 0.90),
-        legend.text=element_text(size=14),
-        legend.title=element_text(size=16)) +
-  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
+# theme(legend.position = c(0.80, 0.90),
+#       legend.text=element_text(size=14),
+#       legend.title=element_text(size=16)) +
+# guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
 
 
 # save the map
-ggsave("micx_pred_3-13.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
+ggsave("micx_pred_noleg.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1600)
 
 # individual variable mapping --------------------------------------------------
 
