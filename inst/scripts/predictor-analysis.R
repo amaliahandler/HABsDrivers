@@ -11,10 +11,10 @@ states <- states(cb = TRUE, progress_bar = FALSE)  %>%
 
 comp_micx <- st_join(wbd_copy, micx_pred_df)
 
-# pred_cols <- PredDataMini |>
-#   dplyr::select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
-#
-# comp_micx <- left_join(micx_pred, pred_cols, by = 'COMID')
+pred_cols <- PredDataMini |>
+  dplyr::select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
+
+comp_micx <- left_join(comp_micx, pred_cols, by = 'COMID')
 
 comp_micx <- comp_micx |>
   drop_na(pred_micx)
@@ -72,8 +72,6 @@ comp_micx <- comp_micx %>%
     TRUE ~ 'OTHER'),
     levels = c('HNHM','HNLM','LNHM','LNLM'))) %>%
     arrange(all_pred)
-
-
 
 # Ratios --------------------------------------------------------------------
 
@@ -145,306 +143,70 @@ comp_micx$Shape <- st_point_on_surface(comp_micx$Shape)|>
 #
 # ggsave("ypar_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
-# drain specifics --------------------------------------------------------------
+# Oregon -----------------------------------------------------------------------
 
-drain_mean <- comp_micx %>%
-  st_drop_geometry() %>%
-  group_by(ag_eco9) %>%
-  summarize(drain_mean = mean(drain_manual, na.rm=TRUE))
+oregon <- comp_micx |>
+  filter(state == 'OR') |>
+  st_transform(crs=2992)
 
-# drain_limit <- comp_micx %>%
-#   filter(drain_manual < 1000)
-#
-# nutr_class_limit <- drain_limit %>%
-#   st_drop_geometry() %>%
-#   group_by(all_pred) %>%
-#   summarize(drain_avg = mean(drain_manual))
+oregon_counties <- counties("OR")
 
-# drain_limit <- drain_limit %>%
-#   group_by(ag_eco9) %>%
-#   mutate(eco_mean = mean(drain_manual)) %>%
-#   mutate(percent_diff = ((drain_manual - eco_mean) / eco_mean * 100))
-#
-# drain_limit <- drain_limit %>%
-#   mutate(drain_class = factor(case_when(percent_diff <= -50.00 ~ 'B1',
-#                                      percent_diff >= -50 & percent_diff < 0 ~ 'B2',
-#                                      percent_diff >= 0 & percent_diff < 50 ~ 'B3',
-#                                      percent_diff >= 50 & percent_diff < 100 ~ 'B4',
-#                                      percent_diff >= 100 ~ 'B5'),
-#                            levels = c('B1', 'B2', 'B3', 'B4', 'B5'))) %>%
-#   arrange(drain_class)
-#
-# drain_labels <- c('< -50%','-50-0%', '0-50%', '50-100%','> 100%')
-# drain_col <- rev(RColorBrewer::brewer.pal(5, "Spectral"))
-#
-# ggplot(drain_limit, aes(color = drain_class)) +
-#   geom_sf(size = 0.3) +
-#   scale_color_manual(values = drain_col,
-#                      labels = drain_labels,
-#                      name = "% Change") +
-#   labs(title = "% Change between Drain Ratio and Ecoregion Drain Ratio Mean") +
-#   # geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-#   theme(plot.title = element_text(size = 12)) +
-#   guides(colour = guide_legend(override.aes = list(size=4)))
-#
-# nutr_class__cyano <- comp_cyano %>%
-#   st_drop_geometry() %>%
-#   group_by(all_pred) %>%
-#   summarize(drain_avg = mean(drain_manual),
-#             ad_avg = mean(ad_ratio))
+pblg <- places('OR') |>
+  subset(NAME %in% c("Portland","Burns", "La Grande", "Bend")) |>
+  st_point_on_surface() |>
+  st_transform(crs=2992)
 
-comp_micx <- comp_micx %>%
-  mutate(drain_level = factor(case_when(drain_manual <= 22 ~ 'B1',
-                                        drain_manual >= 22 & drain_manual < 61 ~ 'B2',
-                                        drain_manual >= 61 & drain_manual < 206 ~ 'B3',
-                                        drain_manual >= 206 & drain_manual < 9891 ~ 'B4',
-                                        drain_manual >= 9891 ~ 'B5'),
-                              levels = c('B1', 'B2', 'B3', 'B4', 'B5'))) %>%
-  arrange(drain_level)
+medford <- places("OR") |>
+  subset(NAME %in% c("Medford")) |>
+  st_point_on_surface() |>
+  st_transform(crs=2992)
 
-drain_labels <- c('< 22','22-61', '61-206', '206-9891','> 9891')
-drain_cols <- rev(RColorBrewer::brewer.pal(5, "Spectral"))
-
-ggplot(comp_micx, aes(color = drain_level)) +
-  geom_sf(size = 0.6,
-          shape = 15,
-          position = position_jitter(width = 0.2)) +
-  # facet_wrap(~all_pred) +
-  scale_color_manual(values = drain_cols,
-                     labels = drain_labels,
-                     name = "Drain Ratio") +
-  labs(title = "Drain Ratio - All Observations") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-ggsave("drain_map_final.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 700)
-
-ggplot(comp_micx, aes(x=(drain_manual), fill = all_pred)) +
-  ggridges::geom_density_ridges2(size = 0.75) +
-  facet_wrap(~all_pred, nrow=4, ncol=1) +
-  xlim(0,206) +
-  labs(y = "Density", x = "Drainage Ratio", fill = 'Class',
-       title = 'Drain Ratio - MICX')
-
-ggsave("nutrients_cyano_bi.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 600)
-ggsave("drain_micx_final1.jpeg", width = 6, height = 12, device = 'jpeg', dpi = 700)
-
-
-# end drain specifics ----------------------------------------------------------
-
-comp_micx <- comp_micx |>
-  mutate(all_pred = factor(all_pred, levels = c('HNHM','HNLM','LNHM','LNLM')))
-
-# micx_sample <- sample_n(comp_micx, 5000)
-
-plot <- ggplot(comp_cyano, aes(x=WsAreaHa, y=n_farm_inputs, color = all_pred)) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(method = 'lm') +
-  facet_wrap(~all_pred)+
-  # scale_color_manual(values = fst_cols,
-  #                    labels = fst_labels,
-  #                    name = "Cover (%)") +
-  labs(y = "n_farm_inputs", x = "WsAreaHa")  +
-  ggpubr::stat_cor(aes(label = after_stat(rr.label)), color = "red", geom = "label")
-
-plot +
-  scale_x_continuous(trans = 'log10') +
-  scale_y_continuous(trans = 'log10')
-
-ggplot(comp_micx, aes(x=ag_eco9, y=WsAreaHa, fill = ag_eco9)) +
-  geom_boxplot() +
-  ylim(0,250)
-
-spmodel::tidy(anova(model_cyano_nolakes))
-
-ggsave("area_nutr_cyano_r^2.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
-ggplot(comp_micx, aes(x=drain_ratio, y=nutr_all, color = ag_eco9)) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(method = "lm") +
-  xlim(0,1) +
-  ylim(0,100)
-
-comp_micx <- comp_micx %>%
-  mutate(AD_binary = factor(case_when(ad_ratio <= 1 ~ 'B1',
-                                       ad_ratio >= 1 ~ 'B2'),
-                           levels = c('B1', 'B2'))) %>%
-  arrange(AD_binary)
-
-# na_ratio <- comp_micx_filter |>
-#   filter(AD_class == 'OTHER')
-
-AD_labels <- c('Low','High')
-AD_col <- c('#0070c0','#c00000')
-
-ggplot(comp_micx, aes(color = AD_binary)) +
-  geom_sf(size = 0.7) +
-  scale_color_manual(values = AD_col,
-                     labels = AD_labels,
-                     name = "Ratio") +
-  labs(title = "AREA:DEPTH Ratio") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.2) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-ggplot(comp_micx, aes(x=all_pred, y=ad_ratio, fill = all_pred)) +
-  geom_boxplot() +
-  ylim(0,1)
-
-ggsave("AD_ratio_binary3.jpeg", width = 6, height = 12, device = 'jpeg', dpi = 700)
-
-cor(comp_micx_filter$ad_ratio, comp_micx_filter$pred_micx,
-    method = 'spearman', use = "pairwise.complete.obs")
-
-# Iowa and North Dakota --------------------------------------------------------
-
-oregon <- comp_cyano |>
-  filter(state == 'OR')
+corvo <- places("OR") |>
+  subset(NAME %in% c("Corvallis")) |>
+  st_point_on_surface() |>
+  st_transform(crs=2992)
 
 oregon_map <- states(cb = TRUE, progress_bar = FALSE)  %>%
   filter(STUSPS %in% c('OR'))  %>%
-  st_transform(crs = 5072)
+  st_transform(crs = 2992)
 
-IA <- IA %>%
-  mutate(micx_class = factor(case_when(
-    pred_micx >= 0.50 ~ 'HM',
-    pred_micx < 0.50 ~'LM',
-    TRUE ~ 'OTHER'
-  ))) %>%
-  mutate(p_class = factor(case_when(
-    p_farm_inputs >= 4 ~ 'HP',
-    p_farm_inputs < 4 ~ 'LP',
-    TRUE ~ 'OTHER'
-  )))  %>%
-  mutate(n_class = factor(case_when(
-    n_dev_inputs >= 10 ~ 'HN',
-    n_dev_inputs < 10 ~ 'LN',
-    TRUE ~ 'OTHER'
-  ))) %>%
-  mutate(alln_class = factor(case_when(
-    n_dev_inputs >= 10 | p_farm_inputs >= 4 ~ 'HN',
-    n_dev_inputs < 10 | p_farm_inputs < 4 ~ 'LN',
-    TRUE ~ 'OTHER'
-  )))
+oregon <- oregon %>%
+  arrange(pred_micx[, "fit"])
 
-IA_HN <- IA |>
-  filter(alln_class == 'HN')
+micx_colors <- c("#2980b9","#aed6f1","#f0b27a","#d35405")
+micx_labels <- c("< 25%", "25-50%", "50-75%", "> 75%")
 
-IA_LN <- IA |>
-  filter(alln_class == 'LN')
+oregon <- oregon %>%
+  mutate(disc_micx = factor(case_when(pred_micx[, "fit"] < 0.25 ~ 'B1', # under 25k
+                                       pred_micx[, "fit"] >= 0.25 & pred_micx[, "fit"] < 0.50 ~ 'B2', # 25k - 50k
+                                       pred_micx[, "fit"] >= 0.50 & pred_micx[, "fit"] < 0.75 ~ 'B3', # 50k - 100k
+                                       pred_micx[, "fit"] > 0.75 ~ 'B4', # 500k
+                                       TRUE ~ NA),
+                             levels = c('B1', 'B2', 'B3', 'B4'))) %>%
+  arrange(disc_micx)
 
-ggplot(oregon, aes(color = n_farm_inputs)) +
-  geom_sf(size = 5) +
-  geom_sf(data = oregon_map, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
+p <- ggplot() +
+    geom_sf(data = oregon_counties, fill = NA, color = "darkgrey", lwd = 0.7, alpha = 0.7) +
+    geom_sf(data = oregon,
+          aes(color = disc_micx),
+          size = 3) +
+  scale_color_manual(values = micx_colors,
+                     labels = micx_labels,
+                     name = "Probability") +
+  geom_sf(data = pblg, fill = NA, color = "black", size = 2, shape = 15, alpha = 0.7) +
+  geom_sf_text(data = pblg, aes(label = NAME, fontface = "bold"), size = 3.5, nudge_x = 0.17, nudge_y = 0.09) +
+  geom_sf(data = medford, fill = NA, color = "black", size = 2, shape = 15, alpha = 0.7) +
+  geom_sf_text(data = medford, aes(label = NAME, fontface = "bold"), size = 3.5, nudge_x = -0.15, nudge_y = -0.09) +
+  geom_sf(data = corvo, fill = NA, color = "black", size = 2, shape = 15, alpha = 0.7) +
+  geom_sf_text(data = corvo, aes(label = NAME, fontface = "bold"), size = 3.5, nudge_x = 0.27, nudge_y = -0.05) +
+  theme_void() +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
 
-ggsave("IA_class_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
-# north dakota
-
-ND <- comp_micx |>
-  filter(state == 'ND')
-
-ND_map <- states(cb = TRUE, progress_bar = FALSE)  %>%
-  filter(STUSPS %in% c('ND'))  %>%
-  st_transform(crs = 5072)
-
-ND <- ND %>%
-  mutate(micx_class = factor(case_when(
-    pred_micx >= 0.50 ~ 'HM',
-    pred_micx < 0.50 ~'LM',
-    TRUE ~ 'OTHER'
-  ))) %>%
-  mutate(p_class = factor(case_when(
-    p_farm_inputs >= 4 ~ 'HP',
-    p_farm_inputs < 4 ~ 'LP',
-    TRUE ~ 'OTHER'
-  )))  %>%
-  mutate(n_class = factor(case_when(
-    n_dev_inputs >= 10 ~ 'HN',
-    n_dev_inputs < 10 ~ 'LN',
-    TRUE ~ 'OTHER'
-  ))) %>%
-  mutate(alln_class = factor(case_when(
-    n_dev_inputs >= 10 | p_farm_inputs >= 4 ~ 'HN',
-    n_dev_inputs < 10 | p_farm_inputs < 4 ~ 'LN',
-    TRUE ~ 'OTHER'
-  )))
-
-ND_HN <- ND |>
-  filter(alln_class == 'HN')
-
-ND_LN <- ND |>
-  filter(alln_class == 'LN')
+ggsave("micx_oregon.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1500)
 
 
-ggplot(ND, aes(color = all_pred)) +
-  geom_sf(size = 0.7) +
-  facet_wrap(~all_pred) +
-  labs(title = "North Dakota Nutrient/Micx Classes") +
-  geom_sf(data = ND_map, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-ggsave("ND_class_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
- # high nutrients df -----------------------------------------------------------
-
-high_micx <- comp_micx |>
-  filter(nutr_class == 'HNHM' | nutr_class == 'LNHM') |>
-  select(COMID, p_farm_inputs, n_dev_inputs, fst_ws, Precip8110Ws, Tmean8110Ws,
-         MAXDEPTH, lakemorpho_fetch, BFIWs, AG_ECO3, nutr_class) |>
-  st_drop_geometry()
-
-high_micx <- subset(high_micx, select = -c(Shape))
-
-# need to add from PredDataMini:
-# state, WSarea ha and sqkm,
-# P_f_fert_Kg_Ag_20**Ws, P_livestock_Waste_kg_ag_20**Ws, N_human_waste_kg_urb_20**Ws, N_fert_urban_kg_urb_20**Ws
-
-model_nutr <- nutrMas |>
-  select(COMID,
-         P_f_fertilizer_kg_Ag_2002Ws, P_f_fertilizer_kg_Ag_2007Ws, P_f_fertilizer_kg_Ag_2012Ws,
-         P_livestock_Waste_kg_Ag_2002Ws, P_livestock_Waste_kg_Ag_2007Ws, P_livestock_Waste_kg_Ag_2012Ws,
-         N_Human_Waste_kg_Urb_2002Ws, N_Human_Waste_kg_Urb_2007Ws, N_Human_Waste_kg_Urb_2012Ws,
-         N_Fert_Urban_kg_Urb_2002Ws, N_Fert_Urban_kg_Urb_2007Ws, N_Fert_Urban_kg_Urb_2012Ws
-  )
-
-high_micx <- PredDataMini |>
-  select(COMID, state, WsAreaHa, WsAreaSqKm, P_f_fertilizer_kg_Ag, P_livestock_Waste_kg_Ag, N_Human_Waste_kg_Urb, N_Fert_Urban_kg_Urb) |>
-  merge(high_micx, by = 'COMID')
-
-high_micx <- merge(high_micx, model_nutr, by = 'COMID')
-
-write.csv(high_micx, col_names = TRUE, "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/high_micx.csv")
-
-# filtering by class -----------------------------------------------------------
-
-HNHM <- comp_micx |>
-  filter(all_pred == 'HNHM')
-
-LNLM <- comp_micx |>
-  filter(all_pred == 'LNLM')
-
-LNHM <- comp_micx |>
-  filter(all_pred == 'LNHM')
-
-HNLM <- comp_micx |>
-  filter(all_pred == 'HNLM')
-
-ggplot(comp_micx_filter, aes(color = all_pred)) +
-  geom_sf(size = 0.4) +
-  facet_wrap(~all_pred) +
-  labs(title = "Where are the nutrient/micx @ 50% classes?") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-ggsave("new_all_micx1.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
-# BFIW -------------------------------------------------------------------------
+ # BFIW -------------------------------------------------------------------------
 
 comp_micx_filter <- comp_micx_filter %>%
   mutate(BFIW_class = factor(case_when(BFIWs <= 25 ~ 'B1',
@@ -811,11 +573,11 @@ ggsave("new_fetch_micx_den.jpeg", width = 8, height = 12, device = 'jpeg', dpi =
 # Cyanobacteria ================================================================
 
 comp_cyano <- st_join(wbd_copy, pred_df)
-#
-# pred_cols <- ncldMas |>
-#   dplyr::select(c(COMID, WSAREASQKM))
-#
-# comp_cyano <- left_join(cy_pred, pred_cols, by = 'COMID')
+
+pred_cols <- PredDataMini |>
+  dplyr::select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
+
+comp_cyano <- left_join(comp_cyano, pred_cols, by = 'COMID')
 
 comp_cyano <- comp_cyano |>
   drop_na(pred_cyano)
@@ -880,11 +642,11 @@ comp_cyano <- comp_cyano %>%
    #   n_farm_inputs < 10 ~ 'LN',
    #   TRUE ~ 'OTHER'
    # ))) %>%
-   mutate(alln_class = factor(case_when(
-     n_farm_inputs >= 10 | p_dev_inputs >= 4 ~ 'HN',
-     n_farm_inputs < 10 | p_dev_inputs < 4 ~ 'LN',
-     TRUE ~ 'OTHER'
-   ))) %>%
+   # mutate(alln_class = factor(case_when(
+   #   n_farm_inputs >= 10 | p_dev_inputs >= 4 ~ 'HN',
+   #   n_farm_inputs < 10 | p_dev_inputs < 4 ~ 'LN',
+   #   TRUE ~ 'OTHER'
+   # ))) %>%
    # mutate(check_nutr = factor(case_when(
    #   n_class == "HN" | p_class == "HP" ~ 'HC',
    #   n_class == "LN" | p_class == "LP" ~ 'LC',
@@ -957,234 +719,56 @@ comp_cyano <- comp_cyano %>%
 comp_cyano$Shape <- st_point_on_surface(comp_cyano$Shape)|>
   st_transform(crs=5072)
 
-# drain specifics --------------------------------------------------------------
+# Oregon -----------------------------------------------------------------------
 
-drain_mean_cyano <- drain_limit %>%
-  st_drop_geometry() %>%
-  group_by(ag_eco9)
+oregon_cyano <- comp_cyano |>
+  filter(state == 'OR') |>
+  st_transform(crs = 2992)
 
-# drain_limit <- comp_cyano %>%
-#   filter(drain_manual < 500)
+oregon_river <- linear_water("OR")
 
-comp_cyano <- comp_cyano %>%
-  group_by(ag_eco9) %>%
-  mutate(eco_mean = mean(drain_manual)) %>%
-  mutate(percent_diff = ((drain_manual - eco_mean) / eco_mean * 100))
+oregon_cyano <- oregon_cyano %>%
+  mutate(disc_cyano = factor(case_when(pred_cyano[, "fit"] < 4.41497 ~ 'B1', # under 25k
+                                       pred_cyano[, "fit"] >= 4.41497 & pred_cyano[, "fit"] < 4.70757 ~ 'B2', # 25k - 50k
+                                       pred_cyano[, "fit"] >= 4.70757 & pred_cyano[, "fit"] < 5.00432 ~ 'B3', # 50k - 100k
+                                       pred_cyano[, "fit"] >= 5.00432 & pred_cyano[, "fit"] < 5.39967 ~ 'B4', # 100k - 250k
+                                       pred_cyano[, "fit"] >= 5.39967 & pred_cyano[, "fit"] < 5.69984 ~ 'B5', # 250k-500k
+                                       pred_cyano[, "fit"] > 5.69984 ~ 'B6', # 500k
+                                       TRUE ~ NA),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+  arrange(disc_cyano)
 
-nutr_class_limit <- drain_limit %>%
-  st_drop_geometry() %>%
-  group_by(all_pred) %>%
-  summarize(drain_avg = mean(drain_manual))
-
-# end drain specifics ----------------------------------------------------------
-
-
-# na_ad <- comp_micx_filter |>
-#   filter(ad_ratio == Inf)
-#
-# names <- PredDataMini |>
-#   select(c(COMID, nars_name)) |>
-#   st_drop_geometry()
-# na_ad <- merge(na_ad, names, by='COMID')
-
-comp_sample <- sample_n(comp_cyano, 5000)
-
-ggplot(comp_cyano, aes(x=area_km, y=MAXDEPTH, color = all_pred)) +
-  geom_point(alpha = 0.25) +
-  geom_smooth(method = "lm") +
-  #  facet_wrap(~all_pred) +
-  ylim(0,50) +
-  xlim(0,100) +
-  labs(y = "Lake Depth (m)", x = "Lake Area (km^2)", fill = 'Class',
-       title = 'Area:Depth Ratio and Cyano classes')
-
-ggsave("AD_cyano_scat.jpeg", width = 10, height = 8, device = 'jpeg', dpi = 500)
-
-#
-# names <- PredDataMini |>
-#   select(c(COMID, nars_name)) |>
-#   st_drop_geometry()
-# na_ad <- merge(na_ad, names, by='COMID')
-
-comp_cyano <- comp_cyano %>%
-  mutate(AD_class = factor(case_when(ad_ratio <= 0.1 ~ 'B1',
-                                     ad_ratio >= 0.1 & ad_ratio < 0.2 ~ 'B2',
-                                     ad_ratio >= 0.2 & ad_ratio < 0.5 ~ 'B3',
-                                     ad_ratio >= 0.5 & ad_ratio < 2.5 ~ 'B4',
-                                     ad_ratio >= 2.5 & ad_ratio < 5 ~ 'B5',
-                                     ad_ratio >= 5 ~ 'B6'),
-                           levels = c('B1', 'B2', 'B3', 'B4', 'B5','B6'))) %>%
-  arrange(AD_class)
-
-ggplot(comp_micx, aes(x=all_pred, y=drain_manual, fill=all_pred)) +
-  geom_boxplot() +
-  ylim(0,206)
-
-ggsave("box_micx_drainage.jpeg", width = 10, height = 8, device = 'jpeg', dpi = 500)
+# summary(pred_df$disc_cyano)
+# sum(is.na(pred_df$disc_cyano))
+sub_25 <- oregon_cyano %>%
+  filter(disc_cyano == 'B1')
 
 
-# na_ratio <- comp_micx_filter |>
-#   filter(AD_class == 'OTHER')
+cyano_labels <- c('< 25', '25 - 50', '50 - 100', '100 - 250', '250 - 500', ' > 500')
+cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
 
-# cor(pred_filter$ad_ratio, pred_filter$pred_cyano,
-#     method = 'spearman', use = "pairwise.complete.obs")
+q <- ggplot() +
+  geom_sf(data = oregon_counties, fill = NA, color = "darkgrey", lwd = 0.7, alpha = 0.7) +
+  geom_sf(data = oregon_cyano,
+          aes(color = disc_cyano),
+          size = 3) +
+  scale_color_manual(values = cyano_colors,
+                     labels = cyano_labels,
+                     name = "Abundance (1000 cells/mL)") +
+  geom_sf(data = sub_25,
+          aes(color = disc_cyano),
+          size = 2)  +  geom_sf(data = pblg, fill = NA, color = "black", size = 2, shape = 15, alpha = 0.7) +
+  geom_sf_text(data = pblg, aes(label = NAME, fontface = "bold"), size = 3.5, nudge_x = 0.17, nudge_y = 0.09) +
+  geom_sf(data = medford, fill = NA, color = "black", size = 2, shape = 15, alpha = 0.7) +
+  geom_sf_text(data = medford, aes(label = NAME, fontface = "bold"), size = 3.5, nudge_x = -0.15, nudge_y = -0.09) +
+  geom_sf(data = corvo, fill = NA, color = "black", size = 2, shape = 15, alpha = 0.7) +
+  geom_sf_text(data = corvo, aes(label = NAME, fontface = "bold"), size = 3.5, nudge_x = 0.27, nudge_y = -0.05) +
+  theme_void() +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
 
-AD_labels <- c('< 0.1','0.1-0.2', '0.2-0.5', '0.5-2.5','2.5-1', '> 5')
-AD_col <- rev(RColorBrewer::brewer.pal(6, "Spectral"))
+ggsave("cyano_oregon.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1500)
 
-ggplot(comp_cyano, aes(color = AD_class)) +
-  geom_sf(size = 0.3) +
-  facet_wrap(~all_pred) +
-  scale_color_manual(values = AD_col,
-                     labels = AD_labels,
-                     name = "Ratio") +
-  labs(title = "AREA:DEPTH Ratio - CYANO") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-ggsave("AD_ratio_class_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
-ggplot(comp_cyano, aes(x=(ad_ratio), fill = all_pred)) +
-  geom_density(size = 0.75) +
-  facet_wrap(~all_pred, nrow=4, ncol=1) +
-  labs(y = "Density", x = "drain Ratio", fill = 'Class',
-       title = 'drain Ratio- CYANO')
-
-ggsave("AD_cy_den_16.jpeg", width = 8, height = 12, device = 'jpeg', dpi = 500)
-
-# drainage ratio
-
-comp_cyano <- comp_cyano %>%
-  mutate(drain_class = factor(case_when(drain_ratio <= 0.0048 ~ 'B1',
-                                     drain_ratio >= 0.0048 & drain_ratio < 0.0163 ~ 'B2',
-                                     drain_ratio >= 0.0163 & drain_ratio < 0.0720 ~ 'B3',
-                                     drain_ratio >= 0.0720 ~ 'B4',
-                                     TRUE ~ 'OTHER')))
-
-drain_labels <- c('<= 0.0048', '0.0048-0.0163','0.0163-0.0720','>=0.0720')
-drain_col <- rev(RColorBrewer::brewer.pal(4, "Spectral"))
-
-
-
-ggplot(comp_cyano, aes(color = drain_class)) +
-  geom_sf(size = 0.3) +
-  facet_wrap(~all_pred) +
-  scale_color_manual(values = drain_col,
-                     labels = drain_labels,
-                     name = "Drain Ratio") +
-  labs(title = "Drain Ratio by Nutrient Class - CYANO") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-ggsave("drain_cyano_map.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
-ggplot(comp_cyano, aes(x=(drain_ratio), fill = all_pred)) +
-  geom_density(size = 0.75) +
-  facet_wrap(~all_pred, nrow=4, ncol=1) +
-  xlim(0,0.075) +
-  labs(y = "Density", x = "Drainage Ratio", fill = 'Class',
-       title = 'Drain Ratio - CYANO')
-
-ggsave("box_cyano_ad.jpeg", width = 10, height = 8, device = 'jpeg', dpi = 500)
-
-
-# Iowa and North Dakota --------------------------------------------------------
-
-IA_cyano <- pred_filter |>
-  filter(state == 'IA')
-
-IA_map <- states(cb = TRUE, progress_bar = FALSE)  %>%
-  filter(STUSPS %in% c('IA'))  %>%
-  st_transform(crs = 5072)
-
-IA_cyano <- IA_cyano %>%
-  mutate(cyano_class = factor(case_when(
-    pred_cyano >= 5 ~ 'HC',
-    pred_cyano < 5 ~'LC',
-    TRUE ~ 'OTHER'
-  ))) %>%
-  mutate(p_class = factor(case_when(
-    p_dev_inputs >= 4 ~ 'HP',
-    p_dev_inputs < 4 ~ 'LP',
-    TRUE ~ 'OTHER'
-  )))  %>%
-  mutate(n_class = factor(case_when(
-    n_farm_inputs >= 10 ~ 'HN',
-    n_farm_inputs < 10 ~ 'LN',
-    TRUE ~ 'OTHER'
-  ))) %>%
-  mutate(alln_class = factor(case_when(
-    n_farm_inputs >= 10 | p_dev_inputs >= 4 ~ 'HN',
-    n_farm_inputs < 10 | p_dev_inputs < 4 ~ 'LN',
-    TRUE ~ 'OTHER'
-  )))
-
-CIA_HN <- IA_cyano |>
-  filter(alln_class == 'HN')
-
-CIA_LN <- IA_cyano |>
-  filter(alln_class == 'LN')
-
-
-ggplot(IA_cyano, aes(color = all_pred)) +
-  geom_sf(size = 0.7) +
-  facet_wrap(~all_pred) +
-  labs(title = "Iowa Nutrient/Cyano Classes") +
-  geom_sf(data = IA_map, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-ggsave("IA_class_cyano.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
-
-# north dakota
-
-ND_cyano <- pred_filter |>
-  filter(state == 'ND')
-
-ND_map <- states(cb = TRUE, progress_bar = FALSE)  %>%
-  filter(STUSPS %in% c('ND'))  %>%
-  st_transform(crs = 5072)
-
-ND_cyano <- ND_cyano %>%
-  mutate(cyano_class = factor(case_when(
-    pred_cyano >= 5 ~ 'HC',
-    pred_cyano < 5 ~'LC',
-    TRUE ~ 'OTHER'
-  ))) %>%
-  mutate(p_class = factor(case_when(
-    p_dev_inputs >= 4 ~ 'HP',
-    p_dev_inputs < 4 ~ 'LP',
-    TRUE ~ 'OTHER'
-  )))  %>%
-  mutate(n_class = factor(case_when(
-    n_farm_inputs >= 10 ~ 'HN',
-    n_farm_inputs < 10 ~ 'LN',
-    TRUE ~ 'OTHER'
-  ))) %>%
-  mutate(alln_class = factor(case_when(
-    n_farm_inputs >= 10 | p_dev_inputs >= 4 ~ 'HN',
-    n_farm_inputs < 10 | p_dev_inputs < 4 ~ 'LN',
-    TRUE ~ 'OTHER'
-  )))
-
-CND_HN <- ND_cyano |>
-  filter(alln_class == 'HN')
-
-CND_LN <- ND_cyano |>
-  filter(alln_class == 'LN')
-
-
-ggplot(ND_cyano, aes(color = all_pred)) +
-  geom_sf(size = 0.7) +
-  facet_wrap(~all_pred) +
-  labs(title = "North Dakota Nutrient/Cyano Classes") +
-  geom_sf(data = ND_map, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
-
-ggsave("ND_class_cyano2.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 # Base flow --------------------------------------------------------------------
 
@@ -1642,4 +1226,66 @@ anova(ad_model)
 
 precip <- splm(log10(Precip8110Ws) ~ all_pred, comp_cyano, spcov_type = "exponential")
 anova(precip)
+
+# state totals -----------------------------------------------------------------
+
+state_cols <- PredDataMini |>
+  dplyr::select(c(COMID, state)) |>
+  left_join(PredData, by = 'COMID')
+
+state_cols <- state_cols |>
+  mutate(class_micx = factor(case_when(
+    pred_micx[, "fit"] >= 0.50 ~ 'HM',
+    pred_micx[, "fit"] < 0.50 ~ 'LM',
+    TRUE ~ 'OTHER'),
+    levels = c('HM','LM'))) %>%
+  arrange(class_micx) |>
+  mutate(class_cyano = factor(case_when(
+    pred_cyano[, "fit"] >= 5 ~ 'HC',
+    pred_cyano[, "fit"] < 5 ~ 'LC',
+    TRUE ~ 'OTHER'),
+    levels = c('HC','LC'))) %>%
+  arrange(class_cyano) |>
+  drop_na()
+
+risk_summary <- state_cols |>
+  group_by(state) |>
+  summarise(hm_percent = round((sum(class_micx == "HM")/n()) * 100, digits = 2),
+            lm_percent = round((sum(class_micx == "LM")/n()) * 100, digits = 2),
+            hc_percent = round((sum(class_cyano == "HC")/n())* 100, digits = 2),
+            lc_percent = round((sum(class_cyano == 'LC')/n())* 100, digits = 2),
+            hm_count = sum(class_micx == "HM"),
+            lm_count = sum(class_micx == "LM"),
+            hc_count = sum(class_cyano == "HC"),
+            lc_count = sum(class_cyano == 'LC'))
+
+ggplot(risk_summary, aes(x = fct_rev(fct_reorder(state, hc_percent)), y = hc_percent)) +
+  geom_col() +
+  labs(x = 'State', y = "% of Lakes at High Risk")
+
+geom_state <- merge(states, risk_summary, by = 'STUSPS')
+
+ggplot() +
+  geom_sf(geom_state, mapping = aes(fill = hc_percent)) +
+  scale_fill_stepsn(colors = RColorBrewer::brewer.pal(4, "YlOrRd"),
+                    breaks = breaks) +
+  theme_void() +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
+
+
+breaks <- c(25,50,75,100)
+
+ggplot() +
+  geom_sf(geom_state, mapping = aes(fill = hm_percent)) +
+  scale_fill_stepsn(colors = RColorBrewer::brewer.pal(4, "YlOrRd"),
+                    breaks = breaks) +
+  theme_void() +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
+
+ggsave("micx_natty_risk.jpeg", width = 8, height = 4, device = 'jpeg', dpi = 1200)
+
+
+
 
