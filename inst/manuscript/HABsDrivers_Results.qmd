@@ -568,3 +568,77 @@ mod_comp_tabs <- lapply(tabs, function(tab){
 `r mod_comp_tabs[[4]][[1]]` `r mod_comp_tabs[[4]][[2]]`
 
 `r mod_comp_tabs[[6]][[1]]` `r mod_comp_tabs[[6]][[2]]`
+
+```{r}
+
+# load predictor dataset into quarto
+
+load("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/data/PredData.rda")
+
+
+```
+
+```{r cyano predictions}
+
+# Cyano Predictions Map
+
+PredData <- PredData %>%
+  mutate(disc_cyano = factor(case_when(pred_cyano[, "fit"] < 4.41497 ~ 'B1', # under 25k
+                                       pred_cyano[, "fit"] >= 4.41497 & pred_cyano[, "fit"] < 4.70757 ~ 'B2', # 25k - 50k
+                                       pred_cyano[, "fit"] >= 4.70757 & pred_cyano[, "fit"] < 5.00432 ~ 'B3', # 50k - 100k
+                                       pred_cyano[, "fit"] >= 5.00432 & pred_cyano[, "fit"] < 5.39967 ~ 'B4', # 100k - 250k
+                                       pred_cyano[, "fit"] >= 5.39967 & pred_cyano[, "fit"] < 5.69984 ~ 'B5', # 250k-500k
+                                       pred_cyano[, "fit"] > 5.69984 ~ 'B6', # 500k
+                                       TRUE ~ NA),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+  arrange(disc_cyano)
+
+sub_25 <- PredData %>%
+  filter(disc_cyano == 'B1')
+
+cyano_labels <- c('< 25', '25 - 50', '50 - 100', '100 - 250', '250 - 500', ' > 500')
+cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
+
+ggplot() +
+  geom_sf(data = PredData,
+          aes(color = disc_cyano),
+          size = 0.3,
+          alpha = 0.8) +
+  scale_color_manual(values = cyano_colors,
+                     labels = cyano_labels,
+                     name = "Abundance (1000 cells/mL)") +
+  geom_sf(data = sub_25,
+          aes(color = disc_cyano),
+          size = 0.3,
+          alpha = 0.8)  +
+  #geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme_void() +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
+
+```
+
+```{r micx predictions}
+
+# Micx Prediction Maps 
+
+micx_pred_df <- PredData %>%
+  arrange(pred_micx[, "fit"])
+
+labels = c("0-25", "25-50", "50-75", "75-100")
+breaks <- c(0.25,0.50,0.75,1.0)
+micx_colors <- c("#2980b9","#aed6f1","#f0b27a","#d35405")
+
+ggplot(micx_pred_df, aes(color = pred_micx[, "fit"])) +
+  geom_sf(size = 0.3) +
+  scale_color_stepsn(colors = micx_colors,
+                     breaks = breaks,
+                     labels = labels,
+                     name = "Probability of Detection (%)") +
+  #geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme_void() +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
+
+```
+
