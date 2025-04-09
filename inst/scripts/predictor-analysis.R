@@ -931,6 +931,11 @@ ggplot(cyanohabs_grid, aes(color = disc_cyano)) +
 
 # Precipitation
 
+comp_cyano <- st_join(wbd_copy, PredData) |>
+  dplyr::select(-c(pred_micx, micx_transform, COMID.x)) |>
+  rename(COMID = COMID.y) |>
+  drop_na(pred_cyano)
+
 micxcat_labels <- c('High Nutrient, High HABs',
                     'High Nutrient, Low HABs',
                     'Low Nutrient, High HABs',
@@ -1286,6 +1291,105 @@ ggplot() +
 
 ggsave("micx_natty_risk.jpeg", width = 8, height = 4, device = 'jpeg', dpi = 1200)
 
+# Oregon Drinking Water --------------------------------------------------------
 
+name_cols <- wbd |>
+  dplyr::select(c(COMID, GNIS_NAME, FTYPE)) |>
+  st_drop_geometry()
+
+comp_micx <- merge(comp_micx, name_cols, by = 'COMID')
+
+pred_cols <- PredDataMini |>
+  dplyr::select(c(COMID, state))
+
+comp_micx <- comp_micx |>
+  left_join(comp_micx, pred_cols, by = 'COMID') |>
+  drop_na(pred_micx)
+
+dw_data <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/Active public water systems.csv")
+
+dw_data <- dw_data |>
+  st_as_sf(coords = c("x","y"), crs = 5072)
+
+toxin_2018 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/Cyanotoxin Sample Results_2018.csv")
+
+toxin_2018 <- toxin_2018 |>
+  rename(total_micx = Total.Microcystins.ug.L.) |>
+  dplyr::select(-Cylindrospermopsin.ug.L.) |>
+  dplyr::filter(total_micx != "")
+
+toxin_2018$total_micx <- as.numeric(as.character(toxin_2018$total_micx))
+
+toxin_2018 <- toxin_2018 %>%
+  mutate(total_micx = coalesce(total_micx, 0))
+
+toxin_2018 <- toxin_2018 %>%
+  mutate(detect = factor(case_when(total_micx <= 0 ~ "LD", # low detect
+                                   total_micx > 0 ~ "> HD", # high detect
+                                       TRUE ~ NA)))
+
+toxin_2018 <- toxin_2018 |>
+  group_by(across(PWS.ID)) |>
+  summarise(across(where(is.numeric), mean))
+
+data <- left_join(toxin_2018, dw_data, by = "PWS.ID")
+data <- data |>
+  st_as_sf() |>
+  st_transform(crs = 2992)
+
+data_buffers <- data |>
+  mutate(buffer_poly = st_buffer(geometry, 800)) |>
+  st_transform(crs = 2992)
+
+oregon <- comp_micx |>
+  filter(state == 'OR') |>
+  st_transform(crs=2992)
+
+wash <- comp_micx |>
+  filter(state == 'WA') |>
+  st_transform(crs = 5072)
+
+ggplot() +
+  geom_sf(data = wash)
+
+wa_toxin <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/WA_toxin_2018.csv", check.names = FALSE)
+
+wa_toxin$toxin_con <- as.numeric(as.character(wa_toxin$toxin_con))
+
+wa_toxin <- wa_toxin %>%
+  mutate(toxin_con = coalesce(toxin_con, 0))
+
+wa_toxin <- wa_toxin |>
+  group_by(across(Site)) |>
+  summarise(across(where(is.numeric), mean))
+
+wash <- wash |>
+  rename(Site = GNIS_NAME)
+
+wa_toxin_fit <- wash |>
+  subset(Site %in% wa_toxin$Site)
+
+wa_toxin_fit <- left_join(wa_toxin_fit, wa_toxin, by = 'Site')
+wa_toxin_fit <- drop_na(wa_toxin_fit)
+
+p <- ggplot(wa_toxin_fit, aes(pred_micx[, "upr"], toxin_con)) +
+  geom_point() +
+  #geom_smooth(method = "lm") +
+  ylim(0,5) +
+  xlab("Upper Micx Prediction") +
+  ylab("Measured Toxin Concentration (ug/L)")
+
+p + geom_point()
+
+q <- ggplot() +
+  geom_sf(data = oregon, fill = NA, color = "darkgrey", lwd = 0.7, alpha = 0.7) +
+  geom_sf(data = data_buffers,
+          aes(color = total_micx),
+          size = 1) +
+  scale_color_manual(values = cyano_colors,
+                     labels = cyano_labels,
+                     name = "Abundance (1000 cells/mL)")
+
+ggsave("upper_micx_wa.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1500)
 
 
