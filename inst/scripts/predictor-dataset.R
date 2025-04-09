@@ -498,11 +498,8 @@ pred_df <- pred_df %>%
                              levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
   arrange(disc_cyano)
 
-# summary(pred_df$disc_cyano)
-# sum(is.na(pred_df$disc_cyano))
 sub_25 <- pred_df %>%
   filter(disc_cyano == 'B1')
-
 
 cyano_labels <- c('< 25', '25 - 50', '50 - 100', '100 - 250', '250 - 500', ' > 500')
 cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
