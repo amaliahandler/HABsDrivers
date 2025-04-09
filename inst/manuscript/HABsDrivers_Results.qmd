@@ -575,6 +575,10 @@ mod_comp_tabs <- lapply(tabs, function(tab){
 
 load("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/data/PredData.rda")
 
+# load water boundary data 
+
+load("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/wbd_copy.rda")
+
 
 ```
 
@@ -622,14 +626,14 @@ ggplot() +
 
 # Micx Prediction Maps 
 
-micx_pred_df <- PredData %>%
+PredData <- PredData %>%
   arrange(pred_micx[, "fit"])
 
 labels = c("0-25", "25-50", "50-75", "75-100")
 breaks <- c(0.25,0.50,0.75,1.0)
 micx_colors <- c("#2980b9","#aed6f1","#f0b27a","#d35405")
 
-ggplot(micx_pred_df, aes(color = pred_micx[, "fit"])) +
+ggplot(PredData, aes(color = pred_micx[, "fit"])) +
   geom_sf(size = 0.3) +
   scale_color_stepsn(colors = micx_colors,
                      breaks = breaks,
@@ -640,5 +644,185 @@ ggplot(micx_pred_df, aes(color = pred_micx[, "fit"])) +
   theme(axis.title.y=element_blank(),
         legend.position = "none")
 
+```
+
+```{r prepare data - micx}
+
+comp_micx <- st_join(wbd_copy, PredData) |>
+  dplyr::select(-c(pred_cyano, cyano_transform, COMID.x)) |>
+  rename(COMID = COMID.y) |>
+  drop_na(pred_micx)
+
+comp_micx <- comp_micx |>
+  mutate(all_pred = factor(case_when(
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx[, "fit"] >= 0.50 ~ 'HNHM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx[, "fit"] >= 0.50 ~ 'LNHM',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx[, "fit"] < 0.50 ~ 'HNLM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx[, "fit"] < 0.50 ~ 'LNLM',
+    TRUE ~ 'OTHER'),
+    levels = c('HNHM','HNLM','LNHM','LNLM'))) %>%
+    arrange(all_pred)
+
+# create custom area:depth ratio
+for (Shape in 1:length(comp_micx)) {
+  shapes <- comp_micx$Shape
+  comp_micx$custom_area <- st_area(shapes)
+}
+
+comp_micx$custom_area <- drop_units(comp_micx$custom_area)
+comp_micx <- comp_micx |>
+  mutate(area_ha = (custom_area / 10000))
+
+comp_micx <- comp_micx %>%
+  mutate(area_km = custom_area / 1000000,
+         ad_ratio = (sqrt(area_km)) / MAXDEPTH) %>%
+  filter(MAXDEPTH > 0)
+
+# Only run after area has been calculated, return geographic information to point data
+comp_micx$Shape <- st_point_on_surface(comp_micx$Shape)|>
+  st_transform(crs=5072)
+
+
+```
+
+```{r prepare data - cyano}
+
+comp_cyano <- st_join(wbd_copy, PredData) |>
+  dplyr::select(-c(pred_micx, micx_transform, COMID.x)) |>
+  rename(COMID = COMID.y) |>
+  drop_na(pred_cyano)
+
+comp_cyano <- comp_cyano |>
+  mutate(all_pred = factor(case_when(
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano[, "fit"] >= 5 ~ 'HNHC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano[, "fit"] >= 5 ~ 'LNHC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano[, "fit"] < 5 ~ 'HNLC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano[, "fit"] < 5 ~ 'LNLC',
+    TRUE ~ 'OTHER'),
+    levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
+    arrange(all_pred)
+
+# create custom area:depth ratio
+for (Shape in 1:length(comp_cyano)) {
+  shapes <- comp_cyano$Shape
+  comp_cyano$custom_area <- st_area(shapes)
+}
+
+comp_cyano$custom_area <- drop_units(comp_cyano$custom_area)
+comp_cyano <- comp_cyano |>
+  mutate(area_ha = (custom_area / 10000))
+
+comp_cyano <- comp_cyano %>%
+  mutate(area_km = custom_area / 1000000,
+         ad_ratio = (sqrt(area_km)) / MAXDEPTH) %>%
+  filter(MAXDEPTH > 0)
+
+# Only run after area has been calculated, return geographic information to point data
+comp_cyano$Shape <- st_point_on_surface(comp_cyano$Shape)|>
+  st_transform(crs=5072)
+
+```
+
+
+```{r density plots - precip}
+
+cat_labels <- c('High Nutrient, High HABs',
+                    'High Nutrient, Low HABs',
+                    'Low Nutrient, High HABs',
+                    'Low Nutrient, Low HABs')
+
+precip_den_micx <- ggplot(comp_micx, aes(x=Precip8110Ws, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
+                    labels = cat_labels) +
+    xlim(0,2000) +
+  labs(x = "Precipitation (mm)", fill = 'Class',
+       title = 'Microcystin') +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
+
+precip_den_cyano <- ggplot(comp_cyano, aes(x=Precip8110Ws, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
+                    labels = cat_labels) +
+  xlim(0,2000) +
+  labs(x = "Precipitation (mm)", y = "Density Distribution",  fill = 'Class',
+       title = 'Cyanobacteria') +
+  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15))) +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
+
+
+ggpubr::ggarrange(precip_den_cyano, precip_den_micx,
+                  ncol = 2, nrow = 1,
+                  common.legend = TRUE)
+```
+
+```{r density plots - baseflow}
+
+baseflow_den_micx <- ggplot(comp_micx, aes(x=BFIWs, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5"),
+                    labels = cat_labels) +
+  xlim(0,100) +
+  labs(x = "BaseFlow (%)", fill = 'Class',
+       title = 'Microcystin') +
+  theme(axis.title.y=element_blank())
+
+baseflow_den_cyano <- ggplot(comp_cyano, aes(x=BFIWs, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5"),
+                    labels = cat_labels) +
+  xlim(0,100) +
+  labs(x = "BaseFlow (%)", y = "Density Distribution",  fill = 'Class',
+       title = 'Cyanobacteria') +
+  theme(axis.title.y=element_blank()) +
+  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
+
+ggpubr::ggarrange(baseflow_den_cyano, baseflow_den_micx,
+                  ncol = 2, nrow = 1,
+                  common.legend = TRUE)
+
+```
+
+```{r density plots - a:d ratio}
+
+ad_den_micx <- ggplot(comp_micx, aes(x=ad_ratio, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5")) +
+  xlim(0,0.5) +
+  labs(x = "Area:Depth Ratio", fill = 'Class',
+       title = 'Microcystin') +
+  theme(axis.title.y=element_blank())
+
+ad_den_cyano <- ggplot(comp_cyano, aes(x=ad_ratio, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5")) +
+  xlim(0,0.5) +
+  labs(x = "A:D Ratio", y = "Density Distribution",  fill = 'Class',
+       title = 'Cyanobacteria') +
+  theme(axis.title.y=element_blank())
+
+ggpubr::ggarrange(ad_den_micx, ad_den_cyano,
+                  ncol = 2, nrow = 1,
+                  common.legend = TRUE)
 ```
 
