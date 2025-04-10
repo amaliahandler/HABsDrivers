@@ -29,11 +29,12 @@ comp_micx <- comp_micx |>
 comp_micx$nutr_all <- comp_micx$p_farm_inputs + comp_micx$n_dev_inputs
 
 comp_micx <- comp_micx %>%
-  # mutate(micx_class = factor(case_when(
-  #   pred_micx >= 0.50 ~ 'HM',
-  #   pred_micx < 0.50 ~'LM',
-  #   TRUE ~ 'OTHER'
-  # ))) %>%
+  mutate(micx_class = factor(case_when(
+    pred_micx[, "fit"] < 0.25 ~ 'B1',
+    pred_micx[, "fit"] >= 0.25 & pred_micx[, "fit"] < 0.50 ~ 'B2',
+    pred_micx[, "fit"] >= 0.50 & pred_micx[, "fit"] < 0.75 ~ 'B3',
+    pred_micx[, "fit"] > 0.75 ~ 'B4',
+  ))) %>%
   # mutate(p_class = factor(case_when(
   #   p_farm_inputs >= 4 ~ 'HP',
   #   p_farm_inputs < 4 ~ 'LP',
@@ -941,14 +942,13 @@ micxcat_labels <- c('High Nutrient, High HABs',
                     'Low Nutrient, High HABs',
                     'Low Nutrient, Low HABs')
 
-precip_den_micx <- ggplot(comp_cyano, aes(x=ad_ratio, y= all_pred)) +
-  ggridges::geom_density_ridges(aes(fill = all_pred),
+precip_den_micx <- ggplot(comp_micx, aes(x=n_dev_inputs, y= micx_class)) +
+  ggridges::geom_density_ridges(aes(fill = micx_class),
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
-                    labels = micxcat_labels) +
-  xlim(0,0.5) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
+  xlim(0,5) +
   labs(x = "ad:ratio", fill = 'Class',
        title = 'Microcystin') +
   theme(axis.title.y=element_blank(),
@@ -1391,5 +1391,47 @@ q <- ggplot() +
                      name = "Abundance (1000 cells/mL)")
 
 ggsave("upper_micx_wa.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1500)
+
+# PredData csv -----------------------------------------------------------------
+
+PredData <- PredData |>
+  mutate(coords = st_coordinates(Shape),
+         lat.x = coords[, 'X'],
+         lon.y = coords[, 'Y']) |>
+  dplyr::select(-c(coords)) |>
+  relocate(pred_micx, micx_transform, pred_cyano, cyano_transform, .after = UNIQUE_ID) |>
+  st_drop_geometry()
+
+write.csv(PredData, "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/PredData.csv")
+
+# checking that everything worked
+
+PredData2 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/PredData.csv")
+
+PredData2 <- PredData2 |>
+  st_as_sf(coords = c("lat.x","lon.y"), crs = 5072)
+
+ggplot() +
+  geom_sf(data = PredData2)
+
+
+# Crop Land Cover Classification ===============================================
+
+pred_cols <- PredDataMini |>
+  dplyr::select(c(COMID, state))
+
+micx_pred_df <- micx_pred_df |>
+  left_join(micx_pred_df, pred_cols, by = 'COMID') |>
+  drop_na(pred_micx)
+
+pred_buffers <- PredData |>
+  mutate(buffer_poly = st_buffer(Shape, 1600))
+
+crop_cov <- raster("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/2017_30m_cdls/2017_30m_cdls.tif")
+
+extracted_values <- terra::extract(crop_cov, pred_buffers)
+
+
+
 
 
