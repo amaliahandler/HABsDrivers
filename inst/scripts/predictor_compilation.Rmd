@@ -102,7 +102,7 @@ Watershed land cover metrics, derived from the National Land Cover Dataset
 # create function to pull relevant land cover metrics, specifying desired year and watershed scale  
 
 get_nlcd <- function(coms){
-  lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
+  StreamCatTools::lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016, PctUrbHi2016,
                           PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
                           PctConif2016, PctUrbOp2016, PctHbWet2016',
               aoi='watershed',
