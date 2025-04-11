@@ -150,7 +150,17 @@ wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") |>
 # select only relevant COMIDs to the predictor data and select necessary variables 
 wbd_copy <- wbd |>
   subset(COMID %in% PredData$COMID) |>
-  dplyr::select(COMID, MaxDepth, Shape) |>
+  dplyr::select(COMID, MaxDepth, Shape) 
+
+# create lake area metric
+for (Shape in 1:length(wbd_copy)) {
+  shapes <- wbd_copy$Shape
+  wbd_copy$lake_area <- st_area(shapes)
+}
+
+# drop units and convert polygons to points
+wbd_copy <- wbd_copy |>
+  mutate(lake_area = drop_units(lake_area)) |>
   st_point_on_surface()
 
 # merge water boundary data with existing predictor data

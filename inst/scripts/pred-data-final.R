@@ -83,7 +83,7 @@ PredData <- ncldMas |>
   dplyr::select(COMID, fst_ws, WSAREASQKM) |>
   merge(PredData, by = 'COMID')
 
-# Water Body Data --------------------------------------------------------------
+# Water Boundary Data ----------------------------------------------------------
 
 loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
 
@@ -93,6 +93,15 @@ wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") |>
 wbd_copy <- wbd |>
   subset(COMID %in% PredData$COMID) |>
   dplyr::select(COMID, MaxDepth, Shape)
+
+for (Shape in 1:length(wbd_copy)) {
+  shapes <- wbd_copy$Shape
+  wbd_copy$lake_area <- st_area(shapes)
+}
+
+wbd_copy <- wbd_copy |>
+  mutate(lake_area = drop_units(lake_area)) |>
+  st_point_on_surface()
 
 PredData <- merge(PredData, wbd_copy, by = 'COMID')
 
