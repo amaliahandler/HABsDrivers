@@ -30,6 +30,7 @@ NLA 2017 - NLCD 2016 (percent)}
 \item{MAXDEPTH}{Estimated lake maximum depth from lakemorpho package, NHD+, and LAGOS-US (m)}
 \item{lakemorpho_fetch}{Estimated lake fetch from lakemorpho package (m)}
 \item{AG_ECO3}{The aggregated 3 ecoregional location of the lake (character)}
+\item{lake_area}{Lake surface area in square meters}
 \item{Shape}{The centroid of the lake (point)}
 \item{pred_cyano}{Predicted cyanobacteria cell abundance (cells/mL) log transformed: log10(cyano+1000)}
 \item{cyano_transform}{Predicted cyanobacteria cell abundance (cells/mL)}
