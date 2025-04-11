@@ -384,7 +384,7 @@ PredData <- PredData |>
          lakemorpho_fetch = fetch,
          AG_ECO3 = ag_eco3) |>
   dplyr::select(c(COMID, n_dev_inputs, n_farm_inputs, p_dev_inputs, p_farm_inputs,
-                  BFIWs, MAXDEPTH,lakemorpho_fetch,
+                  BFIWs, MAXDEPTH,lakemorpho_fetch, lake_area, 
                   Precip8110Ws, Tmean8110Ws,
                   fst_ws, AG_ECO3,
                   DSGN_CYCLE, UNIQUE_ID, geometry)) |>
