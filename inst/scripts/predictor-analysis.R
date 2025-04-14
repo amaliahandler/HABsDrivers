@@ -1431,6 +1431,43 @@ crop_cov <- raster("C:/Users/mreyno04/OneDrive - Environmental Protection Agency
 
 extracted_values <- terra::extract(crop_cov, pred_buffers)
 
+# flextable? -------------------------------------------------------------------
+
+
+PredData <- PredData |>
+  mutate(micx_class = factor(case_when(
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx[, "fit"] >= 0.50 ~ 'HNHM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx[, "fit"] >= 0.50 ~ 'LNHM',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx[, "fit"] < 0.50 ~ 'HNLM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx[, "fit"] < 0.50 ~ 'LNLM',
+    TRUE ~ 'OTHER'),
+    levels = c('HNHM','HNLM','LNHM','LNLM'))) %>%
+  arrange(micx_class) |>
+  mutate(cyano_class = factor(case_when(
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano[, "fit"] >= 5 ~ 'HNHC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano[, "fit"] >= 5 ~ 'LNHC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano[, "fit"] < 5 ~ 'HNLC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano[, "fit"] < 5 ~ 'LNLC',
+    TRUE ~ 'OTHER'),
+    levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
+  arrange(cyano_class)
+
+
+cy_sample <- sample_n(comp_cyano, 15)
+cy_sample <- sample(cy_sample, 5)
+
+cy_sample |>
+  group_by(all_pred) |>
+  summarise(across(where(is.numeric), mean)) |>
+  flextable()
+
+PredData |>
+  st_drop_geometry() |>
+  group_by(micx_class) |>
+  dplyr::select(-c(micx_transform, pred_cyano, cyano_transform, COMID, cyano_class)) |>
+  summarise((across(where(is.numeric), mean))) |>
+  flextable()
+
 
 
 
