@@ -675,8 +675,7 @@ comp_micx <- comp_micx |>
 
 comp_micx <- comp_micx %>%
   mutate(area_km = custom_area / 1000000,
-         ad_ratio = (sqrt(area_km)) / MAXDEPTH) %>%
-  filter(MAXDEPTH > 0)
+         ad_ratio = (sqrt(area_km)) / MAXDEPTH) 
 
 # Only run after area has been calculated, return geographic information to point data
 comp_micx$Shape <- st_point_on_surface(comp_micx$Shape)|>
@@ -714,8 +713,7 @@ comp_cyano <- comp_cyano |>
 
 comp_cyano <- comp_cyano %>%
   mutate(area_km = custom_area / 1000000,
-         ad_ratio = (sqrt(area_km)) / MAXDEPTH) %>%
-  filter(MAXDEPTH > 0)
+         ad_ratio = (sqrt(area_km)) / MAXDEPTH)
 
 # Only run after area has been calculated, return geographic information to point data
 comp_cyano$Shape <- st_point_on_surface(comp_cyano$Shape)|>
@@ -825,4 +823,5 @@ ggpubr::ggarrange(ad_den_micx, ad_den_cyano,
                   ncol = 2, nrow = 1,
                   common.legend = TRUE)
 ```
+
 

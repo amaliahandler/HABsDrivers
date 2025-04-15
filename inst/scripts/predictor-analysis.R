@@ -1461,12 +1461,29 @@ cy_sample |>
   summarise(across(where(is.numeric), mean)) |>
   flextable()
 
-PredData |>
+# i for rows selection and j for columns selection can be expressed in different ways
+
+ft <- PredData |>
   st_drop_geometry() |>
   group_by(micx_class) |>
   dplyr::select(-c(micx_transform, pred_cyano, cyano_transform, COMID, cyano_class)) |>
   summarise((across(where(is.numeric), mean))) |>
+  flextable() |>
+  bold(~BFIWs == max(BFIWs), 7)
+ft
+
+cyft <- comp_cyano |>
+  st_drop_geometry() |>
+  group_by(all_pred) |>
+  dplyr::select(c(BFIWs, all_pred, MAXDEPTH, area_km)) |>
+  summarize(median_bfi = median(BFIWs),
+            mean_bfi   = mean(BFIWs)) |>
   flextable()
+
+comp_cyano <- comp_cyano |>
+  filter(MAXDEPTH > 0)
+
+
 
 
 
