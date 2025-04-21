@@ -36,7 +36,7 @@ PredData <- PredData |>
   summarise(across(where(is.numeric), mean)) |>
   rename(COMID = wbCOMID) |>
   dplyr::select(-catCOMID) |>
-  dplyr::select(c(N_Fert_Farm_2007,N_CBNF_2007, BFIWs, LAGOSLakeDepth, NHDLakeDepth, COMID))
+  dplyr::select(c(N_Fert_Farm_2007, N_CBNF_2007, BFIWs, LAGOSLakeDepth, NHDLakeDepth, COMID))
 
 # Combine Datasets -------------------------------------------------------------
 
