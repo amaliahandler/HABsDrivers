@@ -1483,9 +1483,28 @@ cyft <- comp_cyano |>
 comp_cyano <- comp_cyano |>
   filter(MAXDEPTH > 0)
 
+# isotopes! --------------------------------------------------------------------
 
+iso_2012 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/NLA_2012.csv")
+iso_2017 <- read.csv("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/Downloads/NLA_2017.csv")
 
+iso_overlap <- iso_2012 |>
+  filter(!(UNIQUE_ID %in% iso_2017$UNIQUE_ID))
 
+iso_all <- bind_rows(iso_overlap, iso_2017)
 
+PredData <- PredData |>
+  left_join(iso_overlap, by = 'UNIQUE_ID')
 
+ggplot(comp_cyano, aes(x=E_I, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred),
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
+  xlim(0,2)
 
+iso_model <- splm(E_I ~ all_pred, comp_cyano, spcov_type = "exponential")
+
+anova(iso_model)
+ggpubr::ggqqplot(residuals(iso_model, type = "standardized"))
