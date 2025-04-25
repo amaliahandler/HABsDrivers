@@ -669,7 +669,7 @@ for (Shape in 1:length(comp_micx)) {
   comp_micx$custom_area <- st_area(shapes)
 }
 
-comp_micx$custom_area <- drop_units(comp_micx$custom_area)
+comp_micx$custom_area <- units::drop_units(comp_micx$custom_area)
 comp_micx <- comp_micx |>
   mutate(area_ha = (custom_area / 10000))
 
@@ -707,7 +707,7 @@ for (Shape in 1:length(comp_cyano)) {
   comp_cyano$custom_area <- st_area(shapes)
 }
 
-comp_cyano$custom_area <- drop_units(comp_cyano$custom_area)
+comp_cyano$custom_area <- units::drop_units(comp_cyano$custom_area)
 comp_cyano <- comp_cyano |>
   mutate(area_ha = (custom_area / 10000))
 
@@ -720,7 +720,6 @@ comp_cyano$Shape <- st_point_on_surface(comp_cyano$Shape)|>
   st_transform(crs=5072)
 
 ```
-
 
 ```{r density plots - precip}
 
@@ -823,5 +822,3 @@ ggpubr::ggarrange(ad_den_micx, ad_den_cyano,
                   ncol = 2, nrow = 1,
                   common.legend = TRUE)
 ```
-
-
