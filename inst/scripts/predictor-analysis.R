@@ -1494,17 +1494,21 @@ iso_overlap <- iso_2012 |>
 iso_all <- bind_rows(iso_overlap, iso_2017)
 
 PredData <- PredData |>
-  left_join(iso_overlap, by = 'UNIQUE_ID')
+  merge(iso_2012, by = 'UNIQUE_ID')
 
-ggplot(comp_cyano, aes(x=E_I, y= all_pred)) +
+ggplot(comp_micx, aes(x=RT_iso, y= all_pred)) +
   ggridges::geom_density_ridges(aes(fill = all_pred),
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
   scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
-  xlim(0,2)
+  xlim(0,5)
 
-iso_model <- splm(E_I ~ all_pred, comp_cyano, spcov_type = "exponential")
+ggsave("micx_restime.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
-anova(iso_model)
-ggpubr::ggqqplot(residuals(iso_model, type = "standardized"))
+iso_model <- spmodel::splm(E_I ~ all_pred, comp_micx, spcov_type = "exponential")
+
+restime_model <- spmodel::splm(RT_iso ~ all_pred, comp_micx, spcov_type = 'exponential')
+
+anova(restime_model)
+ggpubr::ggqqplot(residuals(restime_model, type = "standardized"))
