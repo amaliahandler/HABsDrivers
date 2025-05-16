@@ -51,9 +51,33 @@ micx_lake  <- readRDS(paste0(here(), "/inst/model_objects/model_micx_withlakedat
 cyano_nolake <- readRDS(paste0(here(), "/inst/model_objects/model_cyano_nolakedata.rds"))
 micx_nolake  <- readRDS(paste0(here(), "/inst/model_objects/model_micx_nolakedata.rds"))
 
+# p-value results for models with lake conditions
+pval <- function(x){ifelse(x < 0.001, "p<0.001", paste0("p=",round(x, 3)))}
+
+doc_cyano <- pval(summary(cyano_lake)$coefficients$fixed$p[5])
+doc_micx  <- pval(summary(micx_lake)$coefficients$fixed$p[4])
+int_cyano_plnlow <- pval(summary(cyano_lake)$coefficients$fixed$p[15])
+
+
 ```
 
 ## Results
+
+### Drivers of CyanoHABs
+
+Both the cyanobacteria and microcystin models were driven by a similar set of covariates with some differences in the relative importance of individual covariates within each model.
+
+#### Models with In-Lake Conditions
+
+Among the models that included the in-lake conditions, total N was positively correlated with by cyanobacteria abundance and the probability of microcystin. Nitrate and DOC were negatively correlated with cyanobacteria abundance and probability of microcystin, but while DOC had a high degree of confidence in importance for cyanobacteria (`r doc_cyano`), the microcystin model DOC term was not significant (`r doc_micx`). Ammonium and tubidity were both negatively correlated with cyanobacteria, but absent in the final microcystin model. Finally, the evaporation to inflow ratio was positively correlated with both cyanobacteria abundance and probability of microcystin detection, indicating that both cyanobacteria and microcystin are mor common in lakes with water that has experience more evaporation relative to the inflowing water.
+
+For lake morphology, deeper lakes had lower cyanobacteria and probability of microcystin detection and lakes with longer fetch had higher cyanobacteria and probability of microcystin. 
+
+Few of the watershed nutrient input terms were included in the final models; however, farm P inputs were positively correlated with the probability of microcystin detection.
+
+Among geographic setting variables, lake watersheds with lower mean annual precipitation and higher mean annual air temperature were correlated with higher cyanobacteria abundance and probability of microcystin. Both the PLNLOW and EHIGH ecoregions had high cyanobacteria and probability of microcystin compared to the WMTNS ecoregion.
+
+Finally, there was an interaction between the lake total N concentration and the ecoregion where higher total N concentration in the EHIGH ecoregion is correlated with significantly higher cyanobacteria abundance relative to the WMTNS. There was also a small negative interaction between the total N concentration and the EHIGH, but not significant (`r int_cyano_plnlow`). The final microcystin model did not contain any interactions.
 
 ### Map of NLA sample locations
 
