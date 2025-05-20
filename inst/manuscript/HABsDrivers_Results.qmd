@@ -160,6 +160,10 @@ The models with in-lake conditions present had a positive relationship with the 
 
 In most models, the amount of cyanobacteria and probability of microcystin detection was higher in the central plains and coastal lowlands as well as the upper midwest and eastern highlands compared to the western mountains and xeric ecoregion. In addition, the cyanobacteria model with in-lake conditions had an interaction term between lake total N concentration and the ecoregion. In this instance, higher total N concentration in the EHIGH ecoregion is correlated with significantly higher cyanobacteria abundance relative to the WMTNS. There was also a small negative interaction between the total N concentration and the EHIGH, but not significant (`r int_cyano_plnlow`). 
 
+#### Model Fit
+
+Standardized residuals were randomly distributed across the country for both models that included and excluded in-lake conditions (@std-resid-maps). For the models of cyanobacteria abundance, spatial models outperformed independent error models with lower bias, lower RMSPE, and higher predicted R^2^ regardless of the presence of in-lake conditions (@tbl-mod-fit). For the probability of microcystin detection, model performance was similar for spatial and independent error models with respect to bias and AUC. Bias was slightly lower for the spatial compared to the independent error models for microcystin when in-lake conditions were present or absent. 
+
 ```{r extract model fixed effects}
 # Function to extract the fixed effects from each model
 fixed_effect_retriever <- function(model_obj, resp_var, lake_data){
@@ -286,7 +290,7 @@ covar_tbl <- est_and_sign |>
 
 ```
 
-Table 1: Model fixed effect coefficient sign (negative or positive) and p-value (ns >0.05, * <0.05, ** <0.01, **** < 0.001) for cyanobacteria and microcystin models both where in-lake data was present or absent. Grey cells are covariates that were excluded from model development. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships.
+Table 1: Model fixed effect coefficient sign (negative or positive) and p-value (ns >0.05, * <0.05, ** <0.01, **** < 0.001) for cyanobacteria and microcystin models both where in-lake data was present or absent. Grey cells are covariates that were excluded from model development. Empty cells covariates that were not included in the model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships.
 
 ```{r covariate table}
 #| label: tbl-fixed_effects
@@ -325,6 +329,10 @@ ggplot() +
     theme_void()
 
 ```
+
+### Influence of In-Lake Conditions
+
+The presence of in-lake conditions in the cyanobacteria abundance model provides a substantial increase in the predictive R^2^ of the model overall fit (@tbl-mod-fit); however, the bias and RMSPE were similar regardless of the presence of in-lake conditions. The performance of the probability of microcystin detection models were similar with respect to bias, RMSPE, and AUC regardless of the presence of in-lake conditions.
 
 ```{r model fit comparison}
 #| label: tbl-mod-fit
