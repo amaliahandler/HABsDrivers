@@ -160,9 +160,11 @@ The models with in-lake conditions present had a positive relationship with the 
 
 In most models, the amount of cyanobacteria and probability of microcystin detection was higher in the central plains and coastal lowlands as well as the upper midwest and eastern highlands compared to the western mountains and xeric ecoregion. In addition, the cyanobacteria model with in-lake conditions had an interaction term between lake total N concentration and the ecoregion. In this instance, higher total N concentration in the EHIGH ecoregion is correlated with significantly higher cyanobacteria abundance relative to the WMTNS. There was also a small negative interaction between the total N concentration and the EHIGH, but not significant (`r int_cyano_plnlow`). 
 
-#### Model Fit
+#### Spatial Influence
 
 Standardized residuals were randomly distributed across the country for both models that included and excluded in-lake conditions (@std-resid-maps). For the models of cyanobacteria abundance, spatial models outperformed independent error models with lower bias, lower RMSPE, and higher predicted R^2^ regardless of the presence of in-lake conditions (@tbl-mod-fit). For the probability of microcystin detection, model performance was similar for spatial and independent error models with respect to bias and AUC. Bias was slightly lower for the spatial compared to the independent error models for microcystin when in-lake conditions were present or absent. 
+
+# Note: Change maps to have separate color scales for each model. Unclear if these should be on the same scale.
 
 ```{r extract model fixed effects}
 # Function to extract the fixed effects from each model
