@@ -408,6 +408,12 @@ ggplot() +
 
 ```
 
+### Predicted CyanoHABs Risk
+
+#### Geographic Patterns
+
+#### Nutrient and Non-Nutrient Drivers
+
 ## Supplemental Material
 
 ### Table of model variables
