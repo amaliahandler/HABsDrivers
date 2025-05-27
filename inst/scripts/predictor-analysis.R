@@ -1024,28 +1024,34 @@ ad_den_micx <- ggplot(comp_micx, aes(x=ad_ratio, y= all_pred)) +
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5")) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
+                    labels = micxcat_labels) +
   xlim(0,0.5) +
-  labs(x = "Area:Depth Ratio", fill = 'Class',
+  labs(x = "Area:Depth Ratio", y = "Density Distribution",  fill = 'Class',
        title = 'Microcystin') +
-  theme(axis.title.y=element_blank())
+  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15))) +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
 
 ad_den_cyano <- ggplot(comp_cyano, aes(x=ad_ratio, y= all_pred)) +
   ggridges::geom_density_ridges(aes(fill = all_pred),
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5")) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
+                    labels = micxcat_labels) +
   xlim(0,0.5) +
-  labs(x = "A:D Ratio", y = "Density Distribution",  fill = 'Class',
+  labs(x = "Area:Depth Ratio", y = "Density Distribution",  fill = 'Class',
        title = 'Cyanobacteria') +
-  theme(axis.title.y=element_blank())
+  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15))) +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
 
 ggpubr::ggarrange(ad_den_micx, ad_den_cyano,
                   ncol = 2, nrow = 1,
                   common.legend = TRUE)
 
-ggsave("cyano_ad.jpeg", width = 8, height = 10, device = 'jpeg', dpi = 500)
+ggsave("ad_all.jpeg", width = 12, height = 7, device = 'jpeg', dpi = 500)
 
 # personal interest analysis ---------------------------------------------------
 
@@ -1512,3 +1518,51 @@ restime_model <- spmodel::splm(RT_iso ~ all_pred, comp_micx, spcov_type = 'expon
 
 anova(restime_model)
 ggpubr::ggqqplot(residuals(restime_model, type = "standardized"))
+
+# flextable --------------------------------------------------------------------
+
+comp_micx <- comp_micx |>
+  dplyr::select(COMID, pred_micx, all_pred) |>
+  st_drop_geometry() |>
+  rename(prediction = pred_micx)
+
+comp_cyano <- comp_cyano |>
+  dplyr::select(COMID, pred_cyano, all_pred) |>
+  st_drop_geometry() |>
+  rename(prediction = pred_cyano)
+
+pred_all <- rbind(comp_cyano, comp_micx)
+
+pred_all |>
+  group_by(all_pred) |>
+  mutate
+  count() |>
+  summarise(across(where(is.numeric), mean)) |>
+  flextable()
+
+options(digits = 2)
+comp_micx|>
+  mutate(cat_percent = ) |>
+  group_by(all_pred) |>
+  flextable() |>
+  set_header_labels(values = list(
+    resp_var = "Response Variable",
+    lake_data = "In-Lake Conditions",
+    spatial_mod = "Error Structure",
+    bias = "Bias",
+    RMSPE = "RMSPE",
+    fit = "Fit")) |>
+  merge_v(part = "body", j = c(1:2)) |>
+  footnote(i = 1, j = 6,
+           value = as_paragraph("Fit is R^2 for cyanobacteria models and AUC for microcystin models."), ref_symbols = "a", part = "header") |>
+  theme_booktabs(bold_header = TRUE) |>
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header") |>
+  fontsize(size = 9, part = "footer") |>
+  theme_box() |>
+  align(align = "center", part = "header")
+
+
+
+
+
