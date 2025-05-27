@@ -441,6 +441,7 @@ load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/
 
 ```{r}
 
+# add predicitons to final PredData set
 PredData <- pred_df |>
   dplyr::select(Shape, pred_cyano, cyano_transform) |>
   st_join(PredData) |>
