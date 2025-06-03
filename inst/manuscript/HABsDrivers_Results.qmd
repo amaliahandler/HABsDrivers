@@ -30,20 +30,6 @@ library(stringr)
 # Do not include code chunks in document
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
-# Data prep
-habs <- habs |>
-  mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
-         n_dev_inputs = N_Human_Waste + N_Fert_Urban,
-         p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
-         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer) |>
-  mutate(MICX_DET = factor(ifelse(is.finite(MICX), 1, 0))) |>
-  mutate(MAXDEPTH = ifelse(MAXDEPTH == 999, NA, MAXDEPTH),
-         n_farm_inputs = ifelse(n_farm_inputs > 600, NA, n_farm_inputs),
-         p_farm_inputs = ifelse(p_farm_inputs > 100, NA, p_farm_inputs),
-         n_dev_inputs = ifelse(n_dev_inputs > 300, NA, n_dev_inputs),
-         p_dev_inputs = ifelse(p_dev_inputs > 100, NA, p_dev_inputs),
-         TEMPERATURE = ifelse(TEMPERATURE > 50, NA, TEMPERATURE))
-
 # Load model objects
 cyano_lake <- readRDS(paste0(here(), "/inst/model_objects/model_cyano_withlakedata.rds"))
 micx_lake  <- readRDS(paste0(here(), "/inst/model_objects/model_micx_withlakedata.rds"))

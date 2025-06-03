@@ -3,7 +3,7 @@
 #' A dataset containing data from the National Lakes Assessment as well as
 #'  watershed, climate, and lake characteristics. The variables are as follows:
 #'
-#' @format A data frame with 3678 rows and 74 variables:
+#' @format A data frame with 3664 rows and 73 variables:
 #' \describe{
 #'   \item{SITE_ID}{A site ID assigned to a lake within an NLA survey cycle (character)}
 #'   \item{VISIT_NO}{The first or second visit to a site (1--2)}
@@ -86,11 +86,11 @@
 #'         and 2012 National Nutrient Inventory (kg N/ha)}
 #'   \item{N_Total_Deposition}{Annual total nitrogen inputs from atmospheric deposition in the watershed, mean of 2002, 2007,
 #'         and 2012 National Nutrient Inventory (kg N/ha)}
-#'   \item{N_Inputs}{Annual total nitrogen inputs in the watershed, mean of 2002, 2007,
+#'   \item{N_Total_Inputs}{Annual total nitrogen inputs in the watershed, mean of 2002, 2007,
 #'         and 2012 National Nutrient Inventory (kg N/ha)}
-#'   \item{N_Outputs}{Annual total nitrogen outputs from the watershed, mean of 2002, 2007,
+#'   \item{N_Total_Outputs}{Annual total nitrogen outputs from the watershed, mean of 2002, 2007,
 #'         and 2012 National Nutrient Inventory (kg N/ha)}
-#'   \item{N_nBNF}{Annual total nitrogen inputs from non-farm biological fixation in the watershed, mean of 2002, 2007,
+#'   \item{N_Total_nBNF}{Annual total nitrogen inputs from non-farm biological fixation in the watershed, mean of 2002, 2007,
 #'         and 2012 National Nutrient Inventory (kg N/ha)}
 #'   \item{N_livestock_Waste}{Annual total nitrogen inputs livestock waste in the watershed, mean of 2002, 2007,
 #'         and 2012 National Nutrient Inventory (kg N/ha)}
@@ -115,6 +115,10 @@
 #'         and 2012 National Nutrient Inventory (kg P/ha)}
 #'   \item{P_nf_fertilizer}{Annual total phosphorus inputs non-farm fertilizer to the watershed, mean of 2002, 2007,
 #'         and 2012 National Nutrient Inventory (kg P/ha)}
+#'   \item{n_farm_inputs}{Annual total farm nitrogen inputs to the watershed, sum of N_Fert_Farm, N_CBNF, and N_livestock_Waste (kg N/ha)}
+#'   \item{n_dev_inputs}{Annual total developed land cover nitrogen inputs to the watershed, sum of N_Human_Waste and N_Fert_Urban (kg N/ha)}
+#'   \item{p_farm_inputs}{Annual total farm phosphorus inputs to the watershed, sum of P_f_fertilizer and P_livestock_Waste (kg P/ha)}
+#'   \item{p_dev_inputs}{Annual total developed land cover phosphorus inputs to the watershed, sum of P_human_waste_kg and P_nf_fertilizer (kg P/ha)}
 #'   \item{AG_ECO3}{The aggregated 3 ecoregional location of the lake (character)}
 #'   \item{AG_ECO9_NM}{The aggregated 9 ecoregional location of the lake (character)}
 #'   \item{geometry}{The centroid of the lake (point)}

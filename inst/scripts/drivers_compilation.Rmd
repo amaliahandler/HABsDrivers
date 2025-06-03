@@ -508,6 +508,12 @@ habs_comb <- nla_long %>%
   # Pivot from long to wide format
   pivot_wider(names_from = ANALYTE, values_from = RESULT, values_fill = NA) %>%
   
+  # Remove likely erroneous data
+  # There is a MAXDEPTH measurement that is close to 1000 m that is not believable (it's not Crater Lake)
+  # In addition, there are three water temperatures that exceed 50 degC, including over 250 degC (!) that should be removed.
+  mutate(MAXDEPTH = ifelse(MAXDEPTH == 999, NA, MAXDEPTH),
+         TEMPERATURE = ifelse(TEMPERATURE > 50, NA, TEMPERATURE)) |>
+  
   # Add NLCD (from Marc, LakeCat, and self-compiled)
   left_join(nla_nlcd, by = c("UNIQUE_ID", "DSGN_CYCLE", "VISIT_NO")) %>%
   
@@ -519,6 +525,19 @@ habs_comb <- nla_long %>%
   
   # Add nutrient inventory means
   left_join(nni_mean, by = "UNIQUE_ID") |>
+  
+  # Aggregate several NNI variables
+  mutate(n_farm_inputs = N_Fert_Farm + N_CBNF + N_livestock_Waste,
+         n_dev_inputs = N_Human_Waste + N_Fert_Urban,
+         p_farm_inputs = P_f_fertilizer + P_livestock_Waste,
+         p_dev_inputs = P_human_waste_kg + P_nf_fertilizer) |>
+  
+  # Remove some NNI observations that are extreme outliers (likely idiosyncrasies from the down-scaling process)
+  mutate(n_farm_inputs = ifelse(n_farm_inputs > 600, NA, n_farm_inputs),
+         p_farm_inputs = ifelse(p_farm_inputs > 100, NA, p_farm_inputs),
+         n_dev_inputs = ifelse(n_dev_inputs > 300, NA, n_dev_inputs),
+         p_dev_inputs = ifelse(p_dev_inputs > 100, NA, p_dev_inputs),
+         N_Surplus = ifelse(N_Surplus > 3000, NA, N_Surplus)) |>
   
   # Add the ecoregion of each lake
   left_join(select(nla_ecor, -LAT_DD83, -LON_DD83, -COMID), by = "UNIQUE_ID") |>
