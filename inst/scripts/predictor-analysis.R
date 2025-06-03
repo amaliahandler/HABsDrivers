@@ -1562,7 +1562,23 @@ comp_micx|>
   theme_box() |>
   align(align = "center", part = "header")
 
+get_nlcd <- function(coms){
+  lc_get_data(metric = 'pctwdwet2016, pcturbmd2016, pcturblo2016, pcturbhi2016,
+                          pctmxfst2016, pctcrop2016, pcthay2016, pctdecid2016,
+                          pctconif2016, pcturbop2016, pcthbwet2016',
+              aoi='ws',
+              comid = coms,
+              showAreaSqKm = TRUE)
+}
 
+chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 600))
+test <- paste(unlist(chunks[1]),collapse=",")
+ncldMas <- do.call(rbind, lapply(chunks, get_nlcd))
+
+df <- lc_get_data(metric = 'pctwdwet2016, pcturbmd2016, pcturblo2016,pctmxfst2016, pctcrop2016, pcthay2016,pctdecid2016,pctconif2016, pcturbop2016, pcthbwet2016',
+                  aoi='ws',
+                  comid = test,
+                  showAreaSqKm = TRUE)
 
 
 

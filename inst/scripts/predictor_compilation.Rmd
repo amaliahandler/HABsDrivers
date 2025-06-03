@@ -110,9 +110,9 @@ get_nlcd <- function(coms){
               showAreaSqKm = TRUE)
 }
 
-# divide existing predictor dataset into groups of 10,000 by COMID 
+# divide existing predictor data set into groups of 10,000 by COMID 
 # increasing efficiency in pulling NLCD data
-chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 10000))
+chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 500))
 
 # using lapply function to pull NLCD data from each chunk by COMID
 ncldMas <- do.call(rbind, lapply(chunks, get_nlcd))
