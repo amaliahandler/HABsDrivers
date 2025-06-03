@@ -472,9 +472,8 @@ ggplot(PredData, aes(color = pred_micx[, "fit"])) +
 
 ```{r prepare data - micx}
 
-comp_micx <- st_join(wbd_copy, PredData) |>
-  dplyr::select(-c(pred_cyano, cyano_transform, COMID.x)) |>
-  rename(COMID = COMID.y) |>
+comp_micx <- PredData |>
+  dplyr::select(-c(pred_cyano, cyano_transform)) |>
   drop_na(pred_micx)
 
 comp_micx <- comp_micx |>
@@ -491,9 +490,8 @@ comp_micx <- comp_micx |>
 
 ```{r prepare data - cyano}
 
-comp_cyano <- st_join(wbd_copy, PredData) |>
-  dplyr::select(-c(pred_micx, micx_transform, COMID.x)) |>
-  rename(COMID = COMID.y) |>
+comp_cyano <- PredData |>
+  dplyr::select(-c(pred_micx, micx_transform)) |>
   drop_na(pred_cyano)
 
 comp_cyano <- comp_cyano |>
