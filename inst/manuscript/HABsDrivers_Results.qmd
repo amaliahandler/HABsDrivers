@@ -407,6 +407,14 @@ ggplot() +
 #### Geographic Patterns
 
 ```{r cyano predictions}
+#| label: cyano-map
+#| fig-width: 6
+#| fig-height: 4
+#| fig-cap: "Predicted cyanobacteria cell abundance in the CONUS."
+
+states <- states(cb = TRUE, progress_bar = FALSE)  %>%
+  filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI'))  %>%
+  st_transform(crs = 5072)
 
 # Cyano Predictions Map
 
@@ -439,7 +447,7 @@ ggplot() +
           aes(color = disc_cyano),
           size = 0.3,
           alpha = 0.8)  +
-  #geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme_void() +
   theme(axis.title.y=element_blank(),
         legend.position = "none")
@@ -447,6 +455,10 @@ ggplot() +
 ```
 
 ```{r micx predictions}
+#| label: micx-map
+#| fig-width: 6
+#| fig-height: 4
+#| fig-cap: "Predicted probabilty of microcystin detection above 0.1ug/L in the CONUS."
 
 # Micx Prediction Maps 
 
@@ -463,7 +475,7 @@ ggplot(PredData, aes(color = pred_micx[, "fit"])) +
                      breaks = breaks,
                      labels = labels,
                      name = "Probability of Detection (%)") +
-  #geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme_void() +
   theme(axis.title.y=element_blank(),
         legend.position = "none")
@@ -509,6 +521,11 @@ comp_cyano <- comp_cyano |>
 #### Nutrient and Non-Nutrient Drivers
 
 ```{r density plots - precip, message = FALSE}
+#| label: density-precip
+#| fig-width: 6
+#| fig-height: 4
+#| fig-cap: "Density distibutions of precitpitation in the four nutrient/risk categories."
+
 
 cat_labels <- c('High Nutrient, High HABs',
                     'High Nutrient, Low HABs',
@@ -549,13 +566,17 @@ ggpubr::ggarrange(precip_den_cyano, precip_den_micx,
 ```
 
 ```{r density plots - baseflow}
+#| label: density-baseflow
+#| fig-width: 6
+#| fig-height: 4
+#| fig-cap: "Density distibutions of baseflow percents in the four nutrient/risk categories."
 
 baseflow_den_micx <- ggplot(comp_micx, aes(x=BFIWs, y= all_pred)) +
   ggridges::geom_density_ridges(aes(fill = all_pred),
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5"),
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = cat_labels) +
   xlim(0,100) +
   labs(x = "BaseFlow (%)", fill = 'Class',
@@ -567,7 +588,7 @@ baseflow_den_cyano <- ggplot(comp_cyano, aes(x=BFIWs, y= all_pred)) +
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5"),
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = cat_labels) +
   xlim(0,100) +
   labs(x = "BaseFlow (%)", y = "Density Distribution",  fill = 'Class',
@@ -582,13 +603,17 @@ ggpubr::ggarrange(baseflow_den_cyano, baseflow_den_micx,
 ```
 
 ```{r density plots - a:d ratio, eval = FALSE}
+#| label: density-area-depth
+#| fig-width: 6
+#| fig-height: 4
+#| fig-cap: "Density distibutions of area:depth ratio in the four nutrient/risk categories."
 
 ad_den_micx <- ggplot(comp_micx, aes(x=ad_ratio, y= all_pred)) +
   ggridges::geom_density_ridges(aes(fill = all_pred),
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5")) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
   xlim(0,0.5) +
   labs(x = "Area:Depth Ratio", fill = 'Class',
        title = 'Microcystin') +
@@ -599,7 +624,7 @@ ad_den_cyano <- ggplot(comp_cyano, aes(x=ad_ratio, y= all_pred)) +
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5")) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
   xlim(0,0.5) +
   labs(x = "A:D Ratio", y = "Density Distribution",  fill = 'Class',
        title = 'Cyanobacteria') +
