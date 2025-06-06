@@ -400,7 +400,7 @@ ggplot() +
 
 # load predictor dataset into quarto
 
-load("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/data/PredData.rda")
+# load("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/data/PredData.rda")
 
 ```
 
@@ -508,7 +508,7 @@ comp_cyano <- comp_cyano |>
 
 #### Nutrient and Non-Nutrient Drivers
 
-```{r density plots - precip}
+```{r density plots - precip, message = FALSE}
 
 cat_labels <- c('High Nutrient, High HABs',
                     'High Nutrient, Low HABs',
@@ -581,7 +581,7 @@ ggpubr::ggarrange(baseflow_den_cyano, baseflow_den_micx,
 
 ```
 
-```{r density plots - a:d ratio}
+```{r density plots - a:d ratio, eval = FALSE}
 
 ad_den_micx <- ggplot(comp_micx, aes(x=ad_ratio, y= all_pred)) +
   ggridges::geom_density_ridges(aes(fill = all_pred),
