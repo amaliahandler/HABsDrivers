@@ -17,7 +17,7 @@ A data frame with 3664 rows and 73 variables:
 \item{COMID}{National Hydrography Dataset Version 1 waterbody identifier (integer)}
 \item{TEMPERATURE}{NLA water temperature, mean of top 2 meters of the water column (degrees celcius)}
 \item{MAXDEPTH}{NLA measured maximum lake depth (meters)}
-\item{STRATIFIED}{Lake stratification status at the time of NLA sampling (1 - Stratified, 2 = Not stratified)}
+\item{STRATIFIED}{Lake stratification status at the time of NLA sampling (1 = Stratified, 2 = Not stratified)}
 \item{AMMONIA_N}{NLA ammonia as N concentration (mg N/L)}
 \item{DO_SURF}{NLA dissolved oxygen concentration, mean of top 2 meters of the water column (mg/L)}
 \item{DOC}{NLA dissolved organic carbon concentration (mg C/L)}
@@ -29,10 +29,9 @@ A data frame with 3664 rows and 73 variables:
 mean of top 2 meters of the water column (unitless)}
 \item{CHLA_RESULT}{NLA chlorophyll a concentration (ug/L)}
 \item{MICX}{NLA microcystin concentration (ug/L)}
+\item{MICX_DET}{Whether microcystin was detected at or above the microcystin detection limit of 0.1 ug/L
+(1 = At or above detection limit, 0 = Below detection limit)}
 \item{B_G_DENS}{NLA cyanobacteria cell abundance (cells/mL)}
-\item{BG_BIOVOL}{NLA cyanobacteria biovolume (m^3/mL)}
-\item{PHYT_BIOVOL}{NLA total phytoplankton biovolume (m^3/mL)}
-\item{CYLSPER}{NLA cylindrospermopsin concentration (ug/L)}
 \item{EVAP_INFL}{NLA-derived evaporation to inflow ratio (unitless)}
 \item{D_EXCESS}{NLA-derived deuterium excess in water (per mil)}
 \item{agr_ws}{NLCD agricultural land cover including hay and cultivated crop.
@@ -49,9 +48,7 @@ Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011,
 NLA 2017 - NLCD 2016 (percent)}
 \item{precip_mean_month}{Mean precipitation for the month in which the NLA sample was collected (mm)}
 \item{temp_mean_month}{Mean temperature for the month in which the NLA sample was collected (celsius)}
-\item{lakemorpho_depth}{Estimated lake maximum depth from lakemorpho package (m)}
 \item{lakemorpho_fetch}{Estimated lake fetch from lakemorpho package (m)}
-\item{lakemorpho_shoreline.length}{Estimated lake shoreline length from lakemorpho package (m)}
 \item{BFIWs}{Base flow index (percent of total flow that is base flow) for the lake watershed
 from LakeCat (percent)}
 \item{AgKffactWs}{Agriculural soil erodability Kf factor for the lake watershed from LakeCat (unitless)}
@@ -59,13 +56,12 @@ from LakeCat (percent)}
 \item{RunoffWs}{Runoff for the lake watershed from LakeCat (mm)}
 \item{Precip_Minus_EVTWs}{30-year mean annual precipitation minus evapotranspiration for the
 lake watershed from LakeCat (mm)}
-\item{WWTPWs}{Waste water treatment plants within the watershed from LakeCat (plants/km^2)}
 \item{Precip8110Ws}{30-year mean annual precipitation for the lake watershed, 1981-2010,
 from LakeCat (mm)}
 \item{Tmean8110Ws}{30-year mean annual air temperature for the lake watershed, 1981-2010,
-from LakeCat (per mil)}
+from LakeCat (celcius)}
 \item{ElevWs}{Mean watershed elevation from LakeCat (meters)}
-\item{SlopeWs}{Mean watershed slope from LakeCat (meters)}
+\item{SlopeWs}{Mean watershed slope from LakeCat (degrees)}
 \item{N_CBNF}{Annual total cultivated crop biological nitrogen fixation, mean of 2002, 2007,
 and 2012 National Nutrient Inventory (kg N/ha)}
 \item{N_Crop_N_Rem}{Annual total nitrogen in crops removed from the watershed, mean of 2002, 2007,

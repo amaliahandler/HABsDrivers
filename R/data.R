@@ -128,7 +128,7 @@
 #' A dataset containing data from the National Lakes Assessment as well as
 #'  watershed, climate, and lake characteristics. The variables are as follows:
 #'
-#' @format A data frame with 124529 rows and 19 variables:
+#' @format A data frame with 124529 rows and 27 variables:
 #' \describe{
 #'   \item{COMID}{A site ID assigned to a lake (character)}
 #'   \item{DSGN_CYCLE}{The year of the NLA survey cycle (2007, 2012, 2017)}
@@ -155,10 +155,18 @@
 #'   \item{AG_ECO3}{The aggregated 3 ecoregional location of the lake (character)}
 #'   \item{lake_area}{Lake surface area in square meters}
 #'   \item{Shape}{The centroid of the lake (point)}
-#'   \item{pred_cyano}{Predicted cyanobacteria cell abundance (cells/mL) log transformed: log10(cyano+1000)}
-#'   \item{cyano_transform}{Predicted cyanobacteria cell abundance (cells/mL)}
-#'   \item{pred_micx}{Predicted risk of microcystin concentration detection above 0.1 ug/L in percent}
-#'   \item{micx_transform}{Predicted risk of microcystin concentration detection above 0.1 ug/L transformed by 10^(micx) - 1000}
+#'   \item{pred_cyano_fit}{Predicted cyanobacteria cell abundance (cells/mL) fitted values from 95% predictiton interval, log transformed: log10(cyano+1000)}
+#'   \item{pred_cyano_lwr}{Predicted cyanobacteria cell abundance (cells/mL) lower values from 95% predictiton interval, log transformed: log10(cyano+1000)}
+#'   \item{pred_cyano_upr}{Predicted cyanobacteria cell abundance (cells/mL) upper values from 95% predictiton interval, log transformed: log10(cyano+1000)}
+#'   \item{cyano_transform_fit}{Predicted cyanobacteria cell abundance (cells/mL), fitted values from 95% predictiton interval}
+#'   \item{cyano_transform_lwr}{Predicted cyanobacteria cell abundance (cells/mL), lower values from 95% predictiton interval}
+#'   \item{cyano_transform_upr}{Predicted cyanobacteria cell abundance (cells/mL), upper values from 95% predictiton interval}
+#'   \item{pred_micx_fit}{Predicted risk of microcystin concentration detection above 0.1 ug/L in percent, fitted values from 95% predictiton interval}
+#'   \item{pred_micx_lwr}{Predicted risk of microcystin concentration detection above 0.1 ug/L in percent, lower values from 95% predictiton interval}
+#'   \item{pred_micx_upr}{Predicted risk of microcystin concentration detection above 0.1 ug/L in percent, upper values from 95% predictiton interval}
+#'   \item{micx_transform_fit}{Predicted risk of microcystin concentration detection above 0.1 ug/L, fitter values from 95% predictiton interval, transformed by 10^(micx) - 1000}
+#'   \item{micx_transform_lwr}{Predicted risk of microcystin concentration detection above 0.1 ug/L, lower values from 95% predictiton interval, transformed by 10^(micx) - 1000}
+#'   \item{micx_transform_upr}{Predicted risk of microcystin concentration detection above 0.1 ug/L, upper values from 95% predictiton interval, transformed by 10^(micx) - 1000}
 #' }
 #'
 #' @source {HABsDrivers} Package for estimating lake HABs risk.
