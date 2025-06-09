@@ -469,6 +469,28 @@ PredData <- micx_pred_df |>
 
 ```
 
+```{r}
+
+PredData <- PredData |>
+  mutate(pred_micx_fit = (pred_micx[, "fit"]),
+         pred_micx_lwr = (pred_micx[, "lwr"]),
+         pred_micx_upr = (pred_micx[, "upr"]),
+         pred_cyano_fit = (pred_cyano[, "fit"]),
+         pred_cyano_lwr = (pred_cyano[, "lwr"]),
+         pred_cyano_upr = (pred_cyano[, "upr"]),
+         micx_transform_fit = (micx_transform[, "fit"]),
+         micx_transform_lwr = (micx_transform[, "lwr"]),
+         micx_transform_upr = (micx_transform[, "upr"]),
+         cyano_transform_fit = (cyano_transform[, "fit"]),
+         cyano_transform_lwr = (cyano_transform[, "lwr"]),
+         cyano_transform_upr = (cyano_transform[, "upr"]),
+         .keep = 'unused') |>
+  relocate(COMID)
+
+
+```
+
+
 # Save data to package
 
 ```{r}
