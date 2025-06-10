@@ -939,14 +939,5 @@ micx_spatial_comp <-
 # Save the table
 saveRDS(micx_spatial_comp, "./inst/model_objects/spatial_compare_micx.rds")
 
-micx_spatial_comp <- readRDS("./inst/model_objects/spatial_compare_micx.rds") |>
-  mutate(auc = case_when(lake_data == "present" & spatial_mod == "non-spatial" ~ micx_nsp_withlake_auc,
-                         lake_data == "absent" & spatial_mod == "non-spatial" ~ micx_nsp_nolake_auc,
-                         TRUE ~ auc))
-
-micx_spatial_comp[2, 5:7] <- micx_nsp_withlake_loocv$stats
-micx_spatial_comp[4, 5:7] <- micx_nsp_nolake_loocv$stats
-
-
 ```
 
