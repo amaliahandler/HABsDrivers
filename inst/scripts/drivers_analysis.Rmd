@@ -194,6 +194,8 @@ fig <- ggplot(data = dat_final, aes(x = preds, y = log10(B_G_DENS + const))) +
   ggtitle(paste0("Log10(Cyanobacteria + ", const,")"))
 ggsave(paste0("./inst/figures/cyano_withlake_sp_final_fitted_preds.png"), fig, height = 4, width = 5, bg = "transparent", dpi = 400, units = "in")
 
+# Several very high predictions appear to be due to extremely high TN concentrations. These are outliers, but there's no reason to believe the predictor data are problematic.
+
 # Save the model
 # saveRDS(cyano_withlake_sp, "./inst/model_objects/model_cyano_withlakedata.rds")
 
@@ -298,13 +300,9 @@ cyano_nolake_sp <- splm(create_formula(dep_var, mod_vars, log = T, const = const
 saveRDS(cyano_nolake_sp, "./inst/model_objects/model_cyano_nolakedata.rds")
   
 # Run the best fit model, c1, without spatial correlation for comparison
-# Set the initial covariance to be small. This produces results identical to glm()
-spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
-
 cmod_final_nolake_nsp <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
                               data = dat_final,
-                              random = ~ DSGN_CYCLE + UNIQUE_ID,
-                              spcov_initial = spcov_init,
+                              spcov_type = "none",
                               local = F)
   
 # Evaluate fit of non-spatial model
@@ -381,14 +379,14 @@ ggsave("./inst/figures/cyano_nolake_spde_map.png", width = 7, height = 3.5, unit
 
 ```
 
-### Comparison
+### Cyanobacteria model comparison
 
 Comparison of spatial and non-spatial models for cyanobacteria, with and without lake data
 
 ```{r cyano spatial and independent error model comparison}
 
 # With lake data
-cyano_withlake_sp_loocv
+cyano_withlake_sp_loocv$stats
 cyano_withlake_nsp_loocv
 
 # No lake data
