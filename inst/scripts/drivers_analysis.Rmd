@@ -443,7 +443,7 @@ run_micx_ie <- function(mod_vars, int = NULL){
         data = dat_micx_lake,
         estmethod = "ml",
         spcov_type = "none",
-        random = ~ DSGN_CYCLE + UNIQUE_ID,
+        # random = ~ DSGN_CYCLE + UNIQUE_ID,
         local = T)
 }
 
@@ -604,7 +604,6 @@ micx_nsp_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, in
                            data = dat_final,
                            estmethod = "reml",
                            spcov_type = "none",
-                           random = ~ DSGN_CYCLE + UNIQUE_ID,
                            local = F)
 
 # Get bias, MSPE of non-spatial model
@@ -672,7 +671,6 @@ run_micx_ie <- function(mod_vars, int = NULL){
         data = dat_micx,
         estmethod = "ml",
         spcov_type = "none",
-        random = ~ DSGN_CYCLE + UNIQUE_ID,
         local = T)
 }
 
@@ -834,7 +832,6 @@ micx_nsp_nolake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, inte
                            data = dat_final,
                            estmethod = "reml",
                            spcov_type = "none",
-                           random = ~ DSGN_CYCLE + UNIQUE_ID,
                            local = F)
 
 # Get bias, MSPE of non-spatial model
