@@ -171,13 +171,9 @@ cyano_withlake_sp <- splm(create_formula(dep_var, mod_vars, log = T, const = con
                           local = F)
 
 # Run the best fit model without spatial correlation for comparison
-# Set the initial covariance to be small. This produces results identical to glm()
-spcov_init <- spcov_initial("none", ie = 1e-4, known = "ie")
-
 cmod_final_withlake_nsp <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
                               data = dat_final,
-                              random = ~ DSGN_CYCLE + UNIQUE_ID,
-                              spcov_initial = spcov_init,
+                              spcov_type = "none",
                               local = F)
   
 # Evaluate fit of non-spatial model
@@ -185,11 +181,11 @@ cyano_withlake_nsp_loocv <- loocv(cmod_final_withlake_nsp)
 
 # Visualize the fit of the final spatial model
 cyano_withlake_sp_loocv <- loocv(cyano_withlake_sp, cv_predict = TRUE)
-habs_mod$preds          <- cyano_withlake_sp_loocv$cv_predict
+dat_final$preds         <- cyano_withlake_sp_loocv$cv_predict
 
-max_val <- max(log10(habs_mod$B_G_DENS + const), habs_mod$preds)
+max_val <- max(log10(dat_final$B_G_DENS + const), dat_final$preds)
 
-fig <- ggplot(data = habs_mod, aes(x = preds, y = log10(B_G_DENS + const))) +
+fig <- ggplot(data = dat_final, aes(x = preds, y = log10(B_G_DENS + const))) +
   geom_hex(bins = 60) +
   scale_fill_continuous(type = "viridis") +
   xlim(2.8, max_val) + ylim(2.8, max_val) +
