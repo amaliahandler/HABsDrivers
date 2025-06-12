@@ -542,6 +542,22 @@ habs_comb <- nla_long %>%
   # Add the ecoregion of each lake
   left_join(select(nla_ecor, -LAT_DD83, -LON_DD83, -COMID), by = "UNIQUE_ID") |>
   
+  # Round numbers to a reasonable number of significant figures
+  mutate(
+    DO_SURF = round(DO_SURF, 2),
+    CHLA_RESULT = round(CHLA_RESULT, 3),
+    MICX = round(MICX, 3),
+    B_G_DENS = round(B_G_DENS, 0),
+    EVAP_INFL = round(EVAP_INFL, 3),
+    across(contains("_ws"), ~ round(., 2)),
+    temp_mean_month = round(temp_mean_month , 2),
+    lakemorpho_fetch = round(lakemorpho_fetch, 0),
+    across(contains("Ws"), ~ round(., 2)),
+    across(N_CBNF:N_livestock_Waste, ~ round(., 2)),
+    across(contains("P_"), ~ round(., 2)),
+    across(n_farm_inputs:n_dev_inputs, ~ round(., 2))
+  ) |>
+  
   # Format
   mutate(DSGN_CYCLE = factor(DSGN_CYCLE),
          UNIQUE_ID = factor(UNIQUE_ID),
