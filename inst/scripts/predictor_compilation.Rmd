@@ -102,42 +102,25 @@ Watershed land cover metrics, derived from the National Land Cover Dataset
 # create function to pull relevant land cover metrics, specifying desired year and watershed scale  
 
 get_nlcd <- function(coms){
-  StreamCatTools::lc_get_data(metric = 'PctWdWet2016, PctUrbMd2016, PctUrbLo2016,PctUrbHi2016,
-                          PctMxFst2016, PctCrop2016, PctHay2016, PctDecid2016,
-                          PctConif2016, PctUrbOp2016, PctHbWet2016',
+  StreamCatTools::lc_get_data(metric = 'pctmxfst2016,pctdecid2016,pctconif2016',
               aoi='ws',
               comid = coms,
               showAreaSqKm = TRUE)
 }
 
-# divide existing predictor data set into groups of 10,000 by COMID 
+# divide existing predictor data set into groups of 500 by COMID 
 # increasing efficiency in pulling NLCD data
-com_vector <- PredData$COMID
 chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 500))
-chunky <- squash(chunks)
+
 
 # using lapply function to pull NLCD data from each chunk by COMID
 ncldMas <- do.call(rbind, lapply(chunks, get_nlcd))
 
-test <- paste(unlist(chunks[1]),collapse=",")
-test2 <- unlist(strsplit(test, ","))
-
-test <- lapply(split(PredData$COMID, 1:nrow(PredData)), get_nlcd)
-
-df <- lc_get_data(metric = 'pctmxfst2016,pctdecid2016,pctconif2016,pcturbop2016, pcthbwet2016,pctwdwet2016,pcturbmd2016,pcturblo2016,pcthay2016,pctcrop2016',
-              aoi='ws',
-              comid = test,
-              showAreaSqKm = TRUE)
-
-# no spaces allowed in streamcat world
-
 # simplify and aggregate variables
 ncldMas <- ncldMas |>
-  mutate(agr_ws = PCTCROP2016WS + PCTHAY2016WS,
-         dev_ws = PCTURBLO2016WS + PCTURBMD2016WS + PCTURBOP2016WS + PCTURBHI2016WS,
-         fst_ws = PCTMXFST2016WS + PCTDECID2016WS + PCTCONIF2016WS,
-         wet_ws = PCTWDWET2016WS + PCTHBWET2016WS,
-         COMID = COMID,
+  mutate(fst_ws = pctmxfst2016ws + pctdecid2016ws + pctconif2016ws,
+         COMID = comid,
+         WSAREASQKM = wsareasqkm,
          .keep = 'unused')
 
 # selecting land cover metric necessary for the model, forest cover (fst_ws) 
