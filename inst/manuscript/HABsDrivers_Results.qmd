@@ -285,7 +285,7 @@ covar_tbl
 ```{r standarized residual maps}
 #| label: std-resid-maps
 #| fig-width: 6
-#| fig-height: 6
+#| fig-height: 7
 #| fig-cap: "Standardized residuals for the cyanobacteria and microcystin models without in-lake conditions."
 
 cyano_nolake_aug <- augment(cyano_nolake) |>
@@ -303,15 +303,25 @@ std_resid_comb <- rbind(cyano_nolake_aug, micx_nolake_aug) |>
                           TRUE ~ 1)) |>
   arrange(rank)
 
-ggplot() + 
+cyan_stdresid_map <- ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = std_resid_comb, 
+  geom_sf(data = filter(std_resid_comb, resp == "Cyanobacteria"), 
           aes(fill = .std.resid), pch = 21, size = 1.5) +
-  facet_wrap(~ resp, ncol = 1, nrow = 2) +
   colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
                                                mid = 0, 
                                                name = "Standardized\nResidual") +
     theme_void()
+
+micx_stdresid_map <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = filter(std_resid_comb, resp == "Microcystin"), 
+          aes(fill = .std.resid), pch = 21, size = 1.5) +
+  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
+                                               mid = 0, 
+                                               name = "Standardized\nResidual") +
+    theme_void()
+
+ggarrange(plotlist = list(cyan_stdresid_map, micx_stdresid_map), ncol = 1, nrow = 2, labels = c("a. Cyanobacteria", "b. Microcystin"), align = "h")
 
 ```
 
