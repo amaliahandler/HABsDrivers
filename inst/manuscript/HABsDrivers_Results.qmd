@@ -17,6 +17,7 @@ library(spmodel)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(ggpubr)
 library(sf)
 library(tigris)
 library(knitr)
@@ -360,7 +361,7 @@ rbind(comp_cyan, comp_micx) |>
 ```{r spatial covariance maps}
 #| label: spcov-maps
 #| fig-width: 6
-#| fig-height: 6
+#| fig-height: 7
 #| fig-cap: "Spatial covariance for the cyanobacteria and microcystin models without in-lake data."
 
 cyano_aug <- augment(cyano_nolake) |>
@@ -376,15 +377,25 @@ micx_aug <- augment(micx_nolake) |>
   
 spde <- rbind(cyano_aug, micx_aug)
 
-ggplot() + 
+cyan_spde_map <- ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = spde, 
+  geom_sf(data = cyano_aug, 
           aes(fill = spde), pch = 21, size = 1.5) +
-  facet_wrap(~ resp, ncol = 1, nrow = 2) +
   colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
                                                mid = 0, 
-                                               name = "Spatial\nAutocorrelation") +
+                                               name = "Spatial\nCorrelation") +
     theme_void()
+
+micx_spde_map <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = micx_aug, 
+          aes(fill = spde), pch = 21, size = 1.5) +
+  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
+                                               mid = 0, 
+                                               name = "Spatial\nCorrelation") +
+    theme_void()
+
+ggarrange(plotlist = list(cyan_spde_map, micx_spde_map), ncol = 1, nrow = 2, labels = c("a. Cyanobacteria", "b. Microcystin"), align = "h")
 
 ```
 
