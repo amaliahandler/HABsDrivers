@@ -421,11 +421,11 @@ ggarrange(plotlist = list(cyan_spde_map, micx_spde_map), ncol = 1, nrow = 2, lab
 
 #### Geographic Patterns
 
-```{r cyano predictions}
-#| label: cyano-map
+```{r micx predictions}
+#| label: micx-map
 #| fig-width: 6
-#| fig-height: 4
-#| fig-cap: "Predicted cyanobacteria cell abundance in the CONUS."
+#| fig-height: 8
+#| fig-cap: "Predicted cyanobacteria abundance (a) and probabilty of microcystin detection at or above 0.1 ug/L (b) in 124,529 on-network lakes."
 
 states <- states(cb = TRUE, progress_bar = FALSE)  %>%
   filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI'))  %>%
@@ -434,12 +434,12 @@ states <- states(cb = TRUE, progress_bar = FALSE)  %>%
 # Cyano Predictions Map
 
 PredData <- PredData %>%
-  mutate(disc_cyano = factor(case_when(pred_cyano[, "fit"] < 4.41497 ~ 'B1', # under 25k
-                                       pred_cyano[, "fit"] >= 4.41497 & pred_cyano[, "fit"] < 4.70757 ~ 'B2', # 25k - 50k
-                                       pred_cyano[, "fit"] >= 4.70757 & pred_cyano[, "fit"] < 5.00432 ~ 'B3', # 50k - 100k
-                                       pred_cyano[, "fit"] >= 5.00432 & pred_cyano[, "fit"] < 5.39967 ~ 'B4', # 100k - 250k
-                                       pred_cyano[, "fit"] >= 5.39967 & pred_cyano[, "fit"] < 5.69984 ~ 'B5', # 250k-500k
-                                       pred_cyano[, "fit"] > 5.69984 ~ 'B6', # 500k
+  mutate(disc_cyano = factor(case_when(pred_cyano_fit < 4.41497 ~ 'B1', # under 25k
+                                       pred_cyano_fit >= 4.41497 & pred_cyano_fit < 4.70757 ~ 'B2', # 25k - 50k
+                                       pred_cyano_fit >= 4.70757 & pred_cyano_fit < 5.00432 ~ 'B3', # 50k - 100k
+                                       pred_cyano_fit >= 5.00432 & pred_cyano_fit < 5.39967 ~ 'B4', # 100k - 250k
+                                       pred_cyano_fit >= 5.39967 & pred_cyano_fit < 5.69984 ~ 'B5', # 250k-500k
+                                       pred_cyano_fit > 5.69984 ~ 'B6', # 500k
                                        TRUE ~ NA),
                              levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
   arrange(disc_cyano)
@@ -450,50 +450,44 @@ sub_25 <- PredData %>%
 cyano_labels <- c('< 25', '25 - 50', '50 - 100', '100 - 250', '250 - 500', ' > 500')
 cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
 
-ggplot() +
+cyano_pred_map <- ggplot() +
   geom_sf(data = PredData,
           aes(color = disc_cyano),
           size = 0.3,
           alpha = 0.8) +
   scale_color_manual(values = cyano_colors,
                      labels = cyano_labels,
-                     name = "Abundance (1000 cells/mL)") +
+                     name = "Abundance \n(1000 cells/mL)") +
   geom_sf(data = sub_25,
           aes(color = disc_cyano),
           size = 0.3,
           alpha = 0.8)  +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme_void() +
-  theme(axis.title.y=element_blank(),
-        legend.position = "none")
+  theme_void()
 
-```
+# Micx Prediction Map
 
-```{r micx predictions}
-#| label: micx-map
-#| fig-width: 6
-#| fig-height: 4
-#| fig-cap: "Predicted probabilty of microcystin detection above 0.1ug/L in the CONUS."
-
-# Micx Prediction Maps 
-
-PredData <- PredData %>%
-  arrange(pred_micx[, "fit"])
+PredData <- PredData |>
+  arrange(pred_micx_fit) |>
+  mutate(disc_micx = case_when(pred_micx_fit < 0.25 ~ "M1",
+                               pred_micx_fit >= 0.25 & pred_micx_fit < 0.50 ~ "M2",
+                               pred_micx_fit >= 0.50 & pred_micx_fit < 0.75 ~ "M3",
+                               pred_micx_fit >= 0.75 ~ "M4"),
+         disc_micx = factor(disc_micx, levels = c("M1", "M2", "M3", "M4")))
 
 labels = c("0-25", "25-50", "50-75", "75-100")
 breaks <- c(0.25,0.50,0.75,1.0)
 micx_colors <- c("#2980b9","#aed6f1","#f0b27a","#d35405")
 
-ggplot(PredData, aes(color = pred_micx[, "fit"])) +
+micx_pred_map <- ggplot(PredData, aes(color = disc_micx)) +
   geom_sf(size = 0.3) +
-  scale_color_stepsn(colors = micx_colors,
-                     breaks = breaks,
+  scale_color_manual(values = micx_colors,
                      labels = labels,
-                     name = "Probability of Detection (%)") +
+                     name = "Probability of \nDetection (%)") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme_void() +
-  theme(axis.title.y=element_blank(),
-        legend.position = "none")
+  theme_void()
+
+ggarrange(plotlist = list(cyano_pred_map, micx_pred_map), ncol = 1, nrow = 2, labels = "auto", align = "h")
 
 ```
 
@@ -505,10 +499,10 @@ comp_micx <- PredData |>
 
 comp_micx <- comp_micx |>
   mutate(all_pred = factor(case_when(
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx[, "fit"] >= 0.50 ~ 'HNHM',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx[, "fit"] >= 0.50 ~ 'LNHM',
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx[, "fit"] < 0.50 ~ 'HNLM',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx[, "fit"] < 0.50 ~ 'LNLM',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit >= 0.50 ~ 'HNHM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit >= 0.50 ~ 'LNHM',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit < 0.50 ~ 'HNLM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit < 0.50 ~ 'LNLM',
     TRUE ~ 'OTHER'),
     levels = c('HNHM','HNLM','LNHM','LNLM'))) %>%
     arrange(all_pred)
@@ -523,10 +517,10 @@ comp_cyano <- PredData |>
 
 comp_cyano <- comp_cyano |>
   mutate(all_pred = factor(case_when(
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano[, "fit"] >= 5 ~ 'HNHC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano[, "fit"] >= 5 ~ 'LNHC',
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano[, "fit"] < 5 ~ 'HNLC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano[, "fit"] < 5 ~ 'LNLC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit >= 5 ~ 'HNHC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit >= 5 ~ 'LNHC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit < 5 ~ 'HNLC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit < 5 ~ 'LNLC',
     TRUE ~ 'OTHER'),
     levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
     arrange(all_pred)
