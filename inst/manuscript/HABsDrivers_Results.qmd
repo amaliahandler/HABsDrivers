@@ -612,7 +612,7 @@ ggpubr::ggarrange(baseflow_den_cyano, baseflow_den_micx,
 
 ```
 
-```{r density plots - a:d ratio, eval = FALSE}
+```{r density plots - a:d ratio}
 #| label: density-area-depth
 #| fig-width: 6
 #| fig-height: 4
