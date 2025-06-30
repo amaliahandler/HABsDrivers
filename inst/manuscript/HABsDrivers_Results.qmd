@@ -47,9 +47,6 @@ int_cyano_plnlow <- pval(summary(cyano_lake)$coefficients$fixed$p[15])
 
 ```
 
-### Map of NLA sample locations
-
-Note: Should this map be restricted to only the observations used in the model development?
 
 ```{r nla map compilation, message = FALSE}
 # CONUS with state outlines
@@ -80,7 +77,7 @@ nla_map
 #| label: cor-plot
 #| fig-width: 6
 #| fig-height: 6
-#| fig-cap: "Pairwise spearman's rank correlation matrix of all covariates considered for the models."
+#| fig-cap: "Pairwise spearman's rank correlation matrix of all covariates considered for the models. Blue represent positive correlations and red represent negative correlations. Darker colors and tighter ellipses represent larger correlation coefficients and stronger relationships."
 
 # Trim to just the variables explored in the models
 cor_dat <- habs |>
@@ -134,7 +131,7 @@ neg_str_rhos <- length(unique(rhos[rhos < -0.5 & rhos > -1]))
 
 ### Drivers of CyanoHABs
 
-Both the cyanobacteria and microcystin models were driven by a similar set of covariates with some differences in the relative importance of individual covariates within each model. Note that many of the potential covariates tested for the models were highly colinear (@cor-plot). There were `r pos_str_rhos` positive pariwise comparisons that had rho \> 0.5 and `r neg_str_rhos` negative pairwise comparisons that had rho \< -0.5.
+Both the cyanobacteria and microcystin models were driven by a similar set of covariates with some differences in the relative importance of individual covariates within each model. Note that many of the potential covariates tested for the models were highly colinear (@cor-plot). There were `r pos_str_rhos` positive pairwise comparisons that had rho \> 0.5 and `r neg_str_rhos` negative pairwise comparisons that had rho \< -0.5.
 
 #### Model Fixed Effects
 
@@ -150,9 +147,7 @@ In most models, the amount of cyanobacteria and probability of microcystin detec
 
 Standardized residuals were randomly distributed across the country for both models that included and excluded in-lake conditions (@std-resid-maps). For the models of cyanobacteria abundance, spatial models outperformed independent error models with lower bias, lower RMSPE, and higher predicted R^2^ regardless of the presence of in-lake conditions (@tbl-mod-fit). For the probability of microcystin detection, model performance was similar for spatial and independent error models with respect to bias and AUC. Bias was slightly lower for the spatial compared to the independent error models for microcystin when in-lake conditions were present or absent.
 
-The was influence of spatial autocorrelation in both the cyanobacteria and microcystin models without in-lake conditions (@spcov-maps). In the cyanobacteria model, the spatial autocorrelation was positive and high in the portions of the northern central plains, Midwestern states, and mid-Atlantic regions of the country. In contrast, spatial autocorrelation was strongly negative in the Northeastern part of the country. For reference on the influence of this term on model fitted values, as an example, a fitted cyanobacteria abundance of ~10,000 mL based on fixed effects alone can be adjusted upwards to ~100,000 cells/mL with a positive spatially dependent error term of 0.8. In contrast, a fitted cyanobacteria abundance of ~10,000 cells/mL based on fixed effects alone can be adjusted downwards to ~100 cells/mL with a negative spatially dependent error term of -0.4. Similar to the cyanobacteria model, the microcystin had high positive spatial autocorrelation in the Midwestern and central northern plains regions with pockets in Utah, Arizona, Texas, and Florida. For example, a fitted probability of microcystin detection of 30-50% based on fixed effects alone can be adjusted upwards to 80-90% with a positive spatially dependent error term of 2. In contrast, spatial autocorrelation was high and negative in the Northeastern part of the country. As an example, a fitted probability of microcystin detection of 15-30% based on fixed effects alone can be adjusted downwards to 1-10% with a negative spatially dependent error term of -1.5. 
-
-Note: Change maps to have separate color scales for each model. Unclear if these should be on the same scale.
+The was influence of spatial autocorrelation in both the cyanobacteria and microcystin models without in-lake conditions (@spcov-maps). In the cyanobacteria model, the spatial autocorrelation was positive and high in the portions of the northern central plains, Midwestern states, and mid-Atlantic regions of the country. In contrast, spatial autocorrelation was strongly negative in the Northeastern part of the country. For reference on the influence of this term on model fitted values, as an example, a positive spatially dependent error term of 0.8 for a lake can increase a fitted cyanobacteria abundance of \~10,000 mL based on fixed effects alone to \~100,000 cells/mL with the spatial error term. In contrast, a negative spatially dependent error term of -0.4 can result in a fitted cyanobacteria abundance of \~10,000 cells/mL based on fixed effects alone to \~100 cells/mL with the spatial error term. Similar to the cyanobacteria model, the microcystin had high positive spatial autocorrelation in the Midwestern and central northern plains regions with pockets in Utah, Arizona, Texas, and Florida. For example, a positive spatially dependent error term of 2 can increase the fitted probability of microcystin detection of 30-50% based on fixed effects alone to 80-90%. In contrast, spatial autocorrelation was high and negative in the Northeastern part of the country. As an example, a negative spatially dependent error term of -1.5 can decrease the fitted probability of microcystin detection from 15-30% based on fixed effects alone to 1-10%.
 
 ```{r extract model fixed effects}
 # Function to extract the fixed effects from each model
@@ -280,8 +275,7 @@ covar_tbl <- est_and_sign |>
 
 ```
 
-Table 1: Model fixed effect coefficient sign (negative or positive) and p-value (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria and microcystin models both where in-lake data was present or absent. Grey cells are covariates that were excluded from model development. Empty cells covariates that were not included in the model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships.
-
+Table 1. Model fixed effect coefficient sign (negative or positive) and p-value (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria and microcystin models both where in-lake data was present or absent. Grey cells are covariates that were excluded from model development. Empty cells covariates that were not included in the model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships.
 ```{r covariate table}
 #| label: tbl-fixed_effects
 covar_tbl
@@ -324,9 +318,9 @@ ggplot() +
 
 The presence of in-lake conditions in the cyanobacteria abundance model provides a substantial increase in the predictive R^2^ of the model overall fit (@tbl-mod-fit); however, the bias and RMSPE were similar regardless of the presence of in-lake conditions. The performance of the probability of microcystin detection models were similar with respect to bias, RMSPE, and AUC regardless of the presence of in-lake conditions.
 
+Table 2. Comparison of model fit where in-lake conditions are present or absent and the error structure (spatial or independent).
 ```{r model fit comparison}
 #| label: tbl-mod-fit
-#| tbl-cap: Comparison of model fit for model where in-lake data is present or absent and based on spatial of independent error models.
 
 comp_cyan <- readRDS(paste0(here(), "/inst/model_objects/spatial_compare_cyano.rds")) |>
   rename(fit = cor2)
@@ -834,5 +828,3 @@ mod_comp_tabs <- lapply(tabs, function(tab){
 `r mod_comp_tabs[[4]][[1]]` `r mod_comp_tabs[[4]][[2]]`
 
 `r mod_comp_tabs[[6]][[1]]` `r mod_comp_tabs[[6]][[2]]`
-
-
