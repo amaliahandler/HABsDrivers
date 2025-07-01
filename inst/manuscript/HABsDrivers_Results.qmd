@@ -533,9 +533,9 @@ comp_cyano <- comp_cyano |>
 
 ```{r density plots - precip, message = FALSE}
 #| label: density-precip
-#| fig-width: 4
-#| fig-height: 10
-#| fig-cap: "Density distibutions of mean annual precitpitation (a), baseflow index (b), and lake area:depth ratio (c) for the four nutrient input and cyanoHAB risk categories for the predictions from the cyanobacteria abundance (first column) and probability of microcystin detection (second column). Vertical bars in distributions represent the median. Precipitation and the area:depth ratio distributions are truncated to better show majority of data density and differences in medians."
+#| fig-width: 5
+#| fig-height: 9
+#| fig-cap: "Density distributions of mean annual precipitation (a), baseflow index (b), and lake area:depth ratio (c) for the four nutrient input and cyanoHAB risk categories for the predictions from the cyanobacteria abundance (first column) and probability of microcystin detection (second column). Vertical bars in distributions represent the median. Precipitation and the area:depth ratio distributions are truncated to better show majority of data density and differences in medians."
 
 den_df <- comp_cyano |>
   st_drop_geometry() |>
