@@ -500,12 +500,12 @@ comp_micx <- PredData |>
 
 comp_micx <- comp_micx |>
   mutate(all_pred = factor(case_when(
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit >= 0.50 ~ 'HNHM',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit >= 0.50 ~ 'LNHM',
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit < 0.50 ~ 'HNLM',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit < 0.50 ~ 'LNLM',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit >= 0.50 ~ 'HNHC',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit >= 0.50 ~ 'LNHC',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit < 0.50 ~ 'HNLC',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit < 0.50 ~ 'LNLC',
     TRUE ~ 'OTHER'),
-    levels = c('HNHM','HNLM','LNHM','LNLM'))) %>%
+    levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
     arrange(all_pred)
 
 ```
@@ -533,46 +533,77 @@ comp_cyano <- comp_cyano |>
 
 ```{r density plots - precip, message = FALSE}
 #| label: density-precip
-#| fig-width: 6
-#| fig-height: 4
-#| fig-cap: "Density distibutions of precitpitation in the four nutrient/risk categories."
+#| fig-width: 4
+#| fig-height: 10
+#| fig-cap: "Density distibutions of mean annual precitpitation (a), baseflow index (b), and lake area:depth ratio (c) for the four nutrient input and cyanoHAB risk categories for the predictions from the cyanobacteria abundance (first column) and probability of microcystin detection (second column). Vertical bars in distributions represent the median. Precipitation and the area:depth ratio distributions are truncated to better show majority of data density and differences in medians."
 
-cat_labels <- c('High Nutrient, High HABs',
-                'High Nutrient, Low HABs',
-                'Low Nutrient, High HABs',
-                'Low Nutrient, Low HABs')
+den_df <- comp_cyano |>
+  st_drop_geometry() |>
+  select(BFIWs, ad_ratio, Precip8110Ws, all_pred) |>
+  mutate(resp = "Cyanobacteria") |>
+  rbind(mutate(select(st_drop_geometry(comp_micx),
+                      BFIWs, ad_ratio, Precip8110Ws, all_pred),
+               resp = "Microcystin")) |>
+  # Removing infinite values (when depth = 0)
+  mutate(ad_ratio = ifelse(is.infinite(ad_ratio), NA, ad_ratio)) |> 
+  tibble()
 
-precip_den_micx <- ggplot(comp_micx, aes(x=Precip8110Ws, y= all_pred)) +
-  ggridges::geom_density_ridges(aes(fill = all_pred),
+cat_labels <- c('High Nutrient, High CyanoHABs',
+                'High Nutrient, Low CyanoHABs',
+                'Low Nutrient, High CyanoHABs',
+                'Low Nutrient, Low CyanoHABs')
+
+precip_den <- ggplot(den_df) +
+  ggridges::geom_density_ridges(aes(x = Precip8110Ws, y = all_pred, fill = all_pred),
+                                na.rm = TRUE,
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
+  facet_wrap(~ resp) +
   scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = cat_labels) +
-    xlim(0,2000) +
-  labs(x = "Precipitation (mm)", fill = 'Class',
-       title = 'Microcystin') +
-  theme(axis.title.y=element_blank(),
-        legend.position = "none")
+  xlim(0, 2000) +
+  labs(x = "Precipitation (mm)") +
+  theme(axis.title.y = element_blank(),
+        legend.title = element_blank()) 
 
-precip_den_cyano <- ggplot(comp_cyano, aes(x=Precip8110Ws, y= all_pred)) +
-  ggridges::geom_density_ridges(aes(fill = all_pred),
+bfi_den <- ggplot(den_df) +
+  ggridges::geom_density_ridges(aes(x = BFIWs, y = all_pred, fill = all_pred),
+                                na.rm = TRUE,
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
+  facet_wrap(~ resp) +
   scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = cat_labels) +
-  xlim(0,2000) +
-  labs(x = "Precipitation (mm)", y = "Density Distribution",  fill = 'Class',
-       title = 'Cyanobacteria') +
-  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15))) +
-  theme(axis.title.y=element_blank(),
-        legend.position = "none")
+  xlim(0, 100) +
+  labs(x = "Baseflow Index (%)") +
+  theme(axis.title.y = element_blank(),
+        legend.title = element_blank()) 
+
+ad_den <- ggplot(den_df) +
+  ggridges::geom_density_ridges(aes(x = ad_ratio, y = all_pred, fill = all_pred),
+                                na.rm = TRUE,
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  facet_wrap(~ resp) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
+                    labels = cat_labels) +
+  xlim(0, 0.5) +
+  labs(x = "Area:Depth Ratio") +
+  theme(axis.title.y = element_blank(),
+        legend.title = element_blank(),
+        legend.position = "bottom") +
+  guides(fill = guide_legend(nrow = 2, byrow = TRUE))
 
 
-ggpubr::ggarrange(precip_den_cyano, precip_den_micx,
-                  ncol = 2, nrow = 1,
-                  common.legend = TRUE)
+ggpubr::ggarrange(precip_den, bfi_den, ad_den,
+                  ncol = 1, nrow = 3,
+                  common.legend = TRUE, 
+                  legend.grob = get_legend(ad_den),
+                  legend = "bottom",
+                  labels = "auto")
 ```
 
 ```{r density plots - baseflow}
