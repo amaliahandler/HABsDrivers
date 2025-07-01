@@ -255,7 +255,7 @@ est_header <- data.frame(
   col_keys = colnames(est_and_sign),
   line2 = c(rep("Model", 2), rep("In-Lake Conditions", 4)),
   line3 = c(rep("Model", 2), c(rep("Present", 2), rep("Absent", 2))),
-  line4 = c("Type", "Corvariates", rep(c("Cyanobacteria", "Microcystin"), 2))
+  line4 = c("Type", "Covariates", rep(c("Cyano", "Micx"), 2))
 )
 
 covar_tbl <- est_and_sign |>
@@ -276,7 +276,7 @@ covar_tbl <- est_and_sign |>
 
 ```
 
-Table 1. Model fixed effect coefficient sign (negative or positive) and p-value (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria and microcystin models both where in-lake data was present or absent. Grey cells are covariates that were excluded from model development. Empty cells covariates that were not included in the model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships.
+Table 1. Model fixed effect coefficient sign (negative or positive) and p-value (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria (Cyano) and microcystin (Micx) models both where in-lake data was present or absent. Grey cells are covariates that were excluded from model development. Empty cells covariates that were not included in the model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships.
 ```{r covariate table}
 #| label: tbl-fixed_effects
 covar_tbl
@@ -372,7 +372,7 @@ rbind(comp_cyan, comp_micx) |>
 #| label: spcov-maps
 #| fig-width: 6
 #| fig-height: 7
-#| fig-cap: "Spatial covariance for the cyanobacteria abundace (a) and probability of microcystin detection (b) models without in-lake data."
+#| fig-cap: "Spatial covariance for the cyanobacteria abundance (a) and probability of microcystin detection (b) models without in-lake data."
 
 cyano_aug <- augment(cyano_nolake) |>
   mutate(spde = fitted(cyano_nolake, type = "spcov")$de,
@@ -831,14 +831,26 @@ mod_comp_tabs <- lapply(tabs, function(tab){
 
 ```
 
+\pagebreak
+
 Table S2. `r mod_comp_tabs[[1]][[1]]` `r mod_comp_tabs[[1]][[2]]`
+
+\pagebreak
 
 Table S3. `r mod_comp_tabs[[2]][[1]]` `r mod_comp_tabs[[2]][[2]]`
 
+\pagebreak
+
 Table S4. `r mod_comp_tabs[[3]][[1]]` `r mod_comp_tabs[[3]][[2]]`
+
+\pagebreak
 
 Table S5. `r mod_comp_tabs[[5]][[1]]` `r mod_comp_tabs[[5]][[2]]`
 
+\pagebreak
+
 Table S6. `r mod_comp_tabs[[4]][[1]]` `r mod_comp_tabs[[4]][[2]]`
+
+\pagebreak
 
 Table S7. `r mod_comp_tabs[[6]][[1]]` `r mod_comp_tabs[[6]][[2]]`
