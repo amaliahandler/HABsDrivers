@@ -55,18 +55,24 @@ conus <- tigris::states(cb = TRUE, progress_bar = FALSE) |>
   filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI')) |>
   st_transform(crs = 5072)
 
+# 3 aggregated ecoregions
+eco_ag3 <- read_sf(dsn = paste0(here(),"/inst/source_data/"),
+                   layer = "Ag_Ecoregions3_20121005") |>
+  st_transform(crs = 5072)
+
 nla_map <- ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
+  geom_sf(data = conus, fill = "white", color = "black", size = 0.5) + # grey fill #e2e2e2
+  geom_sf(data = eco_ag3, aes(fill = WSA_3_NM), color = "black", alpha = 0.25, size = 0.5) +
+  scale_fill_discrete(name = "Aggregated Ecoregion") +
   geom_sf(data = habs, shape = 24, fill = "grey39", size = 1, stroke = .2) +
-  theme_void() +
-  theme(legend.position = "bottom")
+  theme_void()
 
 ```
 
 ```{r nla map}
 #| label: nla-map
-#| fig-width: 6
-#| fig-height: 4
+#| fig-width: 7
+#| fig-height: 3.5
 #| fig-cap: "Lakes sampled in the 2007, 2012, and 2017 National Lakes Assessment."
 nla_map
 
@@ -608,8 +614,6 @@ ggpubr::ggarrange(precip_den, bfi_den, ad_den,
 
 ## Supplemental Material
 
-### Table of model variables
-
 ```{r construct variable summary table}
 # Each variable that was considered in the modeling process
 # Note that some of these values were excluded from the model development process because of suspected unreasonable outliers. Will need to update this once I determine where in the pipeline to trim these data.
@@ -815,3 +819,113 @@ Table S6. `r mod_comp_tabs[[4]][[1]]` `r mod_comp_tabs[[4]][[2]]`
 \pagebreak
 
 Table S7. `r mod_comp_tabs[[6]][[1]]` `r mod_comp_tabs[[6]][[2]]`
+
+Table S8. Final model fixed effect coefficient estimates and standard errors with p-values (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria (Cyano) and microcystin (Micx) models. Models where in-lake data were present or absent are included. Grey cells are covariates that were excluded from model development. Empty cells are covariates that were not included in the finla model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships. Note the scale and range of the covariates in Table S1.
+```{r}
+
+# Table is identical to covariate table in main text, but included the coefficient mean and standard error.
+
+est_and_sign <- fixed_df |>
+  filter(!fixed_effect == "(Intercept)") |>
+  mutate(est_stderr = paste(signif(estimate, 3), "±", signif(Std_Error, 3)),
+         sig = case_when(p >= 0.05 ~ "(ns)",
+                         p < 0.05 & p >= 0.01 ~ "*",
+                         p < 0.01 & p >= 0.001 ~ "**",
+                         p < 0.001 ~ "***"),
+         est_sig = paste0(est_stderr, sig),
+         fixed_effect = factor(fixed_effect, 
+                               levels = c("NTL",
+                                          "NITRATE_N",
+                                          "AMMONIA_N",
+                                          "DOC",
+                                          "TURB",
+                                          "PH",
+                                          "EVAP_INFL",
+                                          "n_farm_inputs",
+                                          "p_farm_inputs",
+                                          "n_dev_inputs",
+                                          "p_dev_inputs",
+                                          "fst_ws",
+                                          "MAXDEPTH",
+                                          "lakemorpho_fetch",
+                                          "BFIWs",
+                                          "Precip8110Ws",
+                                          "Tmean8110Ws",
+                                          "AG_ECO3PLNLOW",
+                                          "AG_ECO3EHIGH",
+                                          "NTL:AG_ECO3PLNLOW",
+                                          "NTL:AG_ECO3EHIGH"))
+         ) |>
+  select(response_var:fixed_effect, est_sig) |>
+  pivot_wider(names_from = response_var:lake_data,
+              values_from = est_sig,
+              values_fill = "") |>
+  arrange(fixed_effect) |>
+  relocate(fixed_effect, cyano_present, micx_present, cyano_absent, micx_absent) |>
+  mutate(fixed_effect = c("Total N",
+                       "Nitrate",
+                       "Ammonium",
+                       "DOC",
+                       "Turbidity",
+                       "pH",
+                       "Evaporation/Inflow",
+                       "Farm N Inputs",
+                       "Farm P Inputs",
+                       "Developed N Inputs",
+                       "Developed P Inputs",
+                       "Forest Cover",
+                       "Lake Depth",
+                       "Lake Fetch",
+                       "Baseflow Index",
+                       "Annual Precip",
+                       "Annual Air Temp",
+                       "Ecoregion PLNLOW",
+                       "Ecoregion EHIGH",
+                       "Total N * PLNLOW",
+                       "Total N * EHIGH"),
+         Type = c(rep("In-Lake Conditions", 7),
+                  rep("Nutrient Inputs", 5),
+                  rep("Lake Geometry", 2),
+                  rep("Geographic Setting", 5),
+                  rep("Interactions", 2)), .before = fixed_effect
+            ) |>
+  rename(Covariates = fixed_effect)
+
+colorer_eststderr <- function(i){
+  hex <- case_when(grepl("-", i) & grepl("\\*{3}", i) ~ pal[1],
+                   grepl("-", i) & grepl("\\*{2}", i) ~  pal[2],
+                   grepl("-", i) & grepl("\\*{1}", i) ~   pal[3],
+                   grepl("-", i) & grepl("(ns)", i) ~  pal[4],
+                   i == "" ~        pal[5],
+                   !grepl("-", i) & grepl("(ns)", i) ~  pal[6],
+                   !grepl("-", i) & grepl("\\*{1}", i) ~   pal[7],
+                   !grepl("-", i) & grepl("\\*{2}", i) ~  pal[8],
+                   !grepl("-", i) & grepl("\\*{3}", i) ~ pal[9])
+}
+
+est_header <- data.frame(
+  col_keys = colnames(est_and_sign),
+  line2 = c(rep("Model", 2), rep("In-Lake Conditions", 4)),
+  line3 = c(rep("Model", 2), c(rep("Present", 2), rep("Absent", 2))),
+  line4 = c("Type", "Covariates", rep(c("Cyano", "Micx"), 2))
+)
+
+covar_tbl <- est_and_sign |>
+  flextable() |>
+  set_header_df(mapping = est_header, key = "col_keys" ) |>
+  merge_v(part = "header", j = c(1:2)) |> 
+  merge_v(part = "body", j = 1) |> 
+  merge_h(part = "header", i = c(1:2)) |> 
+  theme_booktabs(bold_header = TRUE) |>
+  bg(bg = colorer_eststderr,
+     j = 3:6, # All columns in the body except for the first one
+     part = "body") |>
+  bg(j = c(5:6), i = c(1:7), bg = "#606060") |> # Covariates that weren't available to the models
+  theme_box() |>
+  align(align = "center", part = "header") |>
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header")
+
+covar_tbl
+```
+
