@@ -60,9 +60,25 @@ eco_ag3 <- read_sf(dsn = paste0(here(),"/inst/source_data/"),
                    layer = "Ag_Ecoregions3_20121005") |>
   st_transform(crs = 5072)
 
+# Simplify the ecoregion shapefile
+eco_ag3_simpl <- st_simplify(eco_ag3, dTolerance = 10000, preserveTopology = TRUE)
+
+# How much have the vertices changed?
+count_vertices <- function(sf_obj) {
+  sum(sapply(st_geometry(sf_obj), function(x) length(st_coordinates(x))))
+}
+
+count_vertices(eco_ag3)
+count_vertices(eco_ag3_simpl)
+
+# Save the ecoregion shapefile to the package
+usethis::use_data(eco_ag3_simpl, overwrite = T)
+
 nla_map <- ggplot() + 
-  geom_sf(data = conus, fill = "white", color = "black", size = 0.5) + # grey fill #e2e2e2
-  geom_sf(data = eco_ag3, aes(fill = WSA_3_NM), color = "black", alpha = 0.25, size = 0.5) +
+  # geom_sf(data = conus, fill = "white", color = "black", size = 0.5) + # grey fill #e2e2e2
+  # geom_sf(data = eco_ag3, aes(fill = WSA_3_NM), color = "black", alpha = 0.25, size = 0.5) +
+  geom_sf(data = eco_ag_simpl, fill = "transparent", color = "blue", size = 0.5) +
+  
   scale_fill_discrete(name = "Aggregated Ecoregion") +
   geom_sf(data = habs, shape = 24, fill = "grey39", size = 1, stroke = .2) +
   theme_void()

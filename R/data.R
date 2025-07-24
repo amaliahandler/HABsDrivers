@@ -171,3 +171,19 @@
 #'
 #' @source {HABsDrivers} Package for estimating lake HABs risk.
 "PredData"
+
+#' Aggregated ecoregions for the conterminous US
+#'
+#' A shapefile containing the three aggregated ecoregions for the conterminous US.
+#' Note this shapefile has been simplified to a reduced number of vertices and is
+#' only intended for data visualization purposes at the national scale.
+#'
+#' @format A sf with 3 rows and 3 variables:
+#' \describe{
+#'   \item{WSA_3}{The ecoregion code (character)}
+#'   \item{WSA_3_NM}{The ecoregion name (character)}
+#'   \item{geometry}{Shape information (multipolygon)}
+#' }
+#'
+#' @source {HABsDrivers} Package for estimating lake HABs risk.
+"eco_ag3_simpl"
