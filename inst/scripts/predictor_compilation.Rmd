@@ -179,7 +179,7 @@ nutrMas <- csv_files |>
 
 # remove all variables with metrics aggregated at the catchment scale
 # mean nutrient data from 2002, 2007, and 2012 to create averaged value for nutrient inputs
-# keeping only new variables and ones exisiting already in predictor dataset
+# keeping only new variables and ones existing already in predictor data set
 nutrMas <- nutrMas |>
   dplyr::select(-contains(c('Cat'))) |>
   rowwise() |>
@@ -223,7 +223,7 @@ lake_met_df <- lake_met_files |>
 lake_met_df <- lake_met_df |>
   distinct(COMID, .keep_all = TRUE)
 
-# join lake metrics to exisitng predictor data set 
+# join lake metrics to existing predictor data set 
 PredData <- left_join(PredData, lake_met_df, by = 'COMID')
 
 ```

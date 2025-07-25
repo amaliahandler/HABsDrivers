@@ -28,13 +28,18 @@ comp_micx <- comp_micx |>
 
 comp_micx$nutr_all <- comp_micx$p_farm_inputs + comp_micx$n_dev_inputs
 
-comp_micx <- comp_micx %>%
-  mutate(micx_class = factor(case_when(
-    pred_micx[, "fit"] < 0.25 ~ 'B1',
-    pred_micx[, "fit"] >= 0.25 & pred_micx[, "fit"] < 0.50 ~ 'B2',
-    pred_micx[, "fit"] >= 0.50 & pred_micx[, "fit"] < 0.75 ~ 'B3',
-    pred_micx[, "fit"] > 0.75 ~ 'B4',
-  ))) %>%
+PredData <- PredData |>
+  rowwise() |>
+  mutate(all_n = n_dev_inputs + n_farm_inputs,
+         all_p = p_dev_inputs + p_farm_inputs)
+
+PredData <- PredData %>%
+  # mutate(micx_class = factor(case_when(
+  #   pred_micx_fit < 0.25 ~ 'B1',
+  #   pred_micx_fit >= 0.25 & pred_micx_fit < 0.50 ~ 'B2',
+  #   pred_micx_fit >= 0.50 & pred_micx_fit < 0.75 ~ 'B3',
+  #   pred_micx_fit > 0.75 ~ 'B4',
+  # ))) %>%
   # mutate(p_class = factor(case_when(
   #   p_farm_inputs >= 4 ~ 'HP',
   #   p_farm_inputs < 4 ~ 'LP',
@@ -65,16 +70,18 @@ comp_micx <- comp_micx %>%
   #   (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx < 0.50 ~ 'LNLM',
   #   TRUE ~ 'OTHER'
   # ))) %>%
-  mutate(all_pred = factor(case_when(
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx[, "fit"] >= 0.50 ~ 'HNHM',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx[, "fit"] >= 0.50 ~ 'LNHM',
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx[, "fit"] < 0.50 ~ 'HNLM',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx[, "fit"] < 0.50 ~ 'LNLM',
+
+PredData <- PredData |>
+  mutate(new_micx_pred = factor(case_when(
+    (all_n >= 10 | all_p >= 4) & pred_micx_fit >= 0.50 ~ 'HNHM',
+    (all_n < 10 | all_p < 4) & pred_micx_fit >= 0.50 ~ 'LNHM',
+    (all_n >= 10 | all_p >= 4) & pred_micx_fit < 0.50 ~ 'HNLM',
+    (all_n < 10 | all_p < 4) & pred_micx_fit < 0.50 ~ 'LNLM',
     TRUE ~ 'OTHER'),
     levels = c('HNHM','HNLM','LNHM','LNLM'))) %>%
-    arrange(all_pred)
+    arrange(new_micx_pred)
 
-# Ratios --------------------------------------------------------------------
+# Ratios -----------------------------------------------------------------------
 
 # poly_col <- wbd_copy |>
 #   select(c(COMID, Shape))
@@ -97,9 +104,9 @@ comp_micx <- comp_micx |>
 # names(custom_area)[names(custom_area) == 'COMID.x'] <- 'COMID'
 # comp_micx_filter <- merge(comp_micx_filter, custom_area, by = 'COMID')
 
-comp_micx <- comp_micx %>%
-  mutate(area_km = custom_area / 1000000,
-         ad_ratio = (sqrt(area_km)) / MAXDEPTH) %>%
+PredData <- PredData %>%
+  # mutate(area_km = custom_area / 1000000,
+  #        ad_ratio2 = (sqrt(area_km)) / MAXDEPTH) %>%
   filter(MAXDEPTH > 0)
 
 # comp_micx <- comp_micx %>%
@@ -627,7 +634,7 @@ comp_cyano$nutr_all <- comp_cyano$n_farm_inputs + comp_cyano$p_dev_inputs
 #                                        nutr_all >= 10 & pred_cyano >= 5 ~ 'HNHC',
 #                                        nutr_all <= 10 & pred_cyano <= 5 ~ 'LNLC')))
 
-comp_cyano <- comp_cyano %>%
+PredData <- PredData %>%
    # mutate(cyano_class = factor(case_when(
    #   pred_cyano >= 5 ~ 'HC',
    #   pred_cyano < 5 ~'LC',
@@ -663,14 +670,14 @@ comp_cyano <- comp_cyano %>%
    #   (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano < 5 ~ 'LNLC',
    #   TRUE ~ 'OTHER'
    # ))) %>%
-  mutate(all_pred = factor(case_when(
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano[, "fit"] >= 5 ~ 'HNHC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano[, "fit"] >= 5 ~ 'LNHC',
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano[, "fit"] < 5 ~ 'HNLC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano[, "fit"] < 5 ~ 'LNLC',
+  mutate(cyano_pred = factor(case_when(
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit >= 5 ~ 'HNHC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit >= 5 ~ 'LNHC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit < 5 ~ 'HNLC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit < 5 ~ 'LNLC',
     TRUE ~ 'OTHER'),
     levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
-  arrange(all_pred)
+  arrange(cyano_pred)
 
 # nutr_grp_cols <- c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")
 # high_low <- c("#9c0082", "#8bd1a5")
@@ -1209,6 +1216,39 @@ micx_a |>
 
 ggboxplot(cyano_a, x = "all_pred", y = "BFIWs")
 
+# drain ratio ------------------------------------------------------------------
+
+get_nlcd <- function(coms){
+  StreamCatTools::lc_get_data(metric = 'pctconif2016',
+                              aoi='ws',
+                              comid = coms,
+                              showAreaSqKm = TRUE)
+}
+
+# divide existing predictor data set into groups of 500 by COMID
+# increasing efficiency in pulling NLCD data
+chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 500))
+
+
+# using lapply function to pull NLCD data from each chunk by COMID
+ws_area <- do.call(rbind, lapply(chunks, get_nlcd))
+
+PredData <- ws_area |>
+  dplyr::select(COMID, wsareasqkm) |>
+  left_join(PredData, by = 'COMID') |>
+  st_as_sf()
+
+PredData <-PredData |>
+  rowwise() |>
+  mutate(drain_ratio = wsareasqkm / lake_area)
+
+dr_model <- splm(drain_ratio ~ all_pred, PredData, spcov_type = "exponential")
+ggpubr::ggqqplot(residuals(bf_model))
+
+anova(dr_model)
+ggpubr::ggqqplot(residuals(ad_model, type = "standardized"))
+
+
 model <- lm(BFIWs ~ all_pred, data = cyano_a)
 ggqqplot(residuals(model))
 
@@ -1226,16 +1266,16 @@ oneway.test(Precip8110Ws ~ all_pred, micx_a, var.equal = FALSE)
 
 # building model for spatial analysis
 
-bf_model_log <- splm(BFIWs ~ all_pred, comp_cyano, spcov_type = "exponential")
+bf_model <- splm(BFIWs ~ cyano_pred, PredData, spcov_type = "exponential")
 ggpubr::ggqqplot(residuals(bf_model))
 
 anova(bf_model)
-ggqqplot(residuals(bf_model, type = "standardized"))
+ggpubr::ggqqplot(residuals(ad_model, type = "standardized"))
 
-ad_model <- splm(log10(ad_ratio) ~ all_pred, comp_cyano, spcov_type = "exponential")
+ad_model <- splm(log10(ad_ratio) ~ cyano_pred, PredData, spcov_type = "exponential")
 anova(ad_model)
 
-precip <- splm(log10(Precip8110Ws) ~ all_pred, comp_cyano, spcov_type = "exponential")
+precip <- splm(log10(Precip8110Ws) ~ cyano_pred, PredData, spcov_type = "exponential")
 anova(precip)
 
 # state totals -----------------------------------------------------------------
@@ -1562,18 +1602,17 @@ comp_micx|>
   theme_box() |>
   align(align = "center", part = "header")
 
-get_nlcd <- function(coms){
-  lc_get_data(metric = 'pctwdwet2016, pcturbmd2016, pcturblo2016, pcturbhi2016,
-                          pctmxfst2016, pctcrop2016, pcthay2016, pctdecid2016,
-                          pctconif2016, pcturbop2016, pcthbwet2016',
+
+get_nni <- function(coms){
+  lc_get_data(metric = 'n_tin2016,p_tin2016',
               aoi='ws',
-              comid = coms,
+              comid = 487,
               showAreaSqKm = TRUE)
 }
 
-chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 600))
+chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 500))
 test <- paste(unlist(chunks[1]),collapse=",")
-ncldMas <- do.call(rbind, lapply(chunks, get_nlcd))
+nni_inputs <- do.call(rbind, lapply(chunks, get_nni))
 
 df <- lc_get_data(metric = 'pctwdwet2016, pcturbmd2016, pcturblo2016,pctmxfst2016, pctcrop2016, pcthay2016,pctdecid2016,pctconif2016, pcturbop2016, pcthbwet2016',
                   aoi='ws',
@@ -1581,4 +1620,4 @@ df <- lc_get_data(metric = 'pctwdwet2016, pcturbmd2016, pcturblo2016,pctmxfst201
                   showAreaSqKm = TRUE)
 
 
-
+write.csv(habs, file = 'inst/all_habs_vars.csv')
