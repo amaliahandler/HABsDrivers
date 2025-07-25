@@ -55,18 +55,20 @@ conus <- tigris::states(cb = TRUE, progress_bar = FALSE) |>
   filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI')) |>
   st_transform(crs = 5072)
 
+# Note that the 3 aggregated ecoregions shapefile has been simplified to a reduced number of vertices and is only intended for data visualization purposes at the national scale.
 nla_map <- ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", size = 0.5) +
+  geom_sf(data = conus, fill = "white", color = "black", size = 0.5) + # grey fill #e2e2e2
+  geom_sf(data = eco_ag3_simpl, aes(fill = WSA_3_NM), color = "black", alpha = 0.25, size = 0.5) +
+  scale_fill_discrete(name = "Aggregated Ecoregion") +
   geom_sf(data = habs, shape = 24, fill = "grey39", size = 1, stroke = .2) +
-  theme_void() +
-  theme(legend.position = "bottom")
+  theme_void()
 
 ```
 
 ```{r nla map}
 #| label: nla-map
-#| fig-width: 6
-#| fig-height: 4
+#| fig-width: 7
+#| fig-height: 3.5
 #| fig-cap: "Lakes sampled in the 2007, 2012, and 2017 National Lakes Assessment."
 nla_map
 
@@ -500,12 +502,12 @@ comp_micx <- PredData |>
 
 comp_micx <- comp_micx |>
   mutate(all_pred = factor(case_when(
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit >= 0.50 ~ 'HNHM',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit >= 0.50 ~ 'LNHM',
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit < 0.50 ~ 'HNLM',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit < 0.50 ~ 'LNLM',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit >= 0.50 ~ 'HNHC',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit >= 0.50 ~ 'LNHC',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit < 0.50 ~ 'HNLC',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit < 0.50 ~ 'LNLC',
     TRUE ~ 'OTHER'),
-    levels = c('HNHM','HNLM','LNHM','LNLM'))) %>%
+    levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
     arrange(all_pred)
 
 ```
@@ -531,123 +533,132 @@ comp_cyano <- comp_cyano |>
 
 #### Nutrient and Non-Nutrient Drivers
 
+```{r nutrient input comparisons}
+
+# Tables comparing the different types of nutrient inputs and whether that changes the "high" versus "low" nutrient input designations
+
+th_n <- 10
+th_p <- 4
+
+# The current analysis relies on just the nutrient inputs that are included in the respective models. How do the numbers change when all nutrient inputs included in the model are used to determine high/low nutrient inputs? What about expanding to a broader set of nutrient inputs that are not included in the model?
+habs |>
+  st_drop_geometry() |>
+  mutate(th_n_farm = ifelse(n_farm_inputs >= th_n, "HIGH", "LOW"),
+         th_p_farm = ifelse(p_farm_inputs >= th_p, "HIGH", "LOW"),
+         th_n_dev = ifelse(n_dev_inputs >= th_n, "HIGH", "LOW"),
+         th_p_dev = ifelse(p_dev_inputs >= th_p, "HIGH", "LOW"),
+         ) |>
+  mutate(cyano_model_inputs = ifelse(th_n_farm == "HIGH" | th_p_dev == "HIGH", "HIGH", "LOW"),
+         micx_model_inputs = ifelse(th_n_dev == "HIGH" | th_p_farm == "HIGH", "HIGH", "LOW"),
+         all_model_inputs = ifelse(th_n_farm == "HIGH" | th_p_dev == "HIGH" | th_n_dev == "HIGH" | th_p_farm == "HIGH", "HIGH", "LOW")
+         ) |>
+  mutate(tot_n_inputs = N_Fert_Farm + N_livestock_Waste + N_Total_Deposition + N_Fert_Urban + N_Human_Waste,
+         tot_p_inputs = P_f_fertilizer + P_livestock_Waste + P_Deposition + P_nf_fertilizer + P_human_waste_kg,
+         all_nni_inputs = ifelse(tot_n_inputs >= th_n | tot_p_inputs >= th_p, "HIGH", "LOW"),
+         nodep_n_inputs = N_Fert_Farm + N_livestock_Waste + N_Fert_Urban + N_Human_Waste,
+         nodep_p_inputs = P_f_fertilizer + P_livestock_Waste + P_nf_fertilizer + P_human_waste_kg,
+         nni_no_dep_inputs = ifelse(nodep_n_inputs >= th_n | nodep_p_inputs >= th_p, "HIGH", "LOW")) |>
+  pivot_longer(cols = c(cyano_model_inputs:all_model_inputs, all_nni_inputs, nni_no_dep_inputs), 
+               values_to = "inputs", names_to = "input_scope") |>
+  group_by(input_scope, inputs) |>
+  summarize(count = n(), .groups = "drop") |>
+  drop_na() |>
+  mutate(includes = c(rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N CBNF", 2),
+                   rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N/P Dep", 2),
+                   rep("N Farm Fert, N Manure, N CBNF, P Dev Fert, P Human Waste", 2),
+                   rep("P Farm Fert, P Manure, N Human Waste, N Dev Fert", 2),
+                   rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert", 2))) |>
+  mutate(input_scope = factor(input_scope, levels = c("cyano_model_inputs",
+                                                      "micx_model_inputs",
+                                                      "all_model_inputs",
+                                                      "all_nni_inputs",
+                                                      "nni_no_dep_inputs"))) |>
+  arrange(input_scope) |>
+  flextable() |>
+  merge_v(part = "body", j = c(1, 4)) |>
+  theme_box() |>
+  width(j = 4, width = 3)
+  
+
+```
+
+
 ```{r density plots - precip, message = FALSE}
 #| label: density-precip
-#| fig-width: 6
-#| fig-height: 4
-#| fig-cap: "Density distibutions of precitpitation in the four nutrient/risk categories."
+#| fig-width: 5
+#| fig-height: 9
+#| fig-cap: "Density distributions of mean annual precipitation (a), baseflow index (b), and lake area:depth ratio (c) for the four nutrient input and cyanoHAB risk categories for the predictions from the cyanobacteria abundance (first column) and probability of microcystin detection (second column). Vertical bars in distributions represent the median. Precipitation and the area:depth ratio distributions are truncated to better show majority of data density and differences in medians."
 
-cat_labels <- c('High Nutrient, High HABs',
-                'High Nutrient, Low HABs',
-                'Low Nutrient, High HABs',
-                'Low Nutrient, Low HABs')
+den_df <- comp_cyano |>
+  st_drop_geometry() |>
+  select(BFIWs, ad_ratio, Precip8110Ws, all_pred) |>
+  mutate(resp = "Cyanobacteria") |>
+  rbind(mutate(select(st_drop_geometry(comp_micx),
+                      BFIWs, ad_ratio, Precip8110Ws, all_pred),
+               resp = "Microcystin")) |>
+  # Removing infinite values (when depth = 0)
+  mutate(ad_ratio = ifelse(is.infinite(ad_ratio), NA, ad_ratio)) |> 
+  tibble()
 
-precip_den_micx <- ggplot(comp_micx, aes(x=Precip8110Ws, y= all_pred)) +
-  ggridges::geom_density_ridges(aes(fill = all_pred),
+cat_labels <- c('High Nutrient, High CyanoHABs',
+                'High Nutrient, Low CyanoHABs',
+                'Low Nutrient, High CyanoHABs',
+                'Low Nutrient, Low CyanoHABs')
+
+precip_den <- ggplot(den_df) +
+  ggridges::geom_density_ridges(aes(x = Precip8110Ws, y = all_pred, fill = all_pred),
+                                na.rm = TRUE,
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
+  facet_wrap(~ resp) +
   scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = cat_labels) +
-    xlim(0,2000) +
-  labs(x = "Precipitation (mm)", fill = 'Class',
-       title = 'Microcystin') +
-  theme(axis.title.y=element_blank(),
-        legend.position = "none")
+  xlim(0, 2000) +
+  labs(x = "Precipitation (mm)") +
+  theme(axis.title.y = element_blank(),
+        legend.title = element_blank()) 
 
-precip_den_cyano <- ggplot(comp_cyano, aes(x=Precip8110Ws, y= all_pred)) +
-  ggridges::geom_density_ridges(aes(fill = all_pred),
+bfi_den <- ggplot(den_df) +
+  ggridges::geom_density_ridges(aes(x = BFIWs, y = all_pred, fill = all_pred),
+                                na.rm = TRUE,
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
+  facet_wrap(~ resp) +
   scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = cat_labels) +
-  xlim(0,2000) +
-  labs(x = "Precipitation (mm)", y = "Density Distribution",  fill = 'Class',
-       title = 'Cyanobacteria') +
-  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15))) +
-  theme(axis.title.y=element_blank(),
-        legend.position = "none")
+  xlim(0, 100) +
+  labs(x = "Baseflow Index (%)") +
+  theme(axis.title.y = element_blank(),
+        legend.title = element_blank()) 
 
-
-ggpubr::ggarrange(precip_den_cyano, precip_den_micx,
-                  ncol = 2, nrow = 1,
-                  common.legend = TRUE)
-```
-
-```{r density plots - baseflow}
-#| label: density-baseflow
-#| fig-width: 6
-#| fig-height: 4
-#| fig-cap: "Density distibutions of baseflow percents in the four nutrient/risk categories."
-
-baseflow_den_micx <- ggplot(comp_micx, aes(x=BFIWs, y= all_pred)) +
-  ggridges::geom_density_ridges(aes(fill = all_pred),
+ad_den <- ggplot(den_df) +
+  ggridges::geom_density_ridges(aes(x = ad_ratio, y = all_pred, fill = all_pred),
+                                na.rm = TRUE,
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
+  facet_wrap(~ resp) +
   scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
                     labels = cat_labels) +
-  xlim(0,100) +
-  labs(x = "BaseFlow (%)", fill = 'Class',
-       title = 'Microcystin') +
-  theme(axis.title.y=element_blank())
+  xlim(0, 0.5) +
+  labs(x = "Area:Depth Ratio") +
+  theme(axis.title.y = element_blank(),
+        legend.title = element_blank(),
+        legend.position = "bottom") +
+  guides(fill = guide_legend(nrow = 2, byrow = TRUE))
 
-baseflow_den_cyano <- ggplot(comp_cyano, aes(x=BFIWs, y= all_pred)) +
-  ggridges::geom_density_ridges(aes(fill = all_pred),
-                                scale = 2,
-                                alpha = 0.85,
-                                quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
-                    labels = cat_labels) +
-  xlim(0,100) +
-  labs(x = "BaseFlow (%)", y = "Density Distribution",  fill = 'Class',
-       title = 'Cyanobacteria') +
-  theme(axis.title.y=element_blank()) +
-  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
 
-ggpubr::ggarrange(baseflow_den_cyano, baseflow_den_micx,
-                  ncol = 2, nrow = 1,
-                  common.legend = TRUE)
-
-```
-
-```{r density plots - a:d ratio}
-#| label: density-area-depth
-#| fig-width: 6
-#| fig-height: 4
-#| fig-cap: "Density distibutions of area:depth ratio in the four nutrient/risk categories."
-
-ad_den_micx <- ggplot(comp_micx, aes(x=ad_ratio, y= all_pred)) +
-  ggridges::geom_density_ridges(aes(fill = all_pred),
-                                scale = 2,
-                                alpha = 0.85,
-                                quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
-  xlim(0,0.5) +
-  labs(x = "Area:Depth Ratio", fill = 'Class',
-       title = 'Microcystin') +
-  theme(axis.title.y=element_blank())
-
-ad_den_cyano <- ggplot(comp_cyano, aes(x=ad_ratio, y= all_pred)) +
-  ggridges::geom_density_ridges(aes(fill = all_pred),
-                                scale = 2,
-                                alpha = 0.85,
-                                quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
-  xlim(0,0.5) +
-  labs(x = "A:D Ratio", y = "Density Distribution",  fill = 'Class',
-       title = 'Cyanobacteria') +
-  theme(axis.title.y=element_blank())
-
-ggpubr::ggarrange(ad_den_micx, ad_den_cyano,
-                  ncol = 2, nrow = 1,
-                  common.legend = TRUE)
+ggpubr::ggarrange(precip_den, bfi_den, ad_den,
+                  ncol = 1, nrow = 3,
+                  common.legend = TRUE, 
+                  legend.grob = get_legend(ad_den),
+                  legend = "bottom",
+                  labels = "auto")
 ```
 
 ## Supplemental Material
-
-### Table of model variables
 
 ```{r construct variable summary table}
 # Each variable that was considered in the modeling process
@@ -854,3 +865,113 @@ Table S6. `r mod_comp_tabs[[4]][[1]]` `r mod_comp_tabs[[4]][[2]]`
 \pagebreak
 
 Table S7. `r mod_comp_tabs[[6]][[1]]` `r mod_comp_tabs[[6]][[2]]`
+
+Table S8. Final model fixed effect coefficient estimates and standard errors with p-values (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria (Cyano) and microcystin (Micx) models. Models where in-lake data were present or absent are included. Grey cells are covariates that were excluded from model development. Empty cells are covariates that were not included in the finla model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships. Note the scale and range of the covariates in Table S1.
+```{r}
+
+# Table is identical to covariate table in main text, but included the coefficient mean and standard error.
+
+est_and_sign <- fixed_df |>
+  filter(!fixed_effect == "(Intercept)") |>
+  mutate(est_stderr = paste(signif(estimate, 3), "±", signif(Std_Error, 3)),
+         sig = case_when(p >= 0.05 ~ "(ns)",
+                         p < 0.05 & p >= 0.01 ~ "*",
+                         p < 0.01 & p >= 0.001 ~ "**",
+                         p < 0.001 ~ "***"),
+         est_sig = paste0(est_stderr, sig),
+         fixed_effect = factor(fixed_effect, 
+                               levels = c("NTL",
+                                          "NITRATE_N",
+                                          "AMMONIA_N",
+                                          "DOC",
+                                          "TURB",
+                                          "PH",
+                                          "EVAP_INFL",
+                                          "n_farm_inputs",
+                                          "p_farm_inputs",
+                                          "n_dev_inputs",
+                                          "p_dev_inputs",
+                                          "fst_ws",
+                                          "MAXDEPTH",
+                                          "lakemorpho_fetch",
+                                          "BFIWs",
+                                          "Precip8110Ws",
+                                          "Tmean8110Ws",
+                                          "AG_ECO3PLNLOW",
+                                          "AG_ECO3EHIGH",
+                                          "NTL:AG_ECO3PLNLOW",
+                                          "NTL:AG_ECO3EHIGH"))
+         ) |>
+  select(response_var:fixed_effect, est_sig) |>
+  pivot_wider(names_from = response_var:lake_data,
+              values_from = est_sig,
+              values_fill = "") |>
+  arrange(fixed_effect) |>
+  relocate(fixed_effect, cyano_present, micx_present, cyano_absent, micx_absent) |>
+  mutate(fixed_effect = c("Total N",
+                       "Nitrate",
+                       "Ammonium",
+                       "DOC",
+                       "Turbidity",
+                       "pH",
+                       "Evaporation/Inflow",
+                       "Farm N Inputs",
+                       "Farm P Inputs",
+                       "Developed N Inputs",
+                       "Developed P Inputs",
+                       "Forest Cover",
+                       "Lake Depth",
+                       "Lake Fetch",
+                       "Baseflow Index",
+                       "Annual Precip",
+                       "Annual Air Temp",
+                       "Ecoregion PLNLOW",
+                       "Ecoregion EHIGH",
+                       "Total N * PLNLOW",
+                       "Total N * EHIGH"),
+         Type = c(rep("In-Lake Conditions", 7),
+                  rep("Nutrient Inputs", 5),
+                  rep("Lake Geometry", 2),
+                  rep("Geographic Setting", 5),
+                  rep("Interactions", 2)), .before = fixed_effect
+            ) |>
+  rename(Covariates = fixed_effect)
+
+colorer_eststderr <- function(i){
+  hex <- case_when(grepl("-", i) & grepl("\\*{3}", i) ~ pal[1],
+                   grepl("-", i) & grepl("\\*{2}", i) ~  pal[2],
+                   grepl("-", i) & grepl("\\*{1}", i) ~   pal[3],
+                   grepl("-", i) & grepl("(ns)", i) ~  pal[4],
+                   i == "" ~        pal[5],
+                   !grepl("-", i) & grepl("(ns)", i) ~  pal[6],
+                   !grepl("-", i) & grepl("\\*{1}", i) ~   pal[7],
+                   !grepl("-", i) & grepl("\\*{2}", i) ~  pal[8],
+                   !grepl("-", i) & grepl("\\*{3}", i) ~ pal[9])
+}
+
+est_header <- data.frame(
+  col_keys = colnames(est_and_sign),
+  line2 = c(rep("Model", 2), rep("In-Lake Conditions", 4)),
+  line3 = c(rep("Model", 2), c(rep("Present", 2), rep("Absent", 2))),
+  line4 = c("Type", "Covariates", rep(c("Cyano", "Micx"), 2))
+)
+
+covar_tbl <- est_and_sign |>
+  flextable() |>
+  set_header_df(mapping = est_header, key = "col_keys" ) |>
+  merge_v(part = "header", j = c(1:2)) |> 
+  merge_v(part = "body", j = 1) |> 
+  merge_h(part = "header", i = c(1:2)) |> 
+  theme_booktabs(bold_header = TRUE) |>
+  bg(bg = colorer_eststderr,
+     j = 3:6, # All columns in the body except for the first one
+     part = "body") |>
+  bg(j = c(5:6), i = c(1:7), bg = "#606060") |> # Covariates that weren't available to the models
+  theme_box() |>
+  align(align = "center", part = "header") |>
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header")
+
+covar_tbl
+```
+
