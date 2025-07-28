@@ -291,44 +291,42 @@ covar_tbl
 
 ```{r standarized residual maps}
 #| label: std-resid-maps
-#| fig-width: 6
-#| fig-height: 7
-#| fig-cap: "Standardized residuals for the cyanobacteria abundance (a) and probability of microcystin detection (b) models without in-lake conditions."
+#| fig-width: 9
+#| fig-height: 6.5
+#| fig-cap: "Standardized residuals for the models with in-lake conditions present (top row) for cyanobacteria abundance (a) and probability of microcystin detection (b) and models with in-lake conditions absent (bottom row) for cyanobacteria abundance (c) and probability of microcystin detection (d)."
 
-cyano_nolake_aug <- augment(cyano_nolake) |>
-  mutate(resp = "Cyanobacteria") |>
-  select(resp, .std.resid)
-micx_nolake_aug  <- augment(micx_nolake) |>
-  mutate(resp = "Microcystin") |>
-  select(resp, .std.resid) |>
-  st_transform(st_crs(cyano_nolake_aug))
+# Augment the splm objects to add the standardized residuals
+resp    <- rep(c("Cyanobacteria", "Microcystin"), 2)
+in_lake <- c(rep("Present", 2), rep("Absent", 2))
 
-std_resid_comb <- rbind(cyano_nolake_aug, micx_nolake_aug) |>
-  mutate(rank = case_when(.std.resid > 4 ~ 4,
-                          .std.resid > 3 & .std.resid < 4 ~ 3,
-                          .std.resid < -2 ~ 2,
-                          TRUE ~ 1)) |>
-  arrange(rank)
+auged_splms <- lapply(list(cyano_lake, micx_lake, cyano_nolake, micx_nolake), augment)
 
-cyan_stdresid_map <- ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = filter(std_resid_comb, resp == "Cyanobacteria"), 
-          aes(fill = .std.resid), pch = 21, size = 1.5) +
-  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
-                                               mid = 0, 
-                                               name = "Standardized\nResidual") +
+stresids <- lapply(seq_along(auged_splms), function(i){
+  auged_splms[[i]] |>
+    mutate(resp = resp[i],
+           in_lake = in_lake[i]) |>
+    select(resp, in_lake, .std.resid) |>
+    st_transform(cyano_nolake$crs) |>
+    mutate(rank = case_when(.std.resid > 4 ~ 4,
+                            .std.resid > 3 & .std.resid < 4 ~ 3,
+                            .std.resid < -2 ~ 2,
+                            TRUE ~ 1)) |>
+    arrange(rank)
+})
+
+stresid_maps <- lapply(seq_along(stresids), function(i){
+  ggplot() + 
+    geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+    geom_sf(data = stresids[[i]], 
+            aes(fill = .std.resid), pch = 21, size = 1.5) +
+    colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
+                                                 mid = 0, 
+                                                 name = "Standardized\nResidual") +
+    ggtitle(paste(resp[i], in_lake[i])) +
     theme_void()
+})
 
-micx_stdresid_map <- ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = filter(std_resid_comb, resp == "Microcystin"), 
-          aes(fill = .std.resid), pch = 21, size = 1.5) +
-  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
-                                               mid = 0, 
-                                               name = "Standardized\nResidual") +
-    theme_void()
-
-ggarrange(plotlist = list(cyan_stdresid_map, micx_stdresid_map), ncol = 1, nrow = 2, labels = "auto")
+ggarrange(plotlist = stresid_maps, ncol = 2, nrow = 2, labels = "auto")
 
 ```
 
