@@ -533,7 +533,7 @@ comp_cyano <- comp_cyano |>
 
 #### Nutrient and Non-Nutrient Drivers
 
-```{r nutrient input comparisons}
+```{r nutrient input comparisons, include = FALSE}
 
 # Tables comparing the different types of nutrient inputs and whether that changes the "high" versus "low" nutrient input designations
 
@@ -556,26 +556,21 @@ habs |>
          ) |>
   mutate(tot_n_inputs = N_Fert_Farm + N_livestock_Waste + N_Total_Deposition + N_Fert_Urban + N_Human_Waste + N_CBNF,
          tot_p_inputs = P_f_fertilizer + P_livestock_Waste + P_Deposition + P_nf_fertilizer + P_human_waste_kg,
-         all_nni_inputs = ifelse(tot_n_inputs >= th_n | tot_p_inputs >= th_p, "HIGH", "LOW"),
-         nodep_n_inputs = N_Fert_Farm + N_livestock_Waste + N_Fert_Urban + N_Human_Waste + N_CBNF,
-         nodep_p_inputs = P_f_fertilizer + P_livestock_Waste + P_nf_fertilizer + P_human_waste_kg,
-         nni_no_dep_inputs = ifelse(nodep_n_inputs >= th_n | nodep_p_inputs >= th_p, "HIGH", "LOW")
+         all_nni_inputs = ifelse(tot_n_inputs >= th_n | tot_p_inputs >= th_p, "HIGH", "LOW")
          ) |>
-  pivot_longer(cols = c(cyano_model_inputs:all_model_inputs, all_nni_inputs, nni_no_dep_inputs), 
+  pivot_longer(cols = c(cyano_model_inputs:all_model_inputs, all_nni_inputs), 
                values_to = "inputs", names_to = "input_scope") |>
   group_by(input_scope, inputs) |>
   summarize(count = n(), .groups = "drop") |>
   drop_na() |>
-  mutate(includes = c(rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N CBNF", 2),
-                   rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N/P Dep, N CBNF", 2),
+  mutate(includes = c(rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N CBNF, NO DEPOSITION", 2),
+                   rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N/P Dep, N CBNF, INCLUDES DEPOSITION", 2),
                    rep("N Farm Fert, N Manure, N CBNF, P Dev Fert, P Human Waste", 2),
-                   rep("P Farm Fert, P Manure, N Human Waste, N Dev Fert", 2),
-                   rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N CBNF", 2))) |>
+                   rep("P Farm Fert, P Manure, N Human Waste, N Dev Fert", 2))) |>
   mutate(input_scope = factor(input_scope, levels = c("cyano_model_inputs",
                                                       "micx_model_inputs",
                                                       "all_model_inputs",
-                                                      "all_nni_inputs",
-                                                      "nni_no_dep_inputs"))) |>
+                                                      "all_nni_inputs"))) |>
   arrange(input_scope) |>
   flextable() |>
   merge_v(part = "body", j = c(1, 4)) |>
