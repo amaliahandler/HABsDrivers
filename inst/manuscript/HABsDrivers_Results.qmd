@@ -375,14 +375,6 @@ ggarrange(plotlist = list(cyan_spde_map, micx_spde_map), ncol = 1, nrow = 2, lab
 
 ### Predicted CyanoHABs Risk
 
-```{r}
-
-# load predictor dataset into quarto
-
-# load("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/data/PredData.rda")
-
-```
-
 #### Geographic Patterns
 
 ```{r micx predictions}
