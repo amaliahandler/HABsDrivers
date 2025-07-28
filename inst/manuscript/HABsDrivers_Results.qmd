@@ -540,9 +540,10 @@ comp_cyano <- comp_cyano |>
 th_n <- 10
 th_p <- 4
 
-# The current analysis relies on just the nutrient inputs that are included in the respective models. How do the numbers change when all nutrient inputs included in the model are used to determine high/low nutrient inputs? What about expanding to a broader set of nutrient inputs that are not included in the model?
+# The current analysis relies on just the nutrient inputs that are included in the respective models. How do the numbers change when all nutrient inputs included in the model are used to determine high/low nutrient inputs? What about when deposition is included as well?
 habs |>
   st_drop_geometry() |>
+  distinct(UNIQUE_ID, .keep_all = TRUE) |>
   mutate(th_n_farm = ifelse(n_farm_inputs >= th_n, "HIGH", "LOW"),
          th_p_farm = ifelse(p_farm_inputs >= th_p, "HIGH", "LOW"),
          th_n_dev = ifelse(n_dev_inputs >= th_n, "HIGH", "LOW"),
@@ -550,24 +551,26 @@ habs |>
          ) |>
   mutate(cyano_model_inputs = ifelse(th_n_farm == "HIGH" | th_p_dev == "HIGH", "HIGH", "LOW"),
          micx_model_inputs = ifelse(th_n_dev == "HIGH" | th_p_farm == "HIGH", "HIGH", "LOW"),
-         all_model_inputs = ifelse(th_n_farm == "HIGH" | th_p_dev == "HIGH" | th_n_dev == "HIGH" | th_p_farm == "HIGH", "HIGH", "LOW")
+         all_model_inputs = ifelse((n_farm_inputs + n_dev_inputs) >= th_n | 
+                                   (p_farm_inputs + p_dev_inputs) >= th_p, "HIGH", "LOW")
          ) |>
-  mutate(tot_n_inputs = N_Fert_Farm + N_livestock_Waste + N_Total_Deposition + N_Fert_Urban + N_Human_Waste,
+  mutate(tot_n_inputs = N_Fert_Farm + N_livestock_Waste + N_Total_Deposition + N_Fert_Urban + N_Human_Waste + N_CBNF,
          tot_p_inputs = P_f_fertilizer + P_livestock_Waste + P_Deposition + P_nf_fertilizer + P_human_waste_kg,
          all_nni_inputs = ifelse(tot_n_inputs >= th_n | tot_p_inputs >= th_p, "HIGH", "LOW"),
-         nodep_n_inputs = N_Fert_Farm + N_livestock_Waste + N_Fert_Urban + N_Human_Waste,
+         nodep_n_inputs = N_Fert_Farm + N_livestock_Waste + N_Fert_Urban + N_Human_Waste + N_CBNF,
          nodep_p_inputs = P_f_fertilizer + P_livestock_Waste + P_nf_fertilizer + P_human_waste_kg,
-         nni_no_dep_inputs = ifelse(nodep_n_inputs >= th_n | nodep_p_inputs >= th_p, "HIGH", "LOW")) |>
+         nni_no_dep_inputs = ifelse(nodep_n_inputs >= th_n | nodep_p_inputs >= th_p, "HIGH", "LOW")
+         ) |>
   pivot_longer(cols = c(cyano_model_inputs:all_model_inputs, all_nni_inputs, nni_no_dep_inputs), 
                values_to = "inputs", names_to = "input_scope") |>
   group_by(input_scope, inputs) |>
   summarize(count = n(), .groups = "drop") |>
   drop_na() |>
   mutate(includes = c(rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N CBNF", 2),
-                   rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N/P Dep", 2),
+                   rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N/P Dep, N CBNF", 2),
                    rep("N Farm Fert, N Manure, N CBNF, P Dev Fert, P Human Waste", 2),
                    rep("P Farm Fert, P Manure, N Human Waste, N Dev Fert", 2),
-                   rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert", 2))) |>
+                   rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N CBNF", 2))) |>
   mutate(input_scope = factor(input_scope, levels = c("cyano_model_inputs",
                                                       "micx_model_inputs",
                                                       "all_model_inputs",
