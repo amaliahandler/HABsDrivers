@@ -85,10 +85,12 @@ nla_map
 # Trim to just the variables explored in the models
 cor_dat <- habs |>
   st_drop_geometry() |>
-  select(TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, n_farm_inputs:p_dev_inputs) |>
-  relocate(NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, n_dev_inputs, p_dev_inputs, N_Total_Deposition, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
+  select(B_G_DENS, MICX, TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, P_Deposition, n_farm_inputs:p_dev_inputs, P_Accumulated_ag_inputs, P_Legacy_P) |>
+  relocate(B_G_DENS, MICX, NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, P_Accumulated_ag_inputs, P_Legacy_P, n_dev_inputs, p_dev_inputs, N_Total_Deposition, P_Deposition, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
 
-var_names <- c("Total N", 
+var_names <- c("Cyanobacteria", 
+               "Microcystin", 
+               "Total N", 
                "Total P",   
                "Nitrate", 
                "Ammonia", 
@@ -105,7 +107,10 @@ var_names <- c("Total N",
                "Farm P Inputs",
                "Developed N Inputs", 
                "Developed P Inputs",
-               "Deposition N", 
+               "Accumulated P Inputs",
+               "Legacy P Inputs",
+               "Deposition N",
+               "Deposition P",
                "Monthly Precip",
                "Monthly Air Temp",
                "Annual Precip", 
