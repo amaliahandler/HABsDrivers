@@ -498,16 +498,17 @@ ggarrange(plotlist = list(cyano_pred_map, micx_pred_map), ncol = 1, nrow = 2, la
 comp_micx <- PredData |>
   dplyr::select(-starts_with("pred_cyano"),
                 -starts_with("cyano_transform")) |>
-  drop_na(pred_micx_fit)
-
-comp_micx <- comp_micx |>
-  mutate(all_pred = factor(case_when(
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit >= 0.50 ~ 'HNHC',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit >= 0.50 ~ 'LNHC',
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit < 0.50 ~ 'HNLC',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit < 0.50 ~ 'LNLC',
-    TRUE ~ 'OTHER'),
-    levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
+  drop_na(pred_micx_fit) |>
+  mutate(
+    ws_nut_inputs = ifelse((n_farm_inputs + n_dev_inputs) >= 10 | (p_farm_inputs + p_dev_inputs) >= 4, "HIGH", "LOW"),
+    all_pred = factor(case_when(
+      ws_nut_inputs == "HIGH" & pred_micx_fit >= 0.50 ~ 'HNHC',
+      ws_nut_inputs == "LOW" & pred_micx_fit >= 0.50 ~ 'LNHC',
+      ws_nut_inputs == "HIGH" & pred_micx_fit < 0.50 ~ 'HNLC',
+      ws_nut_inputs == "LOW" & pred_micx_fit < 0.50 ~ 'LNLC',
+      TRUE ~ 'OTHER'),
+      levels = c('HNHC','HNLC','LNHC','LNLC'))
+    ) |>
     arrange(all_pred)
 
 ```
@@ -517,16 +518,17 @@ comp_micx <- comp_micx |>
 comp_cyano <- PredData |>
   dplyr::select(-starts_with("pred_micx"),
                 -starts_with("micx_transform")) |>
-  drop_na(cyano_transform_fit)
-
-comp_cyano <- comp_cyano |>
-  mutate(all_pred = factor(case_when(
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit >= 5 ~ 'HNHC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit >= 5 ~ 'LNHC',
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit < 5 ~ 'HNLC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit < 5 ~ 'LNLC',
-    TRUE ~ 'OTHER'),
-    levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
+  drop_na(cyano_transform_fit) |>
+  mutate(
+    ws_nut_inputs = ifelse((n_farm_inputs + n_dev_inputs) >= 10 | (p_farm_inputs + p_dev_inputs) >= 4, "HIGH", "LOW"),
+    all_pred = factor(case_when(
+      ws_nut_inputs == "HIGH" & pred_cyano_fit >= 5 ~ 'HNHC',
+      ws_nut_inputs == "LOW" & pred_cyano_fit >= 5 ~ 'LNHC',
+      ws_nut_inputs == "HIGH" & pred_cyano_fit < 5 ~ 'HNLC',
+      ws_nut_inputs == "LOW" & pred_cyano_fit < 5 ~ 'LNLC',
+      TRUE ~ 'OTHER'),
+      levels = c('HNHC','HNLC','LNHC','LNLC'))
+    ) |>
     arrange(all_pred)
 
 ```
