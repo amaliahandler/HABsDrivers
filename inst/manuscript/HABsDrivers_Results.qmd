@@ -336,7 +336,7 @@ rbind(comp_cyan, comp_micx) |>
 #| label: spcov-maps
 #| fig-width: 6
 #| fig-height: 7
-#| fig-cap: "Spatial covariance for the cyanobacteria abundance (a) and probability of microcystin detection (b) models without in-lake data."
+#| fig-cap: "Spatial residuals for the cyanobacteria abundance (a) and probability of microcystin detection (b) models with in-lake conditions absent."
 
 cyano_aug <- augment(cyano_nolake) |>
   mutate(spde = fitted(cyano_nolake, type = "spcov")$de,
@@ -357,7 +357,7 @@ cyan_spde_map <- ggplot() +
           aes(fill = spde), pch = 21, size = 1.5) +
   colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
                                                mid = 0, 
-                                               name = "Spatial\nCorrelation") +
+                                               name = "Spatial\nResiduals") +
     theme_void()
 
 micx_spde_map <- ggplot() + 
@@ -366,7 +366,7 @@ micx_spde_map <- ggplot() +
           aes(fill = spde), pch = 21, size = 1.5) +
   colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
                                                mid = 0, 
-                                               name = "Spatial\nCorrelation") +
+                                               name = "Spatial\nResiduals") +
     theme_void()
 
 ggarrange(plotlist = list(cyan_spde_map, micx_spde_map), ncol = 1, nrow = 2, labels = "auto")
@@ -868,6 +868,49 @@ stresid_maps <- lapply(seq_along(stresids), function(i){
 ggarrange(plotlist = stresid_maps, ncol = 2, nrow = 2, labels = "auto")
 
 ```
+
+
+```{r spatial covariance maps}
+#| label: spcov-maps-inlake
+#| fig-width: 6
+#| fig-height: 7
+#| fig-cap: "Spatial residuals for the cyanobacteria abundance (a) and probability of microcystin detection (b) models with in-lake conditions present."
+
+cyano_lake_aug <- augment(cyano_lake) |>
+  mutate(spde = fitted(cyano_lake, type = "spcov")$de,
+         resp = "Cyanobacteria") |>
+  select(resp, spde)
+
+micx_lake_aug <- augment(micx_lake) |>
+  mutate(spde = fitted(micx_lake, type = "spcov")$de,
+         resp = "Microcystin") |>
+  select(resp, spde) |>
+  st_transform(st_crs(cyano_lake_aug))
+  
+spde <- rbind(cyano_lake_aug, micx_lake_aug)
+
+cyan_lake_spde_map <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = cyano_lake_aug, 
+          aes(fill = spde), pch = 21, size = 1.5) +
+  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
+                                               mid = 0, 
+                                               name = "Spatial\nResiduals") +
+    theme_void()
+
+micx_lake_spde_map <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = micx_lake_aug, 
+          aes(fill = spde), pch = 21, size = 1.5) +
+  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
+                                               mid = 0, 
+                                               name = "Spatial\nResiduals") +
+    theme_void()
+
+ggarrange(plotlist = list(cyan_lake_spde_map, micx_lake_spde_map), ncol = 1, nrow = 2, labels = "auto")
+
+```
+
 
 Table S8. Final model fixed effect coefficient estimates and standard errors with p-values (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria (Cyano) and microcystin (Micx) models. Models where in-lake data were present or absent are included. Grey cells are covariates that were excluded from model development. Empty cells are covariates that were not included in the finla model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships. Note the scale and range of the covariates in Table S1.
 ```{r}
