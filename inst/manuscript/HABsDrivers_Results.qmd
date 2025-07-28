@@ -419,6 +419,7 @@ cyano_pred_map <- ggplot() +
           size = 0.3,
           alpha = 0.8)  +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  guides(color = guide_legend(override.aes = list(size = 2))) +
   theme_void()
 
 # Micx Prediction Map
@@ -441,6 +442,7 @@ micx_pred_map <- ggplot(PredData, aes(color = disc_micx)) +
                      labels = labels,
                      name = "Probability of \nDetection (%)") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  guides(color = guide_legend(override.aes = list(size = 2))) +
   theme_void()
 
 ggarrange(plotlist = list(cyano_pred_map, micx_pred_map), ncol = 1, nrow = 2, labels = "auto", align = "h")
