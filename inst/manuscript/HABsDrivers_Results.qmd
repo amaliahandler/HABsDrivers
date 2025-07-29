@@ -1041,6 +1041,10 @@ covar_tbl
 ```
 
 ```{r figure of covariate contributions}
+#| label: covar-contri
+#| fig-width: 6.5
+#| fig-height: 4
+#| fig-cap: "Covariate contributions (slope * variable value) to the fitted value (x-axis) for each of the observed lakes used to fit the models without in-lake conditions for cyanobacteria abundance (a) and probability of microcystin detection (b). Only continuous variables are included; the model intercept and categorical variables are excluded. Note that the covariate contributions are displayed on a standardized and centered scale and fitted values are on the response scale."
 
 att_cyan <- readr::read_csv(here::here("inst/source_data/cyano_nolake_attribution.csv")) |>
   mutate(resp = "Cyano") |>
@@ -1060,8 +1064,6 @@ att_micx <- readr::read_csv(here::here("inst/source_data/micx_nolake_attribution
   mutate(resp = "Micx") |>
   pivot_longer(c(p_farm_inputs:BFIWs, de), names_to = "variable", values_to = "variable_contr") |>
   mutate(variable = factor(variable, levels = c("de",
-                                                # "AG_ECO3PLNLOW",
-                                                # "AG_ECO3EHIGH",
                                                 "Tmean8110Ws",
                                                 "Precip8110Ws",
                                                 "BFIWs",
@@ -1088,11 +1090,9 @@ cyan_attri_plot <- ggplot(att_cyan, aes(x = variable, y = variable_contr, color 
                               "Tmean8110Ws" = "Annual Temp",
                               "de" = "Spatial Residual"),
                    name = "") +
-  labs(y = "Variable Contribution to Fitted Value (standardized)") +
   coord_flip() +
-  theme_minimal()
-
-
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
 
 micx_attri_plot <- ggplot(att_micx, aes(x = variable, y = variable_contr, color = fitted)) +
   geom_quasirandom(shape = 16, size = 0.75, groupOnX = TRUE) +
@@ -1106,13 +1106,14 @@ micx_attri_plot <- ggplot(att_micx, aes(x = variable, y = variable_contr, color 
                               "BFIWs" = "Baseflow Index",
                               "Precip8110Ws" = "Annual Precip",
                               "Tmean8110Ws" = "Annual Temp",
-                              "de" = "Spatial Residual"),
-                   name = "") +
-  labs(y = "Variable Contribution to Fitted Value (standardized)") +
+                              "de" = "Spatial Residual")) +
   coord_flip() +
-  theme_minimal()
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
 
+attr_fig <- ggarrange(plotlist = list(cyan_attri_plot, micx_attri_plot), ncol = 2, nrow = 1, labels = "auto")
 
+attr_fig <- annotate_figure(attr_fig, bottom = "Covariate Contribution to Fitted Value (standardized)")
 
 
 mods <- list(cyano_lake, micx_lake, cyano_nolake, micx_nolake)
