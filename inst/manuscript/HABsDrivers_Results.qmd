@@ -285,8 +285,7 @@ covar_tbl <- est_and_sign |>
 ```
 
 Table 1. Model fixed effect coefficient sign (negative or positive) and p-value (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria (Cyano) and microcystin (Micx) models both where in-lake data was present or absent. Grey cells are covariates that were excluded from model development. Empty cells covariates that were not included in the model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships.
-```{r covariate table}
-#| label: tbl-fixed_effects
+```{r print covariate table}
 covar_tbl
 ```
 
@@ -296,7 +295,6 @@ The presence of in-lake conditions in the cyanobacteria abundance model provides
 
 Table 2. Comparison of model fit where in-lake conditions are present or absent and the error structure (spatial or independent).
 ```{r model fit comparison}
-#| label: tbl-mod-fit
 
 comp_cyan <- readRDS(paste0(here(), "/inst/model_objects/spatial_compare_cyano.rds")) |>
   rename(fit = cor2)
@@ -1114,6 +1112,8 @@ micx_attri_plot <- ggplot(att_micx, aes(x = variable, y = variable_contr, color 
 attr_fig <- ggarrange(plotlist = list(cyan_attri_plot, micx_attri_plot), ncol = 2, nrow = 1, labels = "auto")
 
 attr_fig <- annotate_figure(attr_fig, bottom = "Covariate Contribution to Fitted Value (standardized)")
+
+attr_fig
 
 ```
 
