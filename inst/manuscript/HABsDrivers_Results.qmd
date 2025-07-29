@@ -1046,7 +1046,7 @@ covar_tbl
 #| fig-height: 4
 #| fig-cap: "Covariate contributions (slope * variable value) to the fitted value (x-axis) for each of the observed lakes used to fit the models without in-lake conditions for cyanobacteria abundance (a) and probability of microcystin detection (b). Only continuous variables are included; the model intercept and categorical variables are excluded. Note that the covariate contributions are displayed on a standardized and centered scale and fitted values are on the response scale."
 
-att_cyan <- readr::read_csv(here::here("inst/source_data/cyano_nolake_attribution.csv")) |>
+att_cyan <- readr::read_csv(here::here("inst/model_objects/cyano_nolake_attribution.csv")) |>
   mutate(resp = "Cyano") |>
   pivot_longer(c(n_farm_inputs:lakemorpho_fetch, de), names_to = "variable", values_to = "variable_contr") |>
   mutate(variable = factor(variable, levels = c("de",
@@ -1060,7 +1060,7 @@ att_cyan <- readr::read_csv(here::here("inst/source_data/cyano_nolake_attributio
   ) |>
   arrange(fitted)
 
-att_micx <- readr::read_csv(here::here("inst/source_data/micx_nolake_attribution.csv")) |>
+att_micx <- readr::read_csv(here::here("inst/model_objects/micx_nolake_attribution.csv")) |>
   mutate(resp = "Micx") |>
   pivot_longer(c(p_farm_inputs:BFIWs, de), names_to = "variable", values_to = "variable_contr") |>
   mutate(variable = factor(variable, levels = c("de",
