@@ -1056,7 +1056,22 @@ att_cyan <- readr::read_csv(here::here("inst/source_data/cyano_nolake_attributio
   ) |>
   arrange(fitted)
 
-att_micx <- readr::read_csv(here::here("inst/source_data/micx_nolake_attribution.csv"))
+att_micx <- readr::read_csv(here::here("inst/source_data/micx_nolake_attribution.csv")) |>
+  mutate(resp = "Micx") |>
+  pivot_longer(c(p_farm_inputs:BFIWs, de), names_to = "variable", values_to = "variable_contr") |>
+  mutate(variable = factor(variable, levels = c("de",
+                                                # "AG_ECO3PLNLOW",
+                                                # "AG_ECO3EHIGH",
+                                                "Tmean8110Ws",
+                                                "Precip8110Ws",
+                                                "BFIWs",
+                                                "lakemorpho_fetch",
+                                                "MAXDEPTH",
+                                                "fst_ws",
+                                                "n_dev_inputs",
+                                                "p_farm_inputs"))
+  ) |>
+  arrange(fitted)
 
 cyan_attri_plot <- ggplot(att_cyan, aes(x = variable, y = variable_contr, color = fitted)) +
   geom_quasirandom(shape = 16, size = 0.75, groupOnX = TRUE) +
@@ -1065,9 +1080,10 @@ cyan_attri_plot <- ggplot(att_cyan, aes(x = variable, y = variable_contr, color 
                         breaks = c(log10(3000+1000), log10(10000+1000), log10(30000+1000), log10(100000+1000)),
                         labels = c("3,000", "10,000", "30,000", "100,000")) +
   scale_x_discrete(labels = c("n_farm_inputs" = "Farm N Inputs", 
-                              "p_dev_inputs" = "Farm P Inputs", 
+                              "p_dev_inputs" = "Developed P Inputs", 
                               "MAXDEPTH" = "Lake Depth",
                               "lakemorpho_fetch" = "Lake Fetch",
+                              "BFIWs" = "Baseflow Index",
                               "Precip8110Ws" = "Annual Precip",
                               "Tmean8110Ws" = "Annual Temp",
                               "de" = "Spatial Residual"),
@@ -1075,6 +1091,28 @@ cyan_attri_plot <- ggplot(att_cyan, aes(x = variable, y = variable_contr, color 
   labs(y = "Variable Contribution to Fitted Value (standardized)") +
   coord_flip() +
   theme_minimal()
+
+
+
+micx_attri_plot <- ggplot(att_micx, aes(x = variable, y = variable_contr, color = fitted)) +
+  geom_quasirandom(shape = 16, size = 0.75, groupOnX = TRUE) +
+  scale_color_gradientn(colors = c("#2980b9","#aed6f1","#f0b27a","#d35405"),
+                        name = "Probability \nMicrocystin \nDetection \n(%)") +
+  scale_x_discrete(labels = c("p_farm_inputs" = "Farm P Inputs", 
+                              "n_dev_inputs" = "Developed N Inputs", 
+                              "fst_ws" = "Forest Cover",
+                              "MAXDEPTH" = "Lake Depth",
+                              "lakemorpho_fetch" = "Lake Fetch",
+                              "BFIWs" = "Baseflow Index",
+                              "Precip8110Ws" = "Annual Precip",
+                              "Tmean8110Ws" = "Annual Temp",
+                              "de" = "Spatial Residual"),
+                   name = "") +
+  labs(y = "Variable Contribution to Fitted Value (standardized)") +
+  coord_flip() +
+  theme_minimal()
+
+
 
 
 mods <- list(cyano_lake, micx_lake, cyano_nolake, micx_nolake)
