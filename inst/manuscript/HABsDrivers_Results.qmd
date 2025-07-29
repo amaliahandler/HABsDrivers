@@ -81,7 +81,7 @@ nla_map
 #| label: cor-plot
 #| fig-width: 6
 #| fig-height: 6
-#| fig-cap: "Pairwise spearman's rank correlation matrix of all covariates considered for the models. Blue represent positive correlations and red represent negative correlations. Darker colors and tighter ellipses represent larger correlation coefficients and stronger relationships."
+#| fig-cap: "Pairwise spearman's rank correlation matrix of all response variables and continuous covariates considered for the models. Blue represent positive correlations and red represent negative correlations. Darker colors and tighter ellipses represent larger correlation coefficients and stronger relationships. See Table S1 for summaries of variable ranges and sources"
 
 # Trim to just the variables explored in the models
 cor_dat <- habs |>
@@ -382,7 +382,7 @@ ggarrange(plotlist = list(cyan_spde_map, micx_spde_map), ncol = 1, nrow = 2, lab
 #| label: micx-map
 #| fig-width: 6
 #| fig-height: 8
-#| fig-cap: "Predicted cyanobacteria abundance (a) and probabilty of microcystin detection at or above 0.1 ug/L (b) in 124,529 on-network lakes."
+#| fig-cap: "Predicted cyanobacteria abundance (a) and probabilty of microcystin detection at or above 0.1 ug/L (b) in 124,529 on-network lakes. Lakes ≥100,000 cells/mL for cyanobacteria abundance or 50% probability of microcystin detection shown in warmer colors and lakes below these thresholds are shown in cooler colors."
 
 states <- states(cb = TRUE, progress_bar = FALSE)  %>%
   filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI'))  %>%
