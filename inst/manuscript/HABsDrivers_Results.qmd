@@ -931,7 +931,7 @@ ggplot(nut_inputs, aes(color = ws_nut_inputs)) +
 ```
 
 Table S8. Final model fixed effect coefficient estimates and standard errors with p-values (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria (Cyano) and microcystin (Micx) models. Models where in-lake data were present or absent are included. Grey cells are covariates that were excluded from model development. Empty cells are covariates that were not included in the finla model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships. Note the scale and range of the covariates in Table S1.
-```{r}
+```{r covariate table with coefficient values}
 
 # Table is identical to covariate table in main text, but included the coefficient mean and standard error.
 
@@ -1037,5 +1037,26 @@ covar_tbl <- est_and_sign |>
   fontsize(size = 10, part = "header")
 
 covar_tbl
+```
+
+```{r figure of covariate contributions}
+
+mods <- list(cyano_lake, micx_lake, cyano_nolake, micx_nolake)
+
+# Note that this takes prohibitively long to run on Amalia's machine. Moving to use the data the files that Melanie generated for this for Robert's analysis.
+
+Sys.time()
+
+terms_contr <- lapply(mods, function(mod){
+  cols <- colnames(mod$obdata)
+  cols <- cols[-c(length(cols), length(cols) - 1)]
+  dat  <- habs |>
+    select(all_of(cols)) |>
+    drop_na()
+  predict(mod, newdata = dat, terms = "terms")
+})
+
+Sys.time()
+
 ```
 
