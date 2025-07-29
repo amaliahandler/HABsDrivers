@@ -1115,23 +1115,5 @@ attr_fig <- ggarrange(plotlist = list(cyan_attri_plot, micx_attri_plot), ncol = 
 
 attr_fig <- annotate_figure(attr_fig, bottom = "Covariate Contribution to Fitted Value (standardized)")
 
-
-mods <- list(cyano_lake, micx_lake, cyano_nolake, micx_nolake)
-
-# Note that this takes prohibitively long to run on Amalia's machine. Moving to use the data the files that Melanie generated for this for Robert's analysis.
-
-Sys.time()
-
-terms_contr <- lapply(mods, function(mod){
-  cols <- colnames(mod$obdata)
-  cols <- cols[-c(length(cols), length(cols) - 1)]
-  dat  <- habs |>
-    select(all_of(cols)) |>
-    drop_na()
-  predict(mod, newdata = dat, terms = "terms")
-})
-
-Sys.time()
-
 ```
 
