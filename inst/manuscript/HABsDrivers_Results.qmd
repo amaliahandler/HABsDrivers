@@ -332,7 +332,7 @@ rbind(comp_cyan, comp_micx) |>
 
 ```
 
-```{r spatial covariance maps}
+```{r spatial covariance maps for no-lake models}
 #| label: spcov-maps
 #| fig-width: 6
 #| fig-height: 7
@@ -864,7 +864,7 @@ ggarrange(plotlist = stresid_maps, ncol = 2, nrow = 2, labels = "auto")
 ```
 
 
-```{r spatial covariance maps}
+```{r spatial residulas maps for in-lake models}
 #| label: spcov-maps-inlake
 #| fig-width: 6
 #| fig-height: 7
@@ -905,6 +905,30 @@ ggarrange(plotlist = list(cyan_lake_spde_map, micx_lake_spde_map), ncol = 1, nro
 
 ```
 
+
+```{r high and low nutrient watersheds}
+#| label: nut-input-map
+#| fig-width: 6
+#| fig-height: 4
+#| fig-cap: "Annual anthropogenic nitrogen and phosphorus inputs to the 124,529 lake watersheds for which predictions of cyanoHABs were generated. Inputs consist of the sum of farm fertilizer, manure, developed landscape fertilizer, and human waste for each nutrient. Nitrogen has an additional term for cultivated crop biological nitrogen fixtation. High nutrient inputs consist of at least 10 kg N/ha/yr or 4 kg P/ha/yr inputs."
+
+nut_inputs <- PredData |>
+  mutate(ws_nut_inputs = ifelse((n_farm_inputs + n_dev_inputs) >= 10 | 
+                                (p_farm_inputs + p_dev_inputs) >= 4, "HIGH", "LOW"),
+         ws_nut_inputs = factor(ws_nut_inputs, levels = c("LOW", "HIGH"))) |>
+  drop_na(ws_nut_inputs) |>
+  arrange(ws_nut_inputs)
+
+ggplot(nut_inputs, aes(color = ws_nut_inputs)) +
+  geom_sf(size = 0.3) +
+  scale_color_manual(values = c("#4e8562", "#9c0082"),
+                    labels = c("Low", "High"),
+                    name = "Annual \nAnthropogenic \nWatershed \nNutrient \nInputs") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  guides(color = guide_legend(override.aes = list(size = 2))) +
+  theme_void()
+
+```
 
 Table S8. Final model fixed effect coefficient estimates and standard errors with p-values (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria (Cyano) and microcystin (Micx) models. Models where in-lake data were present or absent are included. Grey cells are covariates that were excluded from model development. Empty cells are covariates that were not included in the finla model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships. Note the scale and range of the covariates in Table S1.
 ```{r}
