@@ -27,6 +27,7 @@ library(flextable)
 library(officer)
 library(officedown)
 library(stringr)
+library(ggbeeswarm)
 
 # Do not include code chunks in document
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -48,8 +49,26 @@ int_cyano_plnlow <- pval(summary(cyano_lake)$coefficients$fixed$p[15])
 
 ```
 
+## Methods
 
-```{r nla map compilation, message = FALSE}
+Artificial placeholder for schematic diagram so that figure numbering is correct (@fig1)
+```{r}
+#| label: fig1
+#| fig-width: 1
+#| fig-height: 1
+#| fig-cap: "Placeholder for schematic diagram"
+
+ggplot(habs)
+```
+
+We used data from the 2007, 2012, and 2017 NLA for this analysis (@nla-map)
+
+```{r nla map, message = FALSE}
+#| label: nla-map
+#| fig-width: 7
+#| fig-height: 3.5
+#| fig-cap: "Lakes sampled in the 2007, 2012, and 2017 National Lakes Assessment."
+#| 
 # CONUS with state outlines
 conus <- tigris::states(cb = TRUE, progress_bar = FALSE) |>
   filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI')) |>
@@ -63,15 +82,7 @@ nla_map <- ggplot() +
   geom_sf(data = habs, shape = 24, fill = "grey39", size = 1, stroke = .2) +
   theme_void()
 
-```
-
-```{r nla map}
-#| label: nla-map
-#| fig-width: 7
-#| fig-height: 3.5
-#| fig-cap: "Lakes sampled in the 2007, 2012, and 2017 National Lakes Assessment."
 nla_map
-
 ```
 
 ## Results
@@ -80,15 +91,17 @@ nla_map
 #| label: cor-plot
 #| fig-width: 6
 #| fig-height: 6
-#| fig-cap: "Pairwise spearman's rank correlation matrix of all covariates considered for the models. Blue represent positive correlations and red represent negative correlations. Darker colors and tighter ellipses represent larger correlation coefficients and stronger relationships."
+#| fig-cap: "Pairwise spearman's rank correlation matrix of all response variables and continuous covariates considered for the models. Blue represent positive correlations and red represent negative correlations. Darker colors and tighter ellipses represent larger correlation coefficients and stronger relationships. See Table S1 for summaries of variable ranges and sources."
 
 # Trim to just the variables explored in the models
 cor_dat <- habs |>
   st_drop_geometry() |>
-  select(TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, n_farm_inputs:p_dev_inputs) |>
-  relocate(NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, n_dev_inputs, p_dev_inputs, N_Total_Deposition, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
+  select(B_G_DENS, MICX, TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, P_Deposition, n_farm_inputs:p_dev_inputs, P_Accumulated_ag_inputs, P_Legacy_P) |>
+  relocate(B_G_DENS, MICX, NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, P_Accumulated_ag_inputs, P_Legacy_P, n_dev_inputs, p_dev_inputs, N_Total_Deposition, P_Deposition, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
 
-var_names <- c("Total N", 
+var_names <- c("Cyanobacteria", 
+               "Microcystin", 
+               "Total N", 
                "Total P",   
                "Nitrate", 
                "Ammonia", 
@@ -105,7 +118,10 @@ var_names <- c("Total N",
                "Farm P Inputs",
                "Developed N Inputs", 
                "Developed P Inputs",
-               "Deposition N", 
+               "Accumulated P Inputs",
+               "Legacy P Inputs",
+               "Deposition N",
+               "Deposition P",
                "Monthly Precip",
                "Monthly Air Temp",
                "Annual Precip", 
@@ -132,25 +148,11 @@ neg_str_rhos <- length(unique(rhos[rhos < -0.5 & rhos > -1]))
 
 ```
 
-### Drivers of CyanoHABs
+### National Drivers of CyanoHABs
 
-Both the cyanobacteria and microcystin models were driven by a similar set of covariates with some differences in the relative importance of individual covariates within each model. Note that many of the potential covariates tested for the models were highly colinear (@cor-plot). There were `r pos_str_rhos` positive pairwise comparisons that had rho \> 0.5 and `r neg_str_rhos` negative pairwise comparisons that had rho \< -0.5.
+Both the cyanobacteria and microcystin models were driven by a similar set of covariates with some differences in the relative importance of individual covariates within each model. Note that many of the potential covariates tested for the models were highly collinear (@cor-plot). There were `r pos_str_rhos` positive pairwise comparisons that had rho \>0.5 and `r neg_str_rhos` negative pairwise comparisons that had rho \<-0.5. The high degree of correlation among covariates means that the inclusion or exclusion of any variable or influence of any given variable should be interpreted with caution. 
 
 #### Model Fixed Effects
-
-Nutrient conditions were included in both models with and without in-lake conditions (@tbl-fixed_effects). In the case of models that included in-lake conditions, total N was positively related to cyanobacteria abundance and probability of microcystin detection. The microcystin model with in-lake conditions also included watershed farm P input. Dissolved nutrients including nitrate and and DOC were negatively associated with cyanobacteria and microcystin and ammonium was also negatively associated with cyanobacteria but not included in the final microcystin model. For the models that excluded in-lake conditions, the watershed nutrient inputs became more important with both farm and developed land cover N and P inputs having a positive relationship with cyanobacteria abundance and probability of microcystin detection. Only the microcystin model without in-lake conditions had a negative association with forested land cover.
-
-Regardless of the presence of in-lake conditions, across models shallower lakes and lakes with longer fetch were associated with higher cyanobacteria abundance and probability of microcystin detection. Similarly, watersheds with lower mean annual precipitation and higher mean annual temperature were associated with higher cyanobacteria abundance and probability of microcystin detection.
-
-The models with in-lake conditions present had a positive relationship with the evaporation to inflow ratio. In other words, lakes with higher evaporation rates relative to inflowing water were higher in cyanobacteria abundance and probability of microcystin detection. The baseflow index was not included in the models with in-lake conditions, but higher baseflow influence was associated with lower cyanobacteria and microcystin in the models without in-lake conditions.
-
-In most models, the amount of cyanobacteria and probability of microcystin detection was higher in the central plains and coastal lowlands as well as the upper midwest and eastern highlands compared to the western mountains and xeric ecoregion. In addition, the cyanobacteria model with in-lake conditions had an interaction term between lake total N concentration and the ecoregion. In this instance, higher total N concentration in the EHIGH ecoregion is correlated with significantly higher cyanobacteria abundance relative to the WMTNS. There was also a small negative interaction between the total N concentration and the EHIGH, but not significant (`r int_cyano_plnlow`).
-
-#### Spatial Influence and Model Fit
-
-Standardized residuals were randomly distributed across the country for both models that included and excluded in-lake conditions (@std-resid-maps). For the models of cyanobacteria abundance, spatial models outperformed independent error models with lower bias, lower RMSPE, and higher predicted R^2^ regardless of the presence of in-lake conditions (@tbl-mod-fit). For the probability of microcystin detection, model performance was similar for spatial and independent error models with respect to bias and AUC. Bias was slightly lower for the spatial compared to the independent error models for microcystin when in-lake conditions were present or absent.
-
-The was influence of spatial autocorrelation in both the cyanobacteria and microcystin models without in-lake conditions (@spcov-maps). In the cyanobacteria model, the spatial autocorrelation was positive and high in the portions of the northern central plains, Midwestern states, and mid-Atlantic regions of the country. In contrast, spatial autocorrelation was strongly negative in the Northeastern part of the country. For reference on the influence of this term on model fitted values, as an example, a positive spatially dependent error term of 0.8 for a lake can increase a fitted cyanobacteria abundance of \~10,000 mL based on fixed effects alone to \~100,000 cells/mL with the spatial error term. In contrast, a negative spatially dependent error term of -0.4 can result in a fitted cyanobacteria abundance of \~10,000 cells/mL based on fixed effects alone to \~100 cells/mL with the spatial error term. Similar to the cyanobacteria model, the microcystin had high positive spatial autocorrelation in the Midwestern and central northern plains regions with pockets in Utah, Arizona, Texas, and Florida. For example, a positive spatially dependent error term of 2 can increase the fitted probability of microcystin detection of 30-50% based on fixed effects alone to 80-90%. In contrast, spatial autocorrelation was high and negative in the Northeastern part of the country. As an example, a negative spatially dependent error term of -1.5 can decrease the fitted probability of microcystin detection from 15-30% based on fixed effects alone to 1-10%.
 
 ```{r extract model fixed effects}
 # Function to extract the fixed effects from each model
@@ -278,156 +280,24 @@ covar_tbl <- est_and_sign |>
 
 ```
 
-Table 1. Model fixed effect coefficient sign (negative or positive) and p-value (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria (Cyano) and microcystin (Micx) models both where in-lake data was present or absent. Grey cells are covariates that were excluded from model development. Empty cells covariates that were not included in the model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships.
-```{r covariate table}
-#| label: tbl-fixed_effects
+Nutrient conditions were included in both models with and without in-lake conditions (Table 1). In the case of models that included in-lake conditions, total N was positively related to cyanobacteria abundance and probability of microcystin detection. The microcystin model with in-lake conditions also included watershed farm P input. Dissolved nutrients including nitrate and DOC were negatively associated with cyanobacteria and microcystin and ammonium was also negatively associated with cyanobacteria but not included in the final microcystin model. For the models that excluded in-lake conditions, the watershed nutrient inputs became more important, with both farm and developed land cover N and P inputs having a positive relationship with cyanobacteria abundance and probability of microcystin detection. Only the microcystin model without in-lake conditions had a negative association with forested land cover.
+
+Table 1. Model fixed effect coefficient sign (negative or positive) and p-value (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria (Cyano) and microcystin (Micx) models both where in-lake data was present or absent. Grey cells are covariates that were excluded from model development. Empty cells covariates that were not included in the model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships. See Table S8 for coefficient values and standard errors.
+```{r print covariate table}
 covar_tbl
 ```
 
-```{r standarized residual maps}
-#| label: std-resid-maps
-#| fig-width: 6
-#| fig-height: 7
-#| fig-cap: "Standardized residuals for the cyanobacteria abundance (a) and probability of microcystin detection (b) models without in-lake conditions."
+Regardless of the presence of in-lake conditions, across models shallower lakes and lakes with longer fetch were associated with higher cyanobacteria abundance and probability of microcystin detection. Similarly, watersheds with lower mean annual precipitation and higher mean annual temperature were associated with higher cyanobacteria abundance and probability of microcystin detection. 
 
-cyano_nolake_aug <- augment(cyano_nolake) |>
-  mutate(resp = "Cyanobacteria") |>
-  select(resp, .std.resid)
-micx_nolake_aug  <- augment(micx_nolake) |>
-  mutate(resp = "Microcystin") |>
-  select(resp, .std.resid) |>
-  st_transform(st_crs(cyano_nolake_aug))
+The models with in-lake conditions present had a positive relationship with the evaporation to inflow ratio. In other words, lakes with higher evaporation rates relative to inflowing water were higher in cyanobacteria abundance and probability of microcystin detection. The baseflow index was not included in the models with in-lake conditions, but higher baseflow influence was associated with lower cyanobacteria and microcystin in the models without in-lake conditions. 
 
-std_resid_comb <- rbind(cyano_nolake_aug, micx_nolake_aug) |>
-  mutate(rank = case_when(.std.resid > 4 ~ 4,
-                          .std.resid > 3 & .std.resid < 4 ~ 3,
-                          .std.resid < -2 ~ 2,
-                          TRUE ~ 1)) |>
-  arrange(rank)
-
-cyan_stdresid_map <- ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = filter(std_resid_comb, resp == "Cyanobacteria"), 
-          aes(fill = .std.resid), pch = 21, size = 1.5) +
-  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
-                                               mid = 0, 
-                                               name = "Standardized\nResidual") +
-    theme_void()
-
-micx_stdresid_map <- ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = filter(std_resid_comb, resp == "Microcystin"), 
-          aes(fill = .std.resid), pch = 21, size = 1.5) +
-  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
-                                               mid = 0, 
-                                               name = "Standardized\nResidual") +
-    theme_void()
-
-ggarrange(plotlist = list(cyan_stdresid_map, micx_stdresid_map), ncol = 1, nrow = 2, labels = "auto")
-
-```
-
-### Influence of In-Lake Conditions
-
-The presence of in-lake conditions in the cyanobacteria abundance model provides a substantial increase in the predictive R^2^ of the model overall fit (@tbl-mod-fit); however, the bias and RMSPE were similar regardless of the presence of in-lake conditions. The performance of the probability of microcystin detection models were similar with respect to bias, RMSPE, and AUC regardless of the presence of in-lake conditions.
-
-Table 2. Comparison of model fit where in-lake conditions are present or absent and the error structure (spatial or independent).
-```{r model fit comparison}
-#| label: tbl-mod-fit
-
-comp_cyan <- readRDS(paste0(here(), "/inst/model_objects/spatial_compare_cyano.rds")) |>
-  rename(fit = cor2)
-
-comp_micx <- readRDS(paste0(here(), "/inst/model_objects/spatial_compare_micx.rds")) |>
-  rename(fit = auc)
-
-options(digits = 2)
-rbind(comp_cyan, comp_micx) |>
-  select(-MSPE) |>
-  mutate(resp_var = case_when(resp_var == "cyano" ~ "Cyanobacteria",
-                              resp_var == "micx" ~ "Microcystin"),
-         lake_data = case_when(lake_data == "present" ~ "Present",
-                               lake_data == "absent" ~ "Absent"),
-         spatial_mod = case_when(spatial_mod == "spatial" ~ "Spatial",
-                                 spatial_mod == "non-spatial" ~ "Independent")) |>
-  flextable() |>
-  set_header_labels(values = list(
-    resp_var = "Response Variable",
-    lake_data = "In-Lake Conditions",
-    spatial_mod = "Error Structure",
-    bias = "Bias",
-    RMSPE = "RMSPE",
-    fit = "Fit")) |>
-  merge_v(part = "body", j = c(1:2)) |> 
-  footnote(i = 1, j = 6,
-           value = as_paragraph("Fit is R^2 for cyanobacteria models and AUC for microcystin models."), ref_symbols = "a", part = "header") |>
-  theme_booktabs(bold_header = TRUE) |>
-  fontsize(size = 10, part = "body") |>
-  fontsize(size = 10, part = "header") |>
-  fontsize(size = 9, part = "footer") |>
-  theme_box() |>
-  align(align = "center", part = "header")
-
-```
-
-```{r spatial covariance maps}
-#| label: spcov-maps
-#| fig-width: 6
-#| fig-height: 7
-#| fig-cap: "Spatial covariance for the cyanobacteria abundance (a) and probability of microcystin detection (b) models without in-lake data."
-
-cyano_aug <- augment(cyano_nolake) |>
-  mutate(spde = fitted(cyano_nolake, type = "spcov")$de,
-         resp = "Cyanobacteria") |>
-  select(resp, spde)
-
-micx_aug <- augment(micx_nolake) |>
-  mutate(spde = fitted(micx_nolake, type = "spcov")$de,
-         resp = "Microcystin") |>
-  select(resp, spde) |>
-  st_transform(st_crs(cyano_aug))
-  
-spde <- rbind(cyano_aug, micx_aug)
-
-cyan_spde_map <- ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = cyano_aug, 
-          aes(fill = spde), pch = 21, size = 1.5) +
-  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
-                                               mid = 0, 
-                                               name = "Spatial\nCorrelation") +
-    theme_void()
-
-micx_spde_map <- ggplot() + 
-  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = micx_aug, 
-          aes(fill = spde), pch = 21, size = 1.5) +
-  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
-                                               mid = 0, 
-                                               name = "Spatial\nCorrelation") +
-    theme_void()
-
-ggarrange(plotlist = list(cyan_spde_map, micx_spde_map), ncol = 1, nrow = 2, labels = "auto")
-
-```
-
-### Predicted CyanoHABs Risk
-
-```{r}
-
-# load predictor dataset into quarto
-
-# load("C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/data/PredData.rda")
-
-```
-
-#### Geographic Patterns
+In most models, the amount of cyanobacteria and probability of microcystin detection was higher in the central plains and coastal lowlands as well as the upper midwest and eastern highlands (EHIGH) compared to the western mountains (WMTNS) and xeric ecoregion (@preds-map). In addition, the cyanobacteria model with in-lake conditions had an interaction term between lake total N concentration and the ecoregion. In this instance, higher total N concentration in the EHIGH ecoregion is correlated with significantly higher cyanobacteria abundance relative to the WMTNS. There was also a small negative interaction between the total N concentration and the EHIGH, but not significant (`r int_cyano_plnlow`).
 
 ```{r micx predictions}
-#| label: micx-map
+#| label: preds-map
 #| fig-width: 6
 #| fig-height: 8
-#| fig-cap: "Predicted cyanobacteria abundance (a) and probabilty of microcystin detection at or above 0.1 ug/L (b) in 124,529 on-network lakes."
+#| fig-cap: "Predicted cyanobacteria abundance (a) and probabilty of microcystin detection at or above 0.1 ug/L (b) in 124,529 on-network lakes. Lakes ≥100,000 cells/mL for cyanobacteria abundance or 50% probability of microcystin detection shown in warmer colors and lakes below these thresholds are shown in cooler colors."
 
 states <- states(cb = TRUE, progress_bar = FALSE)  %>%
   filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI'))  %>%
@@ -465,6 +335,7 @@ cyano_pred_map <- ggplot() +
           size = 0.3,
           alpha = 0.8)  +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  guides(color = guide_legend(override.aes = list(size = 2))) +
   theme_void()
 
 # Micx Prediction Map
@@ -487,62 +358,155 @@ micx_pred_map <- ggplot(PredData, aes(color = disc_micx)) +
                      labels = labels,
                      name = "Probability of \nDetection (%)") +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  guides(color = guide_legend(override.aes = list(size = 2))) +
   theme_void()
 
 ggarrange(plotlist = list(cyano_pred_map, micx_pred_map), ncol = 1, nrow = 2, labels = "auto", align = "h")
 
 ```
 
-```{r prepare data - micx}
+#### Spatial Influence and Model Fit
+
+Residuals that are decorrelated (i.e., standardized) can be used to check assumptions in spatial models. For both models that included and excluded in-lake conditions, the decorrelated residuals did not show any obvious signs of extreme behavior suggesting lack of fit (Figure S1),  For the models of cyanobacteria abundance, spatial models outperformed independent error models with a 30% lower RMSPE and more than doubled the predicted R2 regardless of the presence of in-lake conditions (Table 2). For the probability of microcystin detection, spatial models had approximately a 10% reduction in RMSPE and a 10% increase in AUC.
+
+Table 2. Comparison of model fit where in-lake conditions are present or absent and the error structure (spatial or independent).
+```{r model fit comparison}
+
+comp_cyan <- readRDS(paste0(here(), "/inst/model_objects/spatial_compare_cyano.rds")) |>
+  rename(fit = cor2)
+
+comp_micx <- readRDS(paste0(here(), "/inst/model_objects/spatial_compare_micx.rds")) |>
+  rename(fit = auc)
+
+options(digits = 2)
+rbind(comp_cyan, comp_micx) |>
+  select(-MSPE) |>
+  mutate(resp_var = case_when(resp_var == "cyano" ~ "Cyanobacteria",
+                              resp_var == "micx" ~ "Microcystin"),
+         lake_data = case_when(lake_data == "present" ~ "Present",
+                               lake_data == "absent" ~ "Absent"),
+         spatial_mod = case_when(spatial_mod == "spatial" ~ "Spatial",
+                                 spatial_mod == "non-spatial" ~ "Independent")) |>
+  flextable() |>
+  set_header_labels(values = list(
+    resp_var = "Response Variable",
+    lake_data = "In-Lake Conditions",
+    spatial_mod = "Error Structure",
+    bias = "Bias",
+    RMSPE = "RMSPE",
+    fit = "Fit")) |>
+  merge_v(part = "body", j = c(1:2)) |> 
+  footnote(i = 1, j = 6,
+           value = as_paragraph("Fit is R^2 for cyanobacteria models and AUC for microcystin models."), ref_symbols = "a", part = "header") |>
+  theme_booktabs(bold_header = TRUE) |>
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header") |>
+  fontsize(size = 9, part = "footer") |>
+  theme_box() |>
+  align(align = "center", part = "header")
+
+```
+
+The was influence of spatial autocorrelation in both the cyanobacteria and microcystin models without in-lake conditions (@spcov-maps). In the cyanobacteria model, the spatial autocorrelation was positive and high in the portions of the northern central plains, Midwestern states, and mid-Atlantic regions of the country. In contrast, spatial autocorrelation was strongly negative in the Northeastern part of the country. For reference on the influence of this term on model fitted values, as an example, a positive spatially dependent error term of 0.8 for a lake can increase a fitted cyanobacteria abundance of \~10,000 mL based on fixed effects alone to \~100,000 cells/mL with the spatial error term. In contrast, a negative spatially dependent error term of -0.4 can result in a fitted cyanobacteria abundance of \~10,000 cells/mL based on fixed effects alone to \~100 cells/mL with the spatial error term. Similar to the cyanobacteria model, the microcystin had high positive spatial autocorrelation in the Midwestern and central northern plains regions with pockets in Utah, Arizona, Texas, and Florida. For example, a positive spatially dependent error term of 2 can increase the fitted probability of microcystin detection of 30-50% based on fixed effects alone to 80-90%. In contrast, spatial autocorrelation was high and negative in the Northeastern part of the country. As an example, a negative spatially dependent error term of -1.5 can decrease the fitted probability of microcystin detection from 15-30% based on fixed effects alone to 1-10%.
+
+A benefit of incorporating spatial autocorrelation directly into modeling is that it allows for the examination of a spatial version of model errors (i.e., residuals) interpretable on the same scale as the covariates (Dumelle et al. 2023). Visualizing these model errors spatially helps identify the areas in which the spatial model accounted for autocorrelation in either the positive or negative direction (@spcov-maps; Figure S2). For example, in the cyanobacteria model, the spatial errors are strongly positive in portions of the northern central plains, Midwestern states, and mid-Atlantic regions of the country, suggesting that cyanobacteria in these regions was higher than expected under a nonspatial model. In contrast, the spatial errors are strongly negative in the Northeastern part of the country. The microcystin model spatial random errors exhibited similar behavior as for the cyanobacteria model, being strongly positive in the Midwestern and central northern plains regions with pockets in Utah, Arizona, Texas, and Florida, while being strongly negative in the Northeastern part of the country. We revisit these ideas in the Discussion, using the spatial errors to motivate drivers that may be influencing cyanobacteria and microcystin on a local rather than the national scale. 
+
+```{r spatial covariance maps for no-lake models}
+#| label: spcov-maps
+#| fig-width: 6
+#| fig-height: 7
+#| fig-cap: "Spatial residuals for the cyanobacteria abundance (a) and probability of microcystin detection (b) models with in-lake conditions absent."
+
+cyano_aug <- augment(cyano_nolake) |>
+  mutate(spde = fitted(cyano_nolake, type = "spcov")$de,
+         resp = "Cyanobacteria") |>
+  select(resp, spde)
+
+micx_aug <- augment(micx_nolake) |>
+  mutate(spde = fitted(micx_nolake, type = "spcov")$de,
+         resp = "Microcystin") |>
+  select(resp, spde) |>
+  st_transform(st_crs(cyano_aug))
+  
+spde <- rbind(cyano_aug, micx_aug)
+
+cyan_spde_map <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = cyano_aug, 
+          aes(fill = spde), pch = 21, size = 1.5) +
+  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
+                                               mid = 0, 
+                                               name = "Spatial\nResiduals") +
+    theme_void()
+
+micx_spde_map <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = micx_aug, 
+          aes(fill = spde), pch = 21, size = 1.5) +
+  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
+                                               mid = 0, 
+                                               name = "Spatial\nResiduals") +
+    theme_void()
+
+ggarrange(plotlist = list(cyan_spde_map, micx_spde_map), ncol = 1, nrow = 2, labels = "auto")
+
+```
+
+### Predicted CyanoHABs
+
+Across the conterminous United States, 62.2% of lakes were at high risk, having above 100,000 cells/mL for predicted cyanobacteria abundance (Figure 6). Illinois had the highest proportion of high cyanobacteria risk lakes, with 100% of the lakes in the dataset predicted to be above 100,000 cells/mL. Texas and South Dakota have 99.6% and 98.3% of their lakes in our dataset at high cyanobacteria risk, respectively. Areas with high proportion of at-risk lakes were in landscapes dominated by agriculture and high land development, specifically the central plains region of the US. In contrast, based on the microcystin presence/absence model, just 14.8% of lakes had a 50% or higher probability of microcystin detection. High microcystin risk was more geographically concentrated and less widespread than cyanobacteria. High microcystin probability was concentrated in the north central region around North and South Dakota, with notable hotspots in the southeast. North Dakota had the highest proportion of lakes in our dataset above this microcystin detection threshold, with 96.3%. Illinois and Iowa followed with 71.1% and 68.5% high microcystin risk, respectively.  
+
+We investigated the major drivers of cyanoHABs across the county, with further analysis focused on the relationship between anthropogenic nutrients inputs and risk of cyanoHABs (Figure S3). With the added layer of watershed nutrient inputs, we found that 61.6% of our cyanobacteria predictions and 72.3% of our microcystin predictions were correlated with watershed anthropogenic nutrient inputs. This represents the lakes that fall into the high categories for both cyanoHABs risk and landscape nutrient inputs Cyanobacteria predictions had a higher proportion of lakes in the high nutrient and correspondingly high cyanoHABs category than the microcystin predictions. The ‘high-high’ category accounted for 28.7% of the lakes in the cyanobacteria predictions, and only 8% in the microcystin predictions. We paid special attention to lakes with an inverse relationship between nutrient inputs and cyanoHABs risk, those with high watershed nutrients inputs and low cyanoHABs risk and those with low nutrient inputs and high cyanoHABs risk. 33.5% of the lakes in our dataset had low watershed nutrient inputs, but high cyanoHABs risk of cyanobacteria. This pattern was observed in 6.5% of the lakes in our dataset for microcystin. The inverse pattern was observed for lakes with high nutrient inputs but correspondingly low cyanoHABs risk, with more lakes in the microcystin predictions (21.1%) falling into this category than cyanobacteria (4.9%). Within this nutrient-cyanoHABs risk framework, we explored three variables and their varying distributions in the cyanobacteria and microcystin predictions. Baseflow index, precipitation, and area:depth ratio all had significant differences of means within the nutrient- cyanoHABs risk groups, with p-values below 0.001 when analyzed with an ANOVA statistical test (@density-plots).  
+
+The relationship between the area:depth ratio and the nutrient-cyanoHABs risk categories were stronger for the cyanobacteria predications than the microcystin. Regardless of nutrient inputs, whether high or low, lakes with higher median area:depth ratio (larger surface area when compared to their depth) were correlated with high cyanobacteria risk. For both the microcystin and cyanobacteria predictions, higher proportion of baseflow in the system was associated with lower risk, even with high or low nutrient inputs. In low nutrient input watershed, high cyanoHABs risk categories have a significantly higher proportion of stormflow than low cyanoHABs risk categories. Within the four nutrient-cyanoHABs risk categories, the cyanobacteria predictions had similar mean precipitations and bimodal distributions. For the microcystin predictions, the precipitation distributions shared a similar pattern, notable however, the low nutrient high microcystin risk category was right skewed, with a significantly lower median.  
+
+```{r prep nut and non-nut analysis}
 
 comp_micx <- PredData |>
   dplyr::select(-starts_with("pred_cyano"),
                 -starts_with("cyano_transform")) |>
-  drop_na(pred_micx_fit)
-
-comp_micx <- comp_micx |>
-  mutate(all_pred = factor(case_when(
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit >= 0.50 ~ 'HNHC',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit >= 0.50 ~ 'LNHC',
-    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit < 0.50 ~ 'HNLC',
-    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit < 0.50 ~ 'LNLC',
-    TRUE ~ 'OTHER'),
-    levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
+  drop_na(pred_micx_fit) |>
+  mutate(
+    ws_nut_inputs = ifelse((n_farm_inputs + n_dev_inputs) >= 10 | (p_farm_inputs + p_dev_inputs) >= 4, "HIGH", "LOW"),
+    all_pred = factor(case_when(
+      ws_nut_inputs == "HIGH" & pred_micx_fit >= 0.50 ~ 'HNHC',
+      ws_nut_inputs == "LOW" & pred_micx_fit >= 0.50 ~ 'LNHC',
+      ws_nut_inputs == "HIGH" & pred_micx_fit < 0.50 ~ 'HNLC',
+      ws_nut_inputs == "LOW" & pred_micx_fit < 0.50 ~ 'LNLC',
+      TRUE ~ 'OTHER'),
+      levels = c('HNHC','HNLC','LNHC','LNLC'))
+    ) |>
     arrange(all_pred)
-
-```
-
-```{r prepare data - cyano}
 
 comp_cyano <- PredData |>
   dplyr::select(-starts_with("pred_micx"),
                 -starts_with("micx_transform")) |>
-  drop_na(cyano_transform_fit)
-
-comp_cyano <- comp_cyano |>
-  mutate(all_pred = factor(case_when(
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit >= 5 ~ 'HNHC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit >= 5 ~ 'LNHC',
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit < 5 ~ 'HNLC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit < 5 ~ 'LNLC',
-    TRUE ~ 'OTHER'),
-    levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
+  drop_na(cyano_transform_fit) |>
+  mutate(
+    ws_nut_inputs = ifelse((n_farm_inputs + n_dev_inputs) >= 10 | (p_farm_inputs + p_dev_inputs) >= 4, "HIGH", "LOW"),
+    all_pred = factor(case_when(
+      ws_nut_inputs == "HIGH" & pred_cyano_fit >= 5 ~ 'HNHC',
+      ws_nut_inputs == "LOW" & pred_cyano_fit >= 5 ~ 'LNHC',
+      ws_nut_inputs == "HIGH" & pred_cyano_fit < 5 ~ 'HNLC',
+      ws_nut_inputs == "LOW" & pred_cyano_fit < 5 ~ 'LNLC',
+      TRUE ~ 'OTHER'),
+      levels = c('HNHC','HNLC','LNHC','LNLC'))
+    ) |>
     arrange(all_pred)
 
 ```
 
-#### Nutrient and Non-Nutrient Drivers
-
-```{r nutrient input comparisons}
+```{r nutrient input comparisons, include = FALSE}
 
 # Tables comparing the different types of nutrient inputs and whether that changes the "high" versus "low" nutrient input designations
 
 th_n <- 10
 th_p <- 4
 
-# The current analysis relies on just the nutrient inputs that are included in the respective models. How do the numbers change when all nutrient inputs included in the model are used to determine high/low nutrient inputs? What about expanding to a broader set of nutrient inputs that are not included in the model?
+# The current analysis relies on just the nutrient inputs that are included in the respective models. How do the numbers change when all nutrient inputs included in the model are used to determine high/low nutrient inputs? What about when deposition is included as well?
 habs |>
   st_drop_geometry() |>
+  distinct(UNIQUE_ID, .keep_all = TRUE) |>
   mutate(th_n_farm = ifelse(n_farm_inputs >= th_n, "HIGH", "LOW"),
          th_p_farm = ifelse(p_farm_inputs >= th_p, "HIGH", "LOW"),
          th_n_dev = ifelse(n_dev_inputs >= th_n, "HIGH", "LOW"),
@@ -550,29 +514,26 @@ habs |>
          ) |>
   mutate(cyano_model_inputs = ifelse(th_n_farm == "HIGH" | th_p_dev == "HIGH", "HIGH", "LOW"),
          micx_model_inputs = ifelse(th_n_dev == "HIGH" | th_p_farm == "HIGH", "HIGH", "LOW"),
-         all_model_inputs = ifelse(th_n_farm == "HIGH" | th_p_dev == "HIGH" | th_n_dev == "HIGH" | th_p_farm == "HIGH", "HIGH", "LOW")
+         all_model_inputs = ifelse((n_farm_inputs + n_dev_inputs) >= th_n | 
+                                   (p_farm_inputs + p_dev_inputs) >= th_p, "HIGH", "LOW")
          ) |>
-  mutate(tot_n_inputs = N_Fert_Farm + N_livestock_Waste + N_Total_Deposition + N_Fert_Urban + N_Human_Waste,
+  mutate(tot_n_inputs = N_Fert_Farm + N_livestock_Waste + N_Total_Deposition + N_Fert_Urban + N_Human_Waste + N_CBNF,
          tot_p_inputs = P_f_fertilizer + P_livestock_Waste + P_Deposition + P_nf_fertilizer + P_human_waste_kg,
-         all_nni_inputs = ifelse(tot_n_inputs >= th_n | tot_p_inputs >= th_p, "HIGH", "LOW"),
-         nodep_n_inputs = N_Fert_Farm + N_livestock_Waste + N_Fert_Urban + N_Human_Waste,
-         nodep_p_inputs = P_f_fertilizer + P_livestock_Waste + P_nf_fertilizer + P_human_waste_kg,
-         nni_no_dep_inputs = ifelse(nodep_n_inputs >= th_n | nodep_p_inputs >= th_p, "HIGH", "LOW")) |>
-  pivot_longer(cols = c(cyano_model_inputs:all_model_inputs, all_nni_inputs, nni_no_dep_inputs), 
+         all_nni_inputs = ifelse(tot_n_inputs >= th_n | tot_p_inputs >= th_p, "HIGH", "LOW")
+         ) |>
+  pivot_longer(cols = c(cyano_model_inputs:all_model_inputs, all_nni_inputs), 
                values_to = "inputs", names_to = "input_scope") |>
   group_by(input_scope, inputs) |>
   summarize(count = n(), .groups = "drop") |>
   drop_na() |>
-  mutate(includes = c(rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N CBNF", 2),
-                   rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N/P Dep", 2),
+  mutate(includes = c(rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N CBNF, NO DEPOSITION", 2),
+                   rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert, N/P Dep, N CBNF, INCLUDES DEPOSITION", 2),
                    rep("N Farm Fert, N Manure, N CBNF, P Dev Fert, P Human Waste", 2),
-                   rep("P Farm Fert, P Manure, N Human Waste, N Dev Fert", 2),
-                   rep("N/P Farm Fert, N/P Manure, N/P Human Waste, N/P Dev Fert", 2))) |>
+                   rep("P Farm Fert, P Manure, N Human Waste, N Dev Fert", 2))) |>
   mutate(input_scope = factor(input_scope, levels = c("cyano_model_inputs",
                                                       "micx_model_inputs",
                                                       "all_model_inputs",
-                                                      "all_nni_inputs",
-                                                      "nni_no_dep_inputs"))) |>
+                                                      "all_nni_inputs"))) |>
   arrange(input_scope) |>
   flextable() |>
   merge_v(part = "body", j = c(1, 4)) |>
@@ -584,7 +545,7 @@ habs |>
 
 
 ```{r density plots - precip, message = FALSE}
-#| label: density-precip
+#| label: density-plots
 #| fig-width: 5
 #| fig-height: 9
 #| fig-cap: "Density distributions of mean annual precipitation (a), baseflow index (b), and lake area:depth ratio (c) for the four nutrient input and cyanoHAB risk categories for the predictions from the cyanobacteria abundance (first column) and probability of microcystin detection (second column). Vertical bars in distributions represent the median. Precipitation and the area:depth ratio distributions are truncated to better show majority of data density and differences in medians."
@@ -657,6 +618,8 @@ ggpubr::ggarrange(precip_den, bfi_den, ad_den,
                   legend = "bottom",
                   labels = "auto")
 ```
+
+\pagebreak
 
 ## Supplemental Material
 
@@ -734,7 +697,6 @@ covar_sum_table <- summary_covariate_table |>
 
 Table S1. Summary statistics for response variable and covariates explored in model selection.
 ```{r varable summary table}
-#| label: tbl-var-summary
 covar_sum_table
 ```
 
@@ -866,8 +828,116 @@ Table S6. `r mod_comp_tabs[[4]][[1]]` `r mod_comp_tabs[[4]][[2]]`
 
 Table S7. `r mod_comp_tabs[[6]][[1]]` `r mod_comp_tabs[[6]][[2]]`
 
+```{r standarized residual maps}
+#| label: std-resid-maps
+#| fig-width: 9
+#| fig-height: 6.5
+#| fig-cap: "Standardized residuals for the models with in-lake conditions present (top row) for cyanobacteria abundance (a) and probability of microcystin detection (b) and models with in-lake conditions absent (bottom row) for cyanobacteria abundance (c) and probability of microcystin detection (d)."
+
+# Augment the splm objects to add the standardized residuals
+resp    <- rep(c("Cyanobacteria", "Microcystin"), 2)
+in_lake <- c(rep("Present", 2), rep("Absent", 2))
+
+auged_splms <- lapply(list(cyano_lake, micx_lake, cyano_nolake, micx_nolake), augment)
+
+stresids <- lapply(seq_along(auged_splms), function(i){
+  auged_splms[[i]] |>
+    mutate(resp = resp[i],
+           in_lake = in_lake[i]) |>
+    select(resp, in_lake, .std.resid) |>
+    st_transform(cyano_nolake$crs) |>
+    mutate(rank = case_when(.std.resid > 4 ~ 4,
+                            .std.resid > 3 & .std.resid < 4 ~ 3,
+                            .std.resid < -2 ~ 2,
+                            TRUE ~ 1)) |>
+    arrange(rank)
+})
+
+stresid_maps <- lapply(seq_along(stresids), function(i){
+  ggplot() + 
+    geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+    geom_sf(data = stresids[[i]], 
+            aes(fill = .std.resid), pch = 21, size = 1.5) +
+    colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
+                                                 mid = 0, 
+                                                 name = "Standardized\nResidual") +
+    ggtitle(paste(resp[i], in_lake[i])) +
+    theme_void()
+})
+
+ggarrange(plotlist = stresid_maps, ncol = 2, nrow = 2, labels = "auto")
+
+```
+
+
+```{r spatial residulas maps for in-lake models}
+#| label: spcov-maps-inlake
+#| fig-width: 6
+#| fig-height: 7
+#| fig-cap: "Spatial residuals for the cyanobacteria abundance (a) and probability of microcystin detection (b) models with in-lake conditions present."
+
+cyano_lake_aug <- augment(cyano_lake) |>
+  mutate(spde = fitted(cyano_lake, type = "spcov")$de,
+         resp = "Cyanobacteria") |>
+  select(resp, spde)
+
+micx_lake_aug <- augment(micx_lake) |>
+  mutate(spde = fitted(micx_lake, type = "spcov")$de,
+         resp = "Microcystin") |>
+  select(resp, spde) |>
+  st_transform(st_crs(cyano_lake_aug))
+  
+spde <- rbind(cyano_lake_aug, micx_lake_aug)
+
+cyan_lake_spde_map <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = cyano_lake_aug, 
+          aes(fill = spde), pch = 21, size = 1.5) +
+  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
+                                               mid = 0, 
+                                               name = "Spatial\nResiduals") +
+    theme_void()
+
+micx_lake_spde_map <- ggplot() + 
+  geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
+  geom_sf(data = micx_lake_aug, 
+          aes(fill = spde), pch = 21, size = 1.5) +
+  colorspace::scale_fill_continuous_divergingx(palette = "BrBG", 
+                                               mid = 0, 
+                                               name = "Spatial\nResiduals") +
+    theme_void()
+
+ggarrange(plotlist = list(cyan_lake_spde_map, micx_lake_spde_map), ncol = 1, nrow = 2, labels = "auto")
+
+```
+
+
+```{r high and low nutrient watersheds}
+#| label: nut-input-map
+#| fig-width: 6
+#| fig-height: 4
+#| fig-cap: "Annual anthropogenic nitrogen and phosphorus inputs to the 124,529 lake watersheds for which predictions of cyanoHABs were generated. Inputs consist of the sum of farm fertilizer, manure, developed landscape fertilizer, and human waste for each nutrient. Nitrogen has an additional term for cultivated crop biological nitrogen fixtation. High nutrient inputs consist of at least 10 kg N/ha/yr or 4 kg P/ha/yr inputs."
+
+nut_inputs <- PredData |>
+  mutate(ws_nut_inputs = ifelse((n_farm_inputs + n_dev_inputs) >= 10 | 
+                                (p_farm_inputs + p_dev_inputs) >= 4, "HIGH", "LOW"),
+         ws_nut_inputs = factor(ws_nut_inputs, levels = c("LOW", "HIGH"))) |>
+  drop_na(ws_nut_inputs) |>
+  arrange(ws_nut_inputs)
+
+ggplot(nut_inputs, aes(color = ws_nut_inputs)) +
+  geom_sf(size = 0.3) +
+  scale_color_manual(values = c("#4e8562", "#9c0082"),
+                    labels = c("Low", "High"),
+                    name = "Annual \nAnthropogenic \nWatershed \nNutrient \nInputs") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  guides(color = guide_legend(override.aes = list(size = 2))) +
+  theme_void()
+
+```
+
 Table S8. Final model fixed effect coefficient estimates and standard errors with p-values (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria (Cyano) and microcystin (Micx) models. Models where in-lake data were present or absent are included. Grey cells are covariates that were excluded from model development. Empty cells are covariates that were not included in the finla model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships. Note the scale and range of the covariates in Table S1.
-```{r}
+```{r covariate table with coefficient values}
 
 # Table is identical to covariate table in main text, but included the coefficient mean and standard error.
 
@@ -973,5 +1043,84 @@ covar_tbl <- est_and_sign |>
   fontsize(size = 10, part = "header")
 
 covar_tbl
+```
+
+```{r figure of covariate contributions}
+#| label: covar-contri
+#| fig-width: 6.5
+#| fig-height: 4
+#| fig-cap: "Covariate contributions (slope * variable value) to the fitted value (x-axis) for each of the observed lakes used to fit the models without in-lake conditions for cyanobacteria abundance (a) and probability of microcystin detection (b). Only continuous variables are included; the model intercept and categorical variables are excluded. Note that the covariate contributions are displayed on a standardized and centered scale and fitted values are on the response scale."
+
+att_cyan <- readr::read_csv(here::here("inst/model_objects/cyano_nolake_attribution.csv")) |>
+  mutate(resp = "Cyano") |>
+  pivot_longer(c(n_farm_inputs:lakemorpho_fetch, de), names_to = "variable", values_to = "variable_contr") |>
+  mutate(variable = factor(variable, levels = c("de",
+                                                "Tmean8110Ws",
+                                                "Precip8110Ws",
+                                                "BFIWs",
+                                                "lakemorpho_fetch",
+                                                "MAXDEPTH",
+                                                "p_dev_inputs",
+                                                "n_farm_inputs"))
+  ) |>
+  arrange(fitted)
+
+att_micx <- readr::read_csv(here::here("inst/model_objects/micx_nolake_attribution.csv")) |>
+  mutate(resp = "Micx") |>
+  pivot_longer(c(p_farm_inputs:BFIWs, de), names_to = "variable", values_to = "variable_contr") |>
+  mutate(variable = factor(variable, levels = c("de",
+                                                "Tmean8110Ws",
+                                                "Precip8110Ws",
+                                                "BFIWs",
+                                                "lakemorpho_fetch",
+                                                "MAXDEPTH",
+                                                "fst_ws",
+                                                "n_dev_inputs",
+                                                "p_farm_inputs"))
+  ) |>
+  arrange(fitted)
+
+cyan_attri_plot <- ggplot(att_cyan, aes(x = variable, y = variable_contr, color = fitted)) +
+  geom_quasirandom(shape = 16, size = 0.75, groupOnX = TRUE) +
+  scale_color_gradientn(colors = c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000"),
+                        name = "Fitted \nCyanobacteria \nAbundance \n(cell/mL)",
+                        breaks = c(log10(3000+1000), log10(10000+1000), log10(30000+1000), log10(100000+1000)),
+                        labels = c("3,000", "10,000", "30,000", "100,000")) +
+  scale_x_discrete(labels = c("n_farm_inputs" = "Farm N Inputs", 
+                              "p_dev_inputs" = "Developed P Inputs", 
+                              "MAXDEPTH" = "Lake Depth",
+                              "lakemorpho_fetch" = "Lake Fetch",
+                              "BFIWs" = "Baseflow Index",
+                              "Precip8110Ws" = "Annual Precip",
+                              "Tmean8110Ws" = "Annual Temp",
+                              "de" = "Spatial Residual"),
+                   name = "") +
+  coord_flip() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+micx_attri_plot <- ggplot(att_micx, aes(x = variable, y = variable_contr, color = fitted)) +
+  geom_quasirandom(shape = 16, size = 0.75, groupOnX = TRUE) +
+  scale_color_gradientn(colors = c("#2980b9","#aed6f1","#f0b27a","#d35405"),
+                        name = "Probability \nMicrocystin \nDetection \n(%)") +
+  scale_x_discrete(labels = c("p_farm_inputs" = "Farm P Inputs", 
+                              "n_dev_inputs" = "Developed N Inputs", 
+                              "fst_ws" = "Forest Cover",
+                              "MAXDEPTH" = "Lake Depth",
+                              "lakemorpho_fetch" = "Lake Fetch",
+                              "BFIWs" = "Baseflow Index",
+                              "Precip8110Ws" = "Annual Precip",
+                              "Tmean8110Ws" = "Annual Temp",
+                              "de" = "Spatial Residual")) +
+  coord_flip() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+attr_fig <- ggarrange(plotlist = list(cyan_attri_plot, micx_attri_plot), ncol = 2, nrow = 1, labels = "auto")
+
+attr_fig <- annotate_figure(attr_fig, bottom = "Covariate Contribution to Fitted Value (standardized)")
+
+attr_fig
+
 ```
 
