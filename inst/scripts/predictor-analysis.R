@@ -72,14 +72,14 @@ PredData <- PredData %>%
   # ))) %>%
 
 PredData <- PredData |>
-  mutate(new_micx_pred = factor(case_when(
-    (all_n >= 10 | all_p >= 4) & pred_micx_fit >= 0.50 ~ 'HNHM',
-    (all_n < 10 | all_p < 4) & pred_micx_fit >= 0.50 ~ 'LNHM',
-    (all_n >= 10 | all_p >= 4) & pred_micx_fit < 0.50 ~ 'HNLM',
-    (all_n < 10 | all_p < 4) & pred_micx_fit < 0.50 ~ 'LNLM',
+  mutate(micx_pred = factor(case_when(
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit >= 0.50 ~ 'HNHM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit >= 0.50 ~ 'LNHM',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & pred_micx_fit < 0.50 ~ 'HNLM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & pred_micx_fit < 0.50 ~ 'LNLM',
     TRUE ~ 'OTHER'),
     levels = c('HNHM','HNLM','LNHM','LNLM'))) %>%
-    arrange(new_micx_pred)
+    arrange(micx_pred)
 
 # Ratios -----------------------------------------------------------------------
 
@@ -634,7 +634,7 @@ comp_cyano$nutr_all <- comp_cyano$n_farm_inputs + comp_cyano$p_dev_inputs
 #                                        nutr_all >= 10 & pred_cyano >= 5 ~ 'HNHC',
 #                                        nutr_all <= 10 & pred_cyano <= 5 ~ 'LNLC')))
 
-PredData <- PredData %>%
+# PredData <- PredData %>%
    # mutate(cyano_class = factor(case_when(
    #   pred_cyano >= 5 ~ 'HC',
    #   pred_cyano < 5 ~'LC',
@@ -670,6 +670,8 @@ PredData <- PredData %>%
    #   (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano < 5 ~ 'LNLC',
    #   TRUE ~ 'OTHER'
    # ))) %>%
+
+PredData <- PredData |>
   mutate(cyano_pred = factor(case_when(
     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit >= 5 ~ 'HNHC',
     (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit >= 5 ~ 'LNHC',
@@ -1216,38 +1218,7 @@ micx_a |>
 
 ggboxplot(cyano_a, x = "all_pred", y = "BFIWs")
 
-# drain ratio ------------------------------------------------------------------
-
-get_nlcd <- function(coms){
-  StreamCatTools::lc_get_data(metric = 'pctconif2016',
-                              aoi='ws',
-                              comid = coms,
-                              showAreaSqKm = TRUE)
-}
-
-# divide existing predictor data set into groups of 500 by COMID
-# increasing efficiency in pulling NLCD data
-chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 500))
-
-
-# using lapply function to pull NLCD data from each chunk by COMID
-ws_area <- do.call(rbind, lapply(chunks, get_nlcd))
-
-PredData <- ws_area |>
-  dplyr::select(COMID, wsareasqkm) |>
-  left_join(PredData, by = 'COMID') |>
-  st_as_sf()
-
-PredData <-PredData |>
-  rowwise() |>
-  mutate(drain_ratio = wsareasqkm / lake_area)
-
-dr_model <- splm(drain_ratio ~ all_pred, PredData, spcov_type = "exponential")
-ggpubr::ggqqplot(residuals(bf_model))
-
-anova(dr_model)
-ggpubr::ggqqplot(residuals(ad_model, type = "standardized"))
-
+# ANOVA ------------------------------------------------------------------------
 
 model <- lm(BFIWs ~ all_pred, data = cyano_a)
 ggqqplot(residuals(model))
@@ -1602,6 +1573,187 @@ comp_micx|>
   theme_box() |>
   align(align = "center", part = "header")
 
+# DRAIN RATIO & DOC ------------------------------------------------------------
+
+# drain ratio ------------------------------------------------------------------
+
+get_nlcd <- function(coms){
+  StreamCatTools::lc_get_data(metric = 'pctconif2016',
+                              aoi='ws',
+                              comid = coms,
+                              showAreaSqKm = TRUE)
+}
+
+# divide existing predictor data set into groups of 500 by COMID
+# increasing efficiency in pulling NLCD data
+chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 500))
+
+
+# using lapply function to pull NLCD data from each chunk by COMID
+ws_area <- do.call(rbind, lapply(chunks, get_nlcd))
+
+ws_area <- ws_area |>
+  rename(COMID = comid)
+
+PredData <- ws_area |>
+  dplyr::select(COMID, wsareasqkm) |>
+  left_join(PredData, by = 'COMID') |>
+  st_as_sf()
+
+PredData <-PredData |>
+  rowwise() |>
+  mutate(wsareaha = wsareasqkm * 100,
+         lake_areaha = lake_area / 10000,
+         drain_ratio = wsareaha / lake_areaha)
+
+dr_model_cy <- splm(drain_ratio ~ cyano_pred, PredData, spcov_type = "exponential")
+ggpubr::ggqqplot(residuals(bf_model))
+
+anova(dr_model_cy)
+
+ggplot(PredData, aes(x=drain_ratio, y= cyano_pred)) +
+  ggridges::geom_density_ridges(aes(fill = cyano_pred), quantile_lines = TRUE, quantiles = 4) +
+  # scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
+  xlim(0,150) +
+  labs(x = "drain ratio", fill = 'Class',
+       title = 'cyano') +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
+
+ggplot(PredData, aes(drain_ratio, pred_cyano_fit)) +
+  geom_point(aes(colour = disc)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "P", "adj.R2"))) +
+  xlim(0,150) +
+  ylim(0,10)
+scale_y_continuous(trans = "log") +
+  scale_x_continuous(trans = "log")
+
+ggpubr::ggqqplot(residuals(ad_model, type = "standardized"))
+
+no_sf_pred <- PredData |>
+  st_drop_geometry() |>
+  select(COMID, drain_ratio)
+
+
+doc_test <- left_join(no_sf_pred, habs, by = 'COMID') |>
+  drop_na()
+
+
+# drain ratio with habs data ---------------------------------------------------
+
+wbd_copy <- wbd |>
+  subset(COMID %in% PredData$COMID) |>
+  dplyr::select(COMID, Shape)
+
+# create lake area metric
+for (Shape in 1:length(wbd_copy)) {
+  shapes <- wbd_copy$Shape
+  wbd_copy$lake_area <- st_area(shapes)
+}
+
+# drop units and convert polygons to points
+wbd_copy <- wbd_copy |>
+  mutate(lake_area = drop_units(lake_area)) |>
+  st_point_on_surface()
+
+# merge water boundary data with existing predictor data
+PredData <- merge(wbd_copy, PredData, by = 'COMID')
+
+get_nlcd <- function(coms){
+  StreamCatTools::lc_get_data(metric = 'pctconif2016',
+                              aoi='ws',
+                              comid = coms,
+                              showAreaSqKm = TRUE)
+}
+
+# divide existing predictor data set into groups of 500 by COMID
+# increasing efficiency in pulling NLCD data
+chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 500))
+
+
+# using lapply function to pull NLCD data from each chunk by COMID
+ws_area <- do.call(rbind, lapply(chunks, get_nlcd))
+
+ws_area <- ws_area |>
+  rename(COMID = comid)
+
+PredData <- ws_area |>
+  dplyr::select(COMID, wsareasqkm) |>
+  left_join(PredData, by = 'COMID') |>
+  st_as_sf()
+
+wbd_copy <- wbd_copy |>
+  st_drop_geometry()
+
+habs <- habs |>
+  left_join(wbd_copy, by = 'COMID')
+
+habs <- habs |>
+  rowwise() |>
+  mutate(wsareaha = wsareasqkm * 100,
+         lake_areaha = lake_area / 10000,
+         drain_ratio = wsareaha / lake_areaha)
+
+habs <- habs %>%
+  mutate(disc_fst = factor(case_when(fst_ws < 25 ~ 'B1',
+                                     fst_ws >= 25 & fst_ws < 50 ~ 'B2',
+                                     fst_ws >= 50 & fst_ws < 75 ~ 'B3',
+                                     fst_ws >= 75  ~ 'B4'),
+                           levels = c('B1', 'B2', 'B3', 'B4'))) %>%
+  arrange(disc_fst)
+
+
+fst_labels = c("0-25%", "25-50%", "50-75%", ">75%")
+fst_cols <- RColorBrewer::brewer.pal(4, "YlGn")
+
+ggplot(habs, aes(drain_ratio, DOC)) +
+  geom_point(aes(color = disc_fst)) +
+  scale_color_manual(values = fst_cols,
+                     labels = fst_labels,
+                     name = "Cover (%)") +
+  # ylim(0,20) +
+  # xlim(0,500) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "P", "adj.R2"))) +
+  scale_y_continuous(trans = "log10") +
+  scale_x_continuous(trans = "log10")
+
+
+ggplot(habs, aes(drain_ratio, DOC)) +
+  geom_point(aes(color = disc_fst)) +
+  scale_color_manual(values = fst_cols,
+                     labels = fst_labels,
+                     name = "Cover (%)") +
+  ylim(0,15) +
+  xlim(0,150)
+
+habs <- habs %>%
+  mutate(disc_cyano = factor(case_when(B_G_DENS < 2337 ~ 'B1',
+                                       B_G_DENS >= 2337 & B_G_DENS < 19206 ~ 'B2',
+                                       B_G_DENS >= 19206 & B_G_DENS < 90659 ~ 'B3',
+                                       B_G_DENS >= 90659  ~ 'B4'),
+                             levels = c('B1', 'B2', 'B3', 'B4'))) %>%
+  arrange(disc_cyano)
+
+
+labels = c("< Q1", "Q1-Q2", "Q2-Q3", ">Q3")
+cols <- rev(RColorBrewer::brewer.pal(4, "Spectral"))
+
+
+ggplot(habs, aes(drain_ratio, DOC)) +
+  geom_point(aes(color = disc_cyano)) +
+  facet_wrap(~disc_cyano) +
+  scale_color_manual(values = cols,
+                     labels = labels,
+                     name = "CYANO") +
+  # ylim(2,12) +
+  # xlim(0,150) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "P", "adj.R2"))) +
+  scale_y_continuous(trans = "log10") +
+  scale_x_continuous(trans = "log10")
+
 
 get_nni <- function(coms){
   lc_get_data(metric = 'n_tin2016,p_tin2016',
@@ -1621,3 +1773,115 @@ df <- lc_get_data(metric = 'pctwdwet2016, pcturbmd2016, pcturblo2016,pctmxfst201
 
 
 write.csv(habs, file = 'inst/all_habs_vars.csv')
+
+habs <- habs %>%
+  mutate(disc_doc = factor(case_when(DOC < 3.397 ~ 'B1',
+                                       DOC >= 3.397 & DOC < 5.580 ~ 'B2',
+                                       DOC >= 5.580 & DOC < 8.725 ~ 'B3',
+                                       DOC >= 8.725 ~ 'B4'),
+                             levels = c('B1', 'B2', 'B3', 'B4'))) %>%
+  arrange(disc_doc)
+
+
+labels = c("< Q1", "Q1-Q2", "Q2-Q3", ">Q3")
+cols <- rev(RColorBrewer::brewer.pal(4, "Spectral"))
+
+
+ggplot(habs, aes(color = disc_doc)) +
+  geom_sf(size = 3) +
+  scale_color_manual(values = cols,
+                     labels = labels,
+                     name = "Cover (%)") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+habs <- habs |>
+  st_transform(crs = 4326)
+
+habs <- habs |>
+  mutate(coordinates = st_coordinates(geometry))
+
+habs <- habs |>
+  mutate(lat = coordinates[, "X"],
+         lon = coordinates[, "Y"])
+
+lake_coord <- habs |>
+  dplyr::select(lat, lon)
+
+no_sf <- lake_coord |>
+  st_drop_geometry()
+
+st_write(polygon, "all_coords.shp", driver = "ESRI Shapefile")
+
+convex_hull <- st_convex_hull(st_union(habs$geometry))
+
+
+nd <- state_cols |>
+  filter(state == 'ND')
+
+
+hnlc_nd <- nd |>
+  filter(cyano_pred == 'HNLC')
+
+
+# hnlc_nd <- hnlc_nd |>
+#   mutate(coordinates = st_coordinates(Shape))
+#
+# hnlc_nd <- hnlc_nd |>
+#   mutate(lat = coordinates[, "X"],
+#          lon = coordinates[, "Y"])
+#
+#
+
+hnlc_nd <- hnlc_nd |>
+  st_transform(crs = 4326)
+
+
+st_write(hnlc_nd, "hnlc_nd.shp", driver = "ESRI Shapefile")
+
+all_df <- habs |>
+  st_drop_geometry() |>
+  dplyr::select(COMID, DOC) |>
+  left_join(PredData, by = 'COMID')
+
+all_df <- all_df |>
+  mutate(cyano_pred = factor(case_when(
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit >= 5 ~ 'HNHC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit >= 5 ~ 'LNHC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit < 5 ~ 'HNLC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit < 5 ~ 'LNLC',
+    TRUE ~ 'OTHER'),
+    levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
+  arrange(cyano_pred)
+
+ggplot(all_df, aes(color = cyano_pred)) +
+  geom_sf(size = 3) +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggplot(all_df, aes(pred_cyano_fit, DOC)) +
+  geom_point(aes(color = cyano_pred)) +
+  #facet_wrap(~cyano_pred) +
+  # ylim(2,12) +
+  # xlim(0,150) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "P", "adj.R2"))) +
+  scale_y_continuous(trans = "log10") +
+  scale_x_continuous(trans = "log10")
+
+ggplot(all_df, aes(x=DOC, y=cyano_pred)) +
+  ggridges::geom_density_ridges(aes(fill = cyano_pred),
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 4) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
+  xlim(0,25) +
+  labs(x = "ad:ratio", fill = 'Class',
+       title = 'Microcystin') +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
+
+
+
