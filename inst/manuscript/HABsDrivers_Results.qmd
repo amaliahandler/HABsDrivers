@@ -522,6 +522,7 @@ pred_breakdown <- comp_cyano |>
     all_pred == "LNHC" ~ "Low Nutrient, High CyanoHABs",
     all_pred == "LNLC" ~ "Low Nutrient, Low CyanoHABs"),
     .keep = "unused", .before = 1) |>
+  arrange(desc(Category)) |>
   relocate(Category,
            count_Cyanobacteria,
            pct_Cyanobacteria,
