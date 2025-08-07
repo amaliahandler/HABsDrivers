@@ -502,6 +502,53 @@ comp_cyano <- PredData |>
 
 ```
 
+Table 3. The number and percent of lake predictions within each category for annual anthrpogenic nutrient inputs and cyanoHABs risk.
+```{r table nutrient/cyanoHABs categories}
+
+pred_breakdown <- comp_cyano |>
+  st_drop_geometry() |>
+  select(all_pred) |>
+  mutate(var = "Cyanobacteria") |>
+  rbind(st_drop_geometry(mutate(select(comp_micx, all_pred), var = "Microcystin"))) |>
+  group_by(var, all_pred) |>
+  summarise(count = n(), .groups = "drop") |>
+  mutate(pct = paste0(round(count / nrow(PredData) * 100, 1), "%"),
+         count = prettyNum(count, big.mark = ",")) |>
+         # lake_pct = paste0(pred_count, " (", pct, "%)")) |>
+  pivot_wider(names_from = "var", values_from = c("count", "pct")) |>
+  mutate(Category = case_when(
+    all_pred == "HNHC" ~ "High Nutrient, High CyanoHABs",
+    all_pred == "HNLC" ~ "High Nutrient, Low CyanoHABs",
+    all_pred == "LNHC" ~ "Low Nutrient, High CyanoHABs",
+    all_pred == "LNLC" ~ "Low Nutrient, Low CyanoHABs"),
+    .keep = "unused", .before = 1) |>
+  relocate(Category,
+           count_Cyanobacteria,
+           pct_Cyanobacteria,
+           count_Microcystin,
+           pct_Microcystin)
+
+pred_header <- data.frame(
+  col_keys = colnames(pred_breakdown),
+  line2 = c("Category", rep("Cyanobacteria", 2), rep("Microcystin", 2)),
+  line3 = c("Category", rep(c("Lakes", "Percent"), 2))
+  )
+
+pred_breakdown |>
+  flextable() |>
+  set_header_df(mapping = pred_header, key = "col_keys" ) |>
+  merge_v(part = "header", j = c(1:2)) |> 
+  merge_h(part = "header", i = 1) |> 
+  theme_booktabs(bold_header = TRUE) |>
+  theme_box() |>
+  align(align = "center", part = "header") |>
+  align(align = "right", part = "body") |>
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header")
+
+```
+
+
 ```{r nutrient input comparisons, include = FALSE}
 
 # Tables comparing the different types of nutrient inputs and whether that changes the "high" versus "low" nutrient input designations
