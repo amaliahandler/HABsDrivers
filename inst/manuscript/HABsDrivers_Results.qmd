@@ -29,6 +29,7 @@ library(officer)
 library(officedown)
 library(stringr)
 library(ggbeeswarm)
+library(ggnewscale)
 
 # Do not include code chunks in document
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -79,15 +80,50 @@ We used data from the 2007, 2012, and 2017 NLA for this analysis (@fig-nla-map)
 #| fig-height: 3.5
 #| fig-cap: "Lakes sampled in the 2007, 2012, and 2017 National Lakes Assessment."
 
+nla_vis_cyan <- habs |>
+  mutate(disc_cyano = factor(case_when(B_G_DENS < 25000 ~ 'B1', # under 25k
+                                       B_G_DENS >= 25000 & B_G_DENS < 50000 ~ 'B2', # 25k - 50k
+                                       B_G_DENS >= 50000 & B_G_DENS < 100000 ~ 'B3', # 50k - 100k
+                                       B_G_DENS >= 100000 & B_G_DENS < 250000 ~ 'B4', # 100k - 250k
+                                       B_G_DENS >= 250000 & B_G_DENS < 500000 ~ 'B5', # 250k-500k
+                                       B_G_DENS > 500000 ~ 'B6', # 500k
+                                       TRUE ~ NA),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) |>
+  drop_na(disc_cyano) |>
+  arrange(disc_cyano)
+
+nla_vis_micx <- habs |>
+  drop_na(MICX_DET) |>
+  mutate(MICX_DET = factor(MICX_DET, levels = c("0", "1"))) |>
+  arrange(MICX_DET)
+
+cyano_labels <- c('< 25', '25 - 50', '50 - 100', '100 - 250', '250 - 500', ' > 500')
+cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
+
 # Note that the 3 aggregated ecoregions shapefile has been simplified to a reduced number of vertices and is only intended for data visualization purposes at the national scale.
-nla_map <- ggplot() + 
+ecor_map <- ggplot() + 
   geom_sf(data = conus, fill = "white", color = "black", size = 0.5) + # grey fill #e2e2e2
   geom_sf(data = eco_ag3_simpl, aes(fill = WSA_3_NM), color = "black", alpha = 0.25, size = 0.5) +
-  scale_fill_discrete(name = "Aggregated Ecoregion") +
-  geom_sf(data = habs, shape = 24, fill = "grey39", size = 1, stroke = .2) +
+  scale_fill_discrete(name = "Aggregated Ecoregion")
+
+nla_map_cyan <- ecor_map +
+  new_scale_fill() +
+  geom_sf(data = nla_vis, shape = 24, aes(fill = disc_cyano), size = 1, stroke = 0.2) +
+  scale_fill_manual(values = cyano_colors,
+                    labels = cyano_labels,
+                    name = "Cyanobacteria \nAbundance \n(1000 cells/mL)") +
   theme_void()
 
-nla_map
+nla_map_micx <- ecor_map + 
+  new_scale_fill() +
+  geom_sf(data = nla_vis_micx, shape = 24, aes(fill = MICX_DET), size = 1, stroke = 0.2) +
+  scale_fill_manual(values = c("#2980b9","#d35405"),
+                    labels = c("Not Detected", "Detected"),
+                    name = "Microcystin") +
+  theme_void()
+
+ggarrange(plotlist = list(nla_map_cyan, nla_map_micx), ncol = 1, nrow = 2, labels = "auto")
+
 ```
 
 ## Results
@@ -535,7 +571,7 @@ pred_header <- data.frame(
   line3 = c("Category", rep(c("Lakes", "Percent"), 2))
   )
 
-pred_breakdown |>
+pred_nut_table <- pred_breakdown |>
   flextable() |>
   set_header_df(mapping = pred_header, key = "col_keys" ) |>
   merge_v(part = "header", j = c(1:2)) |> 
@@ -547,8 +583,12 @@ pred_breakdown |>
   fontsize(size = 10, part = "body") |>
   fontsize(size = 10, part = "header")
 
+pred_nut_table
+
 ```
 
+\pagebreak
+This is a pagebreak to hopefully stop the above table from somehow connected with the below figures.
 
 ```{r nutrient input comparisons, include = FALSE}
 
@@ -998,6 +1038,7 @@ covar_tbl <- est_and_sign |>
 covar_tbl
 ```
 
+\pagebreak
 
 ```{r figure of covariate contributions}
 #| label: fig-covar-contri
