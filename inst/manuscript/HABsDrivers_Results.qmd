@@ -76,8 +76,8 @@ We used data from the 2007, 2012, and 2017 NLA for this analysis (@fig-nla-map)
 
 ```{r nla map, message = FALSE}
 #| label: fig-nla-map
-#| fig-width: 7
-#| fig-height: 3.5
+#| fig-width: 7.5
+#| fig-height: 7.5
 #| fig-cap: "Lakes sampled in the 2007, 2012, and 2017 National Lakes Assessment."
 
 nla_vis_cyan <- habs |>
@@ -102,24 +102,27 @@ cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
 
 # Note that the 3 aggregated ecoregions shapefile has been simplified to a reduced number of vertices and is only intended for data visualization purposes at the national scale.
 ecor_map <- ggplot() + 
-  geom_sf(data = conus, fill = "white", color = "black", size = 0.5) + # grey fill #e2e2e2
-  geom_sf(data = eco_ag3_simpl, aes(fill = WSA_3_NM), color = "black", alpha = 0.25, size = 0.5) +
-  scale_fill_discrete(name = "Aggregated Ecoregion")
+  geom_sf(data = eco_ag3_simpl, aes(fill = WSA_3_NM), color = "black", alpha = 0.5, size = 0.5) +
+  scale_fill_manual(values = c("#f0f0f0", "#636363", "#bdbdbd"),
+                      name = "Aggregated Ecoregion") +
+  geom_sf(data = conus, fill = "transparent", color = "black", size = 0.5) # grey fill #e2e2e2
 
 nla_map_cyan <- ecor_map +
   new_scale_fill() +
-  geom_sf(data = nla_vis, shape = 24, aes(fill = disc_cyano), size = 1, stroke = 0.2) +
+  geom_sf(data = nla_vis_cyan, shape = 24, aes(fill = disc_cyano), size = 1.75, stroke = 0.2) +
   scale_fill_manual(values = cyano_colors,
                     labels = cyano_labels,
                     name = "Cyanobacteria \nAbundance \n(1000 cells/mL)") +
   theme_void()
 
-nla_map_micx <- ecor_map + 
+nla_map_micx <- ecor_map +
+  guides(fill = "none") +
   new_scale_fill() +
-  geom_sf(data = nla_vis_micx, shape = 24, aes(fill = MICX_DET), size = 1, stroke = 0.2) +
+  geom_sf(data = nla_vis_micx, shape = 24, aes(fill = MICX_DET), size = 1.75, stroke = 0.2) +
   scale_fill_manual(values = c("#2980b9","#d35405"),
                     labels = c("Not Detected", "Detected"),
                     name = "Microcystin") +
+  
   theme_void()
 
 ggarrange(plotlist = list(nla_map_cyan, nla_map_micx), ncol = 1, nrow = 2, labels = "auto")
@@ -135,18 +138,18 @@ cor_dat <- habs |>
   select(B_G_DENS, MICX, TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, P_Deposition, n_farm_inputs:p_dev_inputs, P_Accumulated_ag_inputs, P_Legacy_P) |>
   relocate(B_G_DENS, MICX, NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, P_Accumulated_ag_inputs, P_Legacy_P, n_dev_inputs, p_dev_inputs, N_Total_Deposition, P_Deposition, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
 
-var_names <- c("Cyanobacteria", 
-               "Microcystin", 
-               "Total N", 
-               "Total P",   
-               "Nitrate", 
-               "Ammonia", 
-               "DOC", 
-               "pH", 
-               "Water Temp",
-               "Turbidity",
-               "Evaporation",
-               "Evaporation/Inflow",
+var_names <- c("Cyanobacteria*", 
+               "Microcystin*", 
+               "Total N*", 
+               "Total P*",   
+               "Nitrate*", 
+               "Ammonia*", 
+               "DOC*", 
+               "pH*", 
+               "Water Temp*",
+               "Turbidity*",
+               "Evaporation*",
+               "Evaporation/Inflow*",
                "Forest Cover", 
                "Wetland Cover",
                "Soil Erodability",
@@ -167,6 +170,9 @@ var_names <- c("Cyanobacteria",
                "Baseflow Index",
                "Lake Depth",
                "Lake Fetch")
+
+# Reverse from the standard color palette
+redblue_palette <- colorRampPalette(c("blue", "white", "red"))
 
 cormat_pred <- cor(cor_dat, use = "pairwise.complete.obs", method = "spearman")
 
@@ -189,10 +195,12 @@ Both the cyanobacteria and microcystin models were driven by a similar set of co
 #| label: fig-cor-plot
 #| fig-width: 6.5
 #| fig-height: 6.5
-#| fig-cap: "Pairwise spearman's rank correlation matrix of all response variables and continuous covariates considered for the models. Blue represent positive correlations and red represent negative correlations. Darker colors and tighter ellipses represent larger correlation coefficients and stronger relationships. See Table S1 for summaries of variable ranges and sources."
+#| fig-cap: "Pairwise spearman's rank correlation matrix of all response variables and continuous covariates considered for the models. Blue represent positive correlations and red represent negative correlations. Darker colors and tighter ellipses represent larger correlation coefficients and stronger relationships. Asterisks denote in-lake variables. See Table S1 for summaries of variable ranges and sources."
 
 # Lower triangle plot
-corrplot(cormat_pred, method = "ellipse", type = "lower", tl.col = "black", tl.srt = 45, tl.cex = 0.75)
+corrplot(cormat_pred, method = "ellipse", type = "lower", 
+         tl.col = "black", tl.srt = 45, tl.cex = 0.75,
+         col = redblue_palette(100))
 
 ```
 
