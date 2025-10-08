@@ -720,6 +720,33 @@ ggpubr::ggarrange(precip_den, bfi_den, ad_den,
                   labels = "auto")
 ```
 
+```{r ANOVA}
+
+# building model for spatial analysis
+
+# cyanos
+bf_model <- splm(BFIWs ~ all_pred, comp_cyano, spcov_type = "exponential")
+anova(bf_model)
+
+ad_model <- splm(log10(ad_ratio) ~ all_pred, comp_cyano, spcov_type = "exponential")
+anova(ad_model)
+
+precip <- splm(log10(Precip8110Ws) ~ all_pred, comp_cyano, spcov_type = "exponential")
+anova(precip)
+
+# micx
+bfm_model <- splm(BFIWs ~ all_pred, comp_micx, spcov_type = "exponential")
+anova(bfm_model)
+
+adm_model <- splm(log10(ad_ratio) ~ all_pred, comp_micx, spcov_type = "exponential")
+anova(adm_model)
+
+precipm <- splm(log10(Precip8110Ws) ~ all_pred, comp_micx, spcov_type = "exponential")
+anova(precipm)
+
+```
+
+
 \pagebreak
 
 ## Supplemental Material
