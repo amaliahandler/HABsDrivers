@@ -86,7 +86,7 @@ nla_vis_cyan <- habs |>
                                        B_G_DENS >= 50000 & B_G_DENS < 100000 ~ 'B3', # 50k - 100k
                                        B_G_DENS >= 100000 & B_G_DENS < 250000 ~ 'B4', # 100k - 250k
                                        B_G_DENS >= 250000 & B_G_DENS < 500000 ~ 'B5', # 250k-500k
-                                       B_G_DENS > 500000 ~ 'B6', # 500k
+                                       B_G_DENS >= 500000 ~ 'B6', # 500k
                                        TRUE ~ NA),
                              levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) |>
   drop_na(disc_cyano) |>
@@ -97,14 +97,15 @@ nla_vis_micx <- habs |>
   mutate(MICX_DET = factor(MICX_DET, levels = c("0", "1"))) |>
   arrange(MICX_DET)
 
-cyano_labels <- c('< 25', '25 - 50', '50 - 100', '100 - 250', '250 - 500', ' > 500')
+cyano_labels <- c('< 25', '≥ 25 - 50', '≥ 50 - 100', '≥ 100 - 250', '≥ 250 - 500', '≥ 500')
 cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
 
 # Note that the 3 aggregated ecoregions shapefile has been simplified to a reduced number of vertices and is only intended for data visualization purposes at the national scale.
 ecor_map <- ggplot() + 
   geom_sf(data = eco_ag3_simpl, aes(fill = WSA_3_NM), color = "black", alpha = 0.5, size = 0.5) +
   scale_fill_manual(values = c("#f0f0f0", "#636363", "#bdbdbd"),
-                      name = "Aggregated Ecoregion") +
+                      name = "Ecoregion",
+                    labels = c("Eastern Highlands", "Plains and Lowlands", "Western")) +
   geom_sf(data = conus, fill = "transparent", color = "black", size = 0.5) # grey fill #e2e2e2
 
 nla_map_cyan <- ecor_map +
@@ -135,8 +136,8 @@ ggarrange(plotlist = list(nla_map_cyan, nla_map_micx), ncol = 1, nrow = 2, label
 # Trim to just the variables explored in the models
 cor_dat <- habs |>
   st_drop_geometry() |>
-  select(B_G_DENS, MICX, TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, P_Deposition, n_farm_inputs:p_dev_inputs, P_Accumulated_ag_inputs, P_Legacy_P) |>
-  relocate(B_G_DENS, MICX, NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, D_EXCESS, EVAP_INFL, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, P_Accumulated_ag_inputs, P_Legacy_P, n_dev_inputs, p_dev_inputs, N_Total_Deposition, P_Deposition, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch)
+  select(B_G_DENS, MICX, TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, EVAP_INFL, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, P_Deposition, n_farm_inputs:p_dev_inputs, P_Accumulated_ag_inputs, P_Legacy_P) |>
+  relocate(B_G_DENS, MICX, NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, EVAP_INFL, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, P_Accumulated_ag_inputs, P_Legacy_P, n_dev_inputs, p_dev_inputs, N_Total_Deposition, P_Deposition, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch) 
 
 var_names <- c("Cyanobacteria*", 
                "Microcystin*", 
@@ -148,7 +149,6 @@ var_names <- c("Cyanobacteria*",
                "pH*", 
                "Water Temp*",
                "Turbidity*",
-               "Evaporation*",
                "Evaporation/Inflow*",
                "Forest Cover", 
                "Wetland Cover",
@@ -451,7 +451,7 @@ PredData <- PredData %>%
                                        pred_cyano_fit >= 4.70757 & pred_cyano_fit < 5.00432 ~ 'B3', # 50k - 100k
                                        pred_cyano_fit >= 5.00432 & pred_cyano_fit < 5.39967 ~ 'B4', # 100k - 250k
                                        pred_cyano_fit >= 5.39967 & pred_cyano_fit < 5.69984 ~ 'B5', # 250k-500k
-                                       pred_cyano_fit > 5.69984 ~ 'B6', # 500k
+                                       pred_cyano_fit >= 5.69984 ~ 'B6', # 500k
                                        TRUE ~ NA),
                              levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
   arrange(disc_cyano)
@@ -459,7 +459,7 @@ PredData <- PredData %>%
 sub_25 <- PredData %>%
   filter(disc_cyano == 'B1')
 
-cyano_labels <- c('< 25', '25 - 50', '50 - 100', '100 - 250', '250 - 500', ' > 500')
+cyano_labels <- c('< 25', '≥ 25 - 50', '≥ 50 - 100', '≥ 100 - 250', '≥ 250 - 500', '≥ 500')
 cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
 
 cyano_pred_map <- ggplot() +
@@ -488,7 +488,7 @@ PredData <- PredData |>
                                pred_micx_fit >= 0.75 ~ "M4"),
          disc_micx = factor(disc_micx, levels = c("M1", "M2", "M3", "M4")))
 
-labels = c("0-25", "25-50", "50-75", "75-100")
+labels = c("≥ 0 - 25", "≥ 25 - 50", "≥ 50 - 75", "≥ 75 - 100")
 breaks <- c(0.25,0.50,0.75,1.0)
 micx_colors <- c("#2980b9","#aed6f1","#f0b27a","#d35405")
 
