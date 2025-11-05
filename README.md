@@ -1,41 +1,49 @@
-# HABs Drivers
+# Cyanobacteria and Microcystin Predictions for 125,000 Lakes in the United States
 
-### Project Description
+Project citation: Handler, A., Reynolds, M., Dumelle, M., Compton, J., Hill, R., Jansen, L., Sabo, R.,  Weber, M., Brehob, M., and Peninno, M.(2025). Spatial Modeling of Cyanobacteria Bloom Risk to Disentangle Nutrients and Other Drivers for 125,000 Lakes in the USA. In review.
 
-Investigate the patterns, drivers, and risk of cyanobacterial harmful algal blooms and toxins in the lakes of the conterminous United States. Combine data from the EPA's National Lakes Assessments, LakeCat, and National Nutrient Inventory in spatially-explicit statistical models to examine the variables associated with cyanobacteria and cyanotoxins among lakes in the US. The project goal is to estimate the risk of cyanobacteria blooms and cyanotoxins in a large number of US lakes. 
+For correspondance, please contact Amalia Handler [amhandle\@asu.edu](mailto:amhandle@asu.edu))
 
-### Project Contributors
+### Abstract
 
-* Amalia Handler (project lead, [handler.amalia\@epa.gov](mailto:handler.amalia@epa.gov))
-* Jana Compton
-* Ryan Hill
-* Michael Dumelle
-* Lara Jansen
-* Marc Weber
-* Melanie Reynolds
-* Michael Pennino
-* Robert Sabo
-* Meredith Brehob
+Cyanobacterial harmful algal blooms (cyanoHABs) are an environmental threat to freshwater ecosystems. Understanding which waterbodies are at-risk for blooms remains challenging. The goal of this study is to investigate how in-lake conditions, watershed nutrient inputs, geography, hydrology, and lake morphology explain patterns in cyanobacteria abundance and microcystin detection across the conterminous US. We used a statistical modeling approach incorporating spatial dependence (i.e., autocorrelation) and national survey datasets to generate predictions for 124,529 lakes. Our models performed well even without in-lake data: the spatial model for cyanobacteria abundance had a predictive R2 of 0.46 and the spatial microcystin detection model had an AUC of 0.87. These models explained more variation in cyanobacteria abundance and microcystin detection than regional and national scale studies to date. We found 62.2% of lakes are expected to reach a high level of cyanobacteria abundance above 100,000 cell/mL and 14.8% of lakes have at least a 50% probability of detecting microcystin at least once at the surface water near the deepest point in the lake during the summer. Higher nutrient inputs and concentrations, warmer and drier regions of the country, and shallow lakes with longer fetch are key drivers of higher cyanoHAB risk across the US. Lower mean annual precipitation, reduced baseflow relative to stormflow, and higher lake area relative to depth increased cyanoHAB risk even in lakes where nutrient inputs associated with farms and developed land cover were lower. This finding underscores the importance of characterizing other environmental factors and quantifying their effect on cyanoHABs. These spatially explicit predictions are a critical tool for environmental managers, facilitating prioritization of resources for monitoring, education, and mitigation.
 
-### Information Tracking
+### Package Overview
 
-Research Start Date: Oct 1, 2022
+Run the following to install the supplementary R package
 
-Project Status: Ongoing
+```{r}
+install.packages("remotes") # if you don't already have remotes installed
+remotes::install_github("amaliahandler/HABsDrivers")
+```
+### Data Availability
 
-Associated StRAP Numbers: SSWR 404.3.1.4
+All compiled data for this manuscript are available and documented within the package. A glimpse of the data components and the help pages for each dataset can be viewed by running
 
-Project QAPP ID: L-PESD-32002-QP-1-2
+```{r}
+# Data used to fit the models
+dplyr::glimpse(habs); ?habs
 
-Individual Notebook QA Tracking ID: L-PESD-NB-3173
+# Prediction dataset
+dplyr::glimpse(pred); ?pred
 
-Individual Notebook Location: [Sharepoint Link](https://usepa-my.sharepoint.com/personal/handler_amalia_epa_gov/_layouts/OneNote.aspx?id=%2Fpersonal%2Fhandler_amalia_epa_gov%2FDocuments%2FAmalia%20%40%20Environmental%20Protection%20Agency%20%28EPA%29)
+```
+### Analysis and Results
 
-NARS Project Notebook Location: [Sharepoint Link](https://usepa-my.sharepoint.com/personal/meeks_patti_epa_gov/_layouts/OneNote.aspx?id=%2Fpersonal%2Fmeeks_patti_epa_gov%2FDocuments%2FProfile%2FDocuments%2FOneNote%20Notebooks%2FNARS%20projects)
+The code required to reproduce the results section of the paper including the figures and tables are available at the file path found by running
 
-Data Files Location: C:/Users/AHANDL01/OneDrive - Environmental Protection Agency (EPA)/Profile/Documents/HABs/HABsDrivers
+```{r}
+system.file("inst/manuscript/HABsDrivers_Results.qmd", package = "HABsDrivers")
+```
 
-GitHub Repository: https://github.com/amaliahandler/HABsDrivers
+The code used to fit the models is available at the file path found by running
 
+```{r}
+system.file("inst/scripts/drivers_analysis.Rmd", package = "HABsDrivers")
+```
+
+### Disclaimer
+
+The views expressed in this manuscript are those of the authors and do not necessarily represent the views or policies of the U.S. Environmental Protection Agency. Any mention of trade names, products, or services does not imply an endorsement by the U.S. government or the U.S. Environmental Protection Agency. The U.S. Environmental Protection Agency does not endorse any commercial products, services, or enterprises.
 
 
