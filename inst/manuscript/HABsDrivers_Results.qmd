@@ -1,5 +1,5 @@
 ---
-title: "CyanoHABs National Drivers and Predictions"
+title: "Spatial Modeling of Cyanobacteria Bloom Risk to Disentangle Nutrients and Other Drivers for 125,000 Lakes in the USA"
 format: docx
 authors: Amalia Handler, Michael Dumelle, and Melanie Reynolds
 editor: visual
@@ -62,23 +62,32 @@ int_cyano_plnlow <- pval(summary(cyano_lake)$coefficients$fixed$p[15])
 
 ## Methods
 
-Artificial placeholder for schematic diagram so that figure numbering is correct (@fig-holder)
+The process for our analysis was (1) data compilation, (2) model fitting, (3) model comparison for (a) models with in-lake data present versus absent and (b) spatial versus independent error models, (4) model prediction, and (5) analysis of model predictions (@fig-schematic).
+
 ```{r}
-#| label: fig-holder
+#| label: fig-schematic
 #| fig-width: 1
 #| fig-height: 1
-#| fig-cap: "Placeholder for schematic diagram"
+#| fig-cap: "Schematic diagram of methods. The goal of model fitting was to identify a set of covariates that best explain national patterns in cyanobacteria and microcystin detection. Model comparison evaluates model performance with in-lake conditions present versus absent and an independent versus spatial error structure. The final models with in-lake conditions absent and spatial error structure were used to generate predictions for new lakes. The prediction analysis focuses on predictions that are consistent with expectations based on modeled nutrient inputs versus predictions that are unexpected based on nutrients."
 
-ggplot(habs)
+knitr::include_graphics("Schematic methods diagram.jpg")
 ```
 
-We used data from the 2007, 2012, and 2017 NLA for this analysis (@fig-nla-map)
+### Data Compilation
+
+We incorporated data at both the lake and watershed scale. We used data from the National Lakes Assessment (NLA)(Pollard et al. 2018), National Nutrient Inventory (NNI)(Sabo et al. 2019, 2021b, 2021a), National Land Cover Database (NLCD)(Dewitz and U. S. Geological Survey 2021), PRISM climate data (Daly et al. 2008), and several watershed variables from the LakeCat dataset (Hill et al. 2018); Table S1).
+
+#### In-Lake Conditions from the National Lakes Assessment
+
+The NLA, part of the broader US EPA’s National Aquatic Resource Survey (NARS) program (www.epa.gov/national-aquatic-resource-surveys), assesses the physical, chemical, and biological condition of lakes across CONUS (Peck et al. 2020). Every five years, a set of lakes are sampled according to a spatially balanced, probability-based survey design (Stevens and Olsen 2003, 2004, Dumelle et al. 2023). For the first NLA in 2007, the target population (i.e., population of interest) included lakes at least 4 ha in surface area and at least 1 m deep. From 2012 onward, the NLA target population was expanded to include lakes at least 1 ha in surface area. Each surveyed year, approximately 1,000 lakes are sampled once between June and September. In addition, approximately 10% of lakes are sampled a second time for the purposes of evaluating sample variability over the sampling period.
+
+Complete methods are available in technical documentation for the survey (US EPA 2022). Briefly, samples for surface water properties and phytoplankton characterization are collected by boat at the deepest point in the lake. An integrated euphotic zone sample of the water column is used for species-level phytoplankton identification (US EPA 2017). The microscope method requires identifying and enumerating 400 natural algal units per sample including colonies. The cyanotoxin microcystin was measured using a microtiter plate enzyme linked immuno-sorbent assay (ELISA), where the detection limit is 0.1 μg/L. Samples for microcystin were subject to three freeze-thaw cycles to lyse cells and release toxins into the dissolved phase prior to measurement (US EPA 2017). These samples were also analyzed for total nitrogen (TN), total phosphorus (TP), nitrate, ammonium, dissolved organic carbon (DOC), turbidity, and pH. From these water samples, stable isotopes of hydrogen and oxygen were also measured, and this information was used to estimate evaporation-to-inflow ratio for the lake (Brooks et al. 2014). Finally, a vertical profile that includes temperature and a maximum depth measurement is collected. We used data from the 2007, 2012, and 2017 NLA for this analysis (@fig-nla-map). Cyanobacteria abundance was calculated by summing the abundance of all cyanobacteria taxa identified in each sample. We calculated surface water temperature by taking the mean of the top two meters of the water column profile or the entire depth of the lake, whichever was shorter. 
 
 ```{r nla map, message = FALSE}
 #| label: fig-nla-map
 #| fig-width: 7.5
 #| fig-height: 7.5
-#| fig-cap: "Lakes sampled in the 2007, 2012, and 2017 National Lakes Assessment."
+#| fig-cap: "Lakes sampled in the 2007, 2012, and 2017 National Lakes Assessment with the observed (a) cyanobacteria abundance and (b) microcystin presence by three major ecoregions."
 
 nla_vis_cyan <- habs |>
   mutate(disc_cyano = factor(case_when(B_G_DENS < 25000 ~ 'B1', # under 25k
@@ -129,6 +138,44 @@ nla_map_micx <- ecor_map +
 ggarrange(plotlist = list(nla_map_cyan, nla_map_micx), ncol = 1, nrow = 2, labels = "auto")
 
 ```
+
+#### Geographic Setting and Nutrient Inputs
+
+We retrieved watershed characteristics from the LakeCat dataset including mean annual precipitation and air temperature (PRISM), mean annual precipitation minus evapotranspiration and mean annual runoff (Pennino et al. 2020), baseflow index (McCabe and Wolock 2011), soil erodibility factor (Wolock 1997), and forested and wetland land cover (NLCD).  We calculated mean watershed precipitation and air temperature for months in which sampling occurred based on PRISM data. Each lake was associated with one of three CONUS ecoregions: Eastern Highlands, Plains and Lowlands, and Western regions (Omernik and Griffith 2014).
+
+We compiled annually summarized watershed nutrient inputs of nitrogen and phosphorus from the NNI by taking the mean of the years 2002, 2007, and 2012 (Sabo et al. 2019, 2021b, 2021a). The mean was used since the national-scale patterns in the NNI over this period were fairly stable (Sabo et al. 2019, 2021b) and NNI data were not available for 2017 at the time of the analysis. We aggregated variables to form composites, which simultaneously reduces both the number of overall variables in our models as well as the correlation among remaining variables. The aggregated variables are total farm nitrogen inputs (farm fertilizer, manure, and crop nitrogen fixation), total farm phosphorus inputs (farm fertilizer and manure), total developed nitrogen inputs (non-farm fertilizer and human waste), and total developed phosphorus inputs (non-farm fertilizer and human waste).
+
+#### Lake Geometry
+
+Lake depths were compiled from multiple data sources using a tiered approach. Priority was given to in-situ lake depth measurements from the NLA and the LAGOS-US datasets (Cheruvelil et al. 2021). Next, estimated lake depths were retrieved from the NHDPlusV2 (McKay et al. 2012, Hollister and Stachelek 2017). For the 12,380 remaining lakes that lacked depth information, we estimated depth based on surrounding topography using the elevatr and Lakemorpho R packages (Hollister and Stachelek 2017, Hollister 2023). We retrieved lake surface area from the NHDPlusV2 waterbody boundary data. Lake fetch, or the maximum length between two points on the shoreline, was calculated using the Lakemorpho R package. We also calculated the lake surface area to maximum lake depth (area:depth ratio) (Håkanson 1982). We calculated the area:depth ratio as the square root of the surface area divided by the lake depth.
+
+### Statistical Modeling
+
+We used a statistical modeling approach incorporating spatial dependence (i.e., a spatially explicit approach), which offers distinct advantages to modeling and predicting lakes at risk for cyanoHABs at regional and national scales. These spatial models handle the non-independence of lakes with varying proximities to one another by formally building spatial autocorrelation directly into the model structure (Cressie 2015). A key benefit of this approach is that spatial autocorrelation can capture the influence of spatially structured variables that are not explicitly included in the model due to a lack of available, fine-scale spatial data. This capability allows the model to account for local to regional factors that may affect the incidence of cyanoHABs but are not necessarily important on a national scale (Dumelle et al. 2024).
+
+We used the spmodel R package (Dumelle et al., 2023) to build two separate frequentist models: (1) cyanobacteria abundance which was fit using a spatial linear model and (2) presence of microcystin which was fit using a spatial logistic model to estimate the probability of microcystin detection. Cyanobacteria abundance has a high degree of right skew and was log10-transformed. To preserve zero values (non-detection) we added a constant (c) to the cyanobacteria abundance prior to log-transforming. Using an algorithm to choose a value of c that satisfies (approximately) important statistical constraints (Berry 1987), we set c = 1,000. This choice of c maintained relative closeness on the log scale among small values in the data. Two models were constructed for each response variable (cyanobacteria abundance or microcystin detection) for a total of four models. First, a model was fit that included the in-lake conditions in addition to watershed and lake characteristics (Figure 1). A second model was fit that excluded the in-lake conditions, leaving only GIS-derived watershed and lake covariates. All models included two random effects, one for the survey year and one for the unique lake identifier to account for variation from resampling a unique site across or within survey years.
+
+#### Selection of Model Covariates
+
+For each model, we compared six candidate models with different sets of fixed effects drawn from four categories: water physio-chemical conditions (only for models with in-lake conditions included), lake morphology, watershed nutrient inputs, and geographic setting. Since many of the candidate variables are correlated (see Figure 3), we took the approach of selecting 1-3 variables from each category for an initial model. Covariate selection was based on sets of variables that were shown in the literature or are hypothesized to have a relationship to lake cyanoHABs. We then tested whether substitution of variables for other correlated variables would improve model fit. For example, we tested whether farm nitrogen inputs were a better fit than farm phosphorus inputs or whether the mean annual temperature was a better fit than the mean temperature for the month. Likewise, we also tested whether the addition of covariates improved model fit. For example, we tested whether the addition the forested land cover in the watershed or the ecoregion would improve model fit. Model fit was assessed based on Bayesian Information Criterion (BIC) and area under the receiver operating curve (AUC; see below). 
+
+For the cyanobacteria abundance models, each candidate model was fit using the same set of observations with maximum likelihood estimation. For each model, we ran a leave one out cross validation (LOOCV) to calculate the model bias, root mean squared prediction error (RMSPE), and predictive R2 (James et al. 2013). The final model was chosen based on which had the lowest BIC (Schwarz 1978). Replicating the cyanobacteria model selection process for the logistic microcystin models was computationally prohibitive because the spatial error structure yields a complicated likelihood function (Ver Hoef et al. 2024). Thus, for microcystin, an initial set of six independent error models were run with maximum likelihood estimation. From the initial set of models, we selected the three candidate models with the lowest BIC to fit using a spatial error structure. The final three models were evaluated with LOOCV to calculate the model bias, RMSPE, and AUC (Robin et al. 2011). The final model selected had the highest AUC. When the AUC was the same among the three candidate models, the model with the simplest formulation (fewest terms) was chosen as the final model. We visually assessed the decorrelated residuals (i.e., standardized) for spatial patterns and extreme values in maps to check assumptions in the same way response residuals can be used to check assumptions in nonspatial models.
+
+#### Model Comparison
+
+For the final selected models, we ran independent error (i.e., nonspatial) models with the same set of covariates to compare to the spatial models with respect to bias, RMSPE, predictive R2 for cyanobacteria abundance, and AUC for microcystin detection. In addition, we compared model fit for models that included in-lake conditions versus the models that excluded in-lake conditions to investigate how the presence of in-lake data impacts model performance.
+
+#### Model Prediction
+
+We predicted cyanobacteria abundance and probability of microcystin detection in 124,529 lakes across the CONUS for the year 2017 using the final spatial models that excluded in-lake conditions. Predictions are generated for the year 2017 because of the random effect for survey year included in the model; however, the predictions are likely representative of the spatial patterns across the country rather than a snapshot in time because much of the data used to generate the predictions is relatively stable over the decade timescale. These lakes are limited to those that are connected to the NHD flowlines due to availability of the NNI dataset. We report the estimated cyanobacteria abundance and probability of microcystin detection with 95% prediction intervals. The predictions from the models for any given lake should be interpreted as the predicted cyanobacteria abundance or probability of microcystin detection in the surface water at the deepest point in the lake one or more times during the June-September period.
+
+### Prediction Analysis
+
+To explore the relationship between cyanoHABs risk, watershed nutrient inputs, and other drivers, we used a categorical framework. The framework is based on the common understanding that excess nutrients are associated with cyanoHABs; however, cyanoHABs are increasingly documented in lakes that challenge this narrative. In other words, cyanoHABs can be found in lakes with low nutrients, or conversely, absent in lakes with high nutrients. To investigate, we divided lakes into “high” and “low” cyanoHABs risk categories and lake watersheds into “higher” and “lower” farm and developed nutrient input categories. We expected lakes with higher farm and developed nutrient inputs to also have high predicted cyanoHABs risk. Similarly, we expected lakes with lower nutrient inputs to have low predicted cyanoHABs risk. Predictions that fall into these categories are consistent with our expectations based on the modeled nutrient inputs alone.  Predictions that are in the other categories—either lower nutrient inputs and high cyanoHABs risk or higher nutrient inputs and low cyanoHABs risk—are inconsistent with our expectations based on farm and developed nutrients alone and provide an opportunity to examine other variables that potentially enhance or mitigate cyanoHABs risk.
+
+For the cutoff between low and high risk for cyanoHABs, we chose 100,000 cells/mL for cyanobacteria abundance and 50% probability of microcystin detection. These cutoffs are for investigative purposes only. The boundary between low and high risk for evaluating ecological or public health risk depends heavily on the impact of concern with cyanoHABs. The 100,000 cells/mL threshold for cyanobacteria has been used in the past to indicate high recreational risk but has since been replaced in favor of approaches linked to toxicity (Chorus and Welker 2021) . Cellular abundance remains a commonly used assessment of cyanobacteria biomass. Our objective is to divide lakes with elevated cyanobacteria levels from those expected to have relatively low levels of cyanobacteria and investigate how this relates to nutrients and other non-nutrient factors. Similarly, for microcystin, we chose the 50% probability cutoff to indicate where summer microcystin detection is more likely than non-detection. For the watershed nutrient inputs, we considered the sum of the farm and developed inputs for N and P separately. For N, this includes farm and non-farm fertilizer, manure, crop biological N fixation, and human waste. For P, this includes farm and non-farm fertilizer, manure, and human waste. We did not include other nutrient sources such as atmospheric deposition, accumulated P inputs, or legacy P inputs because these variables were not included in our final models. For the cutoff between higher and lower annual anthropogenic nutrient inputs, we chose 10 kg ha-1 yr-1 for N and 4 kg ha-1 yr-1 for P. Again, these cutoffs are for investigative purposes only. Together these cyanoHABs and nutrient input cutoffs divide the 124,529 lakes in our dataset into four categories: higher nutrient inputs and high cyanoHAB risk, higher nutrient inputs and low cyanoHAB risk, lower nutrient inputs and high cyanoHAB risk, and lower nutrient inputs and low cyanoHAB risk. 
+
+We investigated the distribution of other non-nutrient variables to gain insights about the characteristics of lakes that fall into each nutrient and cyanoHABs risk category. We examined mean annual precipitation, baseflow index, and area:depth ratio. We plotted the density distribution for each variable within each of the four nutrient-cyanoHABs categories. We used a spatial analysis of variance (ANOVA) to test for differences among means in the nutrient-cyanoHAB categories. We log10 transformed the mean annual precipitation and the area:depth ratio to account for skew in these distributions for the ANOVA.
 
 ## Results
 
