@@ -772,6 +772,11 @@ ggpubr::ggarrange(precip_den, bfi_den, ad_den,
 # building model for spatial analysis
 
 # cyanos
+
+# Deal with infinite area depth ratios from zero depth values. Reset these depths to instead be a very small number.
+comp_cyano <- comp_cyano |>
+  mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
+
 bf_model <- splm(BFIWs ~ all_pred, comp_cyano, spcov_type = "exponential")
 anova(bf_model)
 
@@ -782,6 +787,9 @@ precip <- splm(log10(Precip8110Ws) ~ all_pred, comp_cyano, spcov_type = "exponen
 anova(precip)
 
 # micx
+comp_micx <- comp_micx |>
+  mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
+
 bfm_model <- splm(BFIWs ~ all_pred, comp_micx, spcov_type = "exponential")
 anova(bfm_model)
 
