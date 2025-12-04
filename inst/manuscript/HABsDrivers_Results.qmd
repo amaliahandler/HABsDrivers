@@ -769,31 +769,31 @@ ggpubr::ggarrange(precip_den, bfi_den, ad_den,
 
 # cyanos
 
-# Deal with infinite area depth ratios from zero depth values. Reset these depths to instead be a very small number.
-comp_cyano <- comp_cyano |>
-  mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
-
-bf_model <- splm(BFIWs ~ all_pred, comp_cyano, spcov_type = "exponential")
-anova(bf_model)
-
-ad_model <- splm(log10(ad_ratio) ~ all_pred, comp_cyano, spcov_type = "exponential")
-anova(ad_model)
-
-precip <- splm(log10(Precip8110Ws) ~ all_pred, comp_cyano, spcov_type = "exponential")
-anova(precip)
-
-# micx
-comp_micx <- comp_micx |>
-  mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
-
-bfm_model <- splm(BFIWs ~ all_pred, comp_micx, spcov_type = "exponential")
-anova(bfm_model)
-
-adm_model <- splm(log10(ad_ratio) ~ all_pred, comp_micx, spcov_type = "exponential")
-anova(adm_model)
-
-precipm <- splm(log10(Precip8110Ws) ~ all_pred, comp_micx, spcov_type = "exponential")
-anova(precipm)
+# # Deal with infinite area depth ratios from zero depth values. Reset these depths to instead be a very small number.
+# comp_cyano <- comp_cyano |>
+#   mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
+# 
+# bf_model <- splm(BFIWs ~ all_pred, comp_cyano, spcov_type = "exponential")
+# anova(bf_model)
+# 
+# ad_model <- splm(log10(ad_ratio) ~ all_pred, comp_cyano, spcov_type = "exponential")
+# anova(ad_model)
+# 
+# precip <- splm(log10(Precip8110Ws) ~ all_pred, comp_cyano, spcov_type = "exponential")
+# anova(precip)
+# 
+# # micx
+# comp_micx <- comp_micx |>
+#   mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
+# 
+# bfm_model <- splm(BFIWs ~ all_pred, comp_micx, spcov_type = "exponential")
+# anova(bfm_model)
+# 
+# adm_model <- splm(log10(ad_ratio) ~ all_pred, comp_micx, spcov_type = "exponential")
+# anova(adm_model)
+# 
+# precipm <- splm(log10(Precip8110Ws) ~ all_pred, comp_micx, spcov_type = "exponential")
+# anova(precipm)
 
 ```
 
