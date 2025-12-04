@@ -83,11 +83,13 @@ PredData <- ncldMas |>
   dplyr::select(COMID, fst_ws, WSAREASQKM) |>
   merge(PredData, by = 'COMID')
 
+
+
 # Water Boundary Data ----------------------------------------------------------
 
-loc <- "O:/PRIV/CPHEA/PESD/COR/CORFILES/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
+loc <- "O:/LAB/COR/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
 
-wbd <- sf::st_read(dsn = loc, layer = "NHDWaterbody") |>
+wbd <- sf::st_read(dsn = loc, layer = 'Waterbody') |>
   st_transform(5072)
 
 wbd_copy <- wbd |>
