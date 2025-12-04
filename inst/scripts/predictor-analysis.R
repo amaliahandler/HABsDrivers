@@ -12,12 +12,24 @@ states <- states(cb = TRUE, progress_bar = FALSE)  %>%
 comp_micx <- st_join(wbd_copy, micx_pred_df)
 
 pred_cols <- PredDataMini |>
-  dplyr::select(c(COMID, Runoff.Str, state, drain_ratio, ag_eco9, WsAreaSqKm))
+  dplyr::select(c(COMID, state, ag_eco9, nars_name, WsAreaSqKm, LAGOSLakeDepth, NHDLakeDepth))
 
-comp_micx <- left_join(comp_micx, pred_cols, by = 'COMID')
+state_df <- left_join(PredData, pred_cols, by = 'COMID')
 
-comp_micx <- comp_micx |>
-  drop_na(pred_micx)
+state_lakes <- state_df |>
+  filter(state == 'CA' | state == 'ID' | state == "OR" | state == "WA") |>
+  dplyr::select(c(COMID, state, ag_eco9, nars_name, WsAreaSqKm, LAGOSLakeDepth, NHDLakeDepth, MAXDEPTH))
+
+state_lakes <- state_lakes |>
+  st_transform(crs = 4269) |>
+  mutate(coords = st_coordinates(Shape),
+         lat.x = coords[, 'X'],
+         lon.y = coords[, 'Y']) |>
+  dplyr::select(-c(coords)) |>
+  st_drop_geometry()
+
+# comp_micx <- comp_micx |>
+#   drop_na(pred_micx)
 
 # micx_pred_df <- micx_pred_df %>%
 #   mutate(y_partial_p_farm = (coef(model_micx_nolakes)[2]) * p_farm_inputs,
@@ -1237,17 +1249,26 @@ oneway.test(Precip8110Ws ~ all_pred, micx_a, var.equal = FALSE)
 
 # building model for spatial analysis
 
-bf_model <- splm(BFIWs ~ cyano_pred, PredData, spcov_type = "exponential")
-ggpubr::ggqqplot(residuals(bf_model))
-
+# cyanos
+bf_model <- splm(BFIWs ~ all_pred, comp_cyano, spcov_type = "exponential")
 anova(bf_model)
-ggpubr::ggqqplot(residuals(ad_model, type = "standardized"))
 
-ad_model <- splm(log10(ad_ratio) ~ cyano_pred, PredData, spcov_type = "exponential")
+ad_model <- splm(log10(ad_ratio) ~ all_pred, comp_cyano, spcov_type = "exponential")
 anova(ad_model)
 
-precip <- splm(log10(Precip8110Ws) ~ cyano_pred, PredData, spcov_type = "exponential")
+precip <- splm(log10(Precip8110Ws) ~ all_pred, comp_cyano, spcov_type = "exponential")
 anova(precip)
+
+# micx
+bfm_model <- splm(BFIWs ~ all_pred, comp_micx, spcov_type = "exponential")
+anova(bfm_model)
+
+comp_cyano <- comp_cyano |> filter(ad_ratio != Inf) |> drop_na(ad_ratio)
+adm_model <- splm(log10(ad_ratio) ~ all_pred, comp_micx, spcov_type = "exponential")
+anova(adm_model)
+
+precipm <- splm(log10(Precip8110Ws) ~ all_pred, comp_micx, spcov_type = "exponential")
+anova(precipm)
 
 # state totals -----------------------------------------------------------------
 
@@ -1611,10 +1632,10 @@ ggpubr::ggqqplot(residuals(bf_model))
 
 anova(dr_model_cy)
 
-ggplot(PredData, aes(x=drain_ratio, y= cyano_pred)) +
-  ggridges::geom_density_ridges(aes(fill = cyano_pred), quantile_lines = TRUE, quantiles = 4) +
+ggplot(comp_micx, aes(x=drain_ratio, y= all_pred)) +
+  ggridges::geom_density_ridges(aes(fill = all_pred), quantile_lines = TRUE, quantiles = 2) +
   # scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
-  xlim(0,150) +
+  xlim(0, 300) +
   labs(x = "drain ratio", fill = 'Class',
        title = 'cyano') +
   theme(axis.title.y=element_blank(),
@@ -1845,18 +1866,15 @@ all_df <- habs |>
   dplyr::select(COMID, DOC) |>
   left_join(PredData, by = 'COMID')
 
-all_df <- all_df |>
-  mutate(cyano_pred = factor(case_when(
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit >= 5 ~ 'HNHC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit >= 5 ~ 'LNHC',
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & pred_cyano_fit < 5 ~ 'HNLC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & pred_cyano_fit < 5 ~ 'LNLC',
-    TRUE ~ 'OTHER'),
-    levels = c('HNHC','HNLC','LNHC','LNLC'))) %>%
-  arrange(cyano_pred)
+habs <- habs %>%
+  mutate(disc_doc = factor(case_when(DOC < 10 ~ 'B1',
+                                     DOC >= 10 & DOC ~ 'B2'),
+                           levels = c('B1', 'B2'))) %>%
+  arrange(disc_doc)
 
-ggplot(all_df, aes(color = cyano_pred)) +
-  geom_sf(size = 3) +
+
+ggplot(habs, aes(color = disc_doc)) +
+  geom_sf(size = 2) +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
@@ -1882,6 +1900,129 @@ ggplot(all_df, aes(x=DOC, y=cyano_pred)) +
        title = 'Microcystin') +
   theme(axis.title.y=element_blank(),
         legend.position = "none")
+
+# comparing with nrsa doc values
+
+nrsa89_geom <- read.csv('https://www.epa.gov/system/files/other-files/2023-01/NRSA_1819_SiteInfo.csv')
+nrsa89 <- read.csv("https://www.epa.gov/sites/default/files/2015-09/chem.csv")
+
+nrsa89_geom <- nrsa89_geom |>
+  filter(VISIT_NO == '1') |>
+  dplyr::select(UNIQUE_ID, SITE_ID, LAT_DD83, LON_DD83)
+
+nrsa89 <- nrsa89 |>
+  filter(VISIT_NO == '1') |>
+  dplyr::select(SITE_ID, DOC)
+
+nrsa89 <- nrsa89_geom |>
+  left_join(nrsa89, by = 'SITE_ID')
+
+nrsa1314 <- read.csv("https://www.epa.gov/sites/default/files/2019-04/nrsa1314_widechem_04232019.csv")
+nrsa1314_geom <- read.csv('https://www.epa.gov/sites/default/files/2019-04/nrsa1314_siteinformation_wide_04292019.csv')
+
+nrsa89_geom <- nrsa89_geom |>
+  filter(VISIT_NO == '1') |>
+  dplyr::select(UNIQUE_ID, SITE_ID, LAT_DD83, LON_DD83)
+
+nrsa89 <- nrsa89 |>
+  filter(VISIT_NO == '1') |>
+  dplyr::select(UNIQUE_ID, SITE_ID, DOC)
+
+
+nrsa1819 <- read.csv("https://www.epa.gov/sites/default/files/2021-04/nrsa_1819_water_chemistry_chla_-_data.csv")
+nrsa1819_geom <- read.csv('https://www.epa.gov/system/files/other-files/2023-01/NRSA_1819_SiteInfo.csv')
+
+nrsa_chem <- bind_rows(nrsa89, nrsa1314, nrsa1819)
+
+# lake area % for cyAN comparison ----------------------------------------------
+
+PredData <- PredData |>
+  mutate(above_cyan = if_else(pred_cyano_fit >= 5.00432, 1, 0),
+         above_micx = if_else(pred_micx_fit >= 0.5, 1, 0))
+
+state_cols <- PredDataMini |>
+  dplyr::select(c(COMID, state))
+
+PredData <- PredData |>
+  merge(state_cols, by ='COMID')
+
+PredData <- PredData |>
+  mutate(alt_regions = case_when(state == 'WA' | state == 'ID' | state == 'OR' ~ 'PNW',
+                                 state == 'CA' | state == 'NV' ~ 'W',
+                                 state == 'MT' | state == 'WY' | state == 'ND' | state == 'SD' | state == 'NE' ~ 'NRP',
+                                 state == 'NM' | state == 'UT' | state == 'CO' | state == 'AZ' ~ 'SW',
+                                 state == 'TX' | state == 'LA' | state == 'OK' | state == 'KS' | state == 'MS' | state == 'AR' ~ 'S',
+                                 state == 'IA' | state == 'MN' | state == 'WI' | state =='MI' ~ 'UMW',
+                                 state == 'AL' | state == 'FL' | state == 'GA' | state == 'SC' | state == 'NC' | state == 'VA' ~ 'SE',
+                                 state == 'MO' | state == 'IN' | state == 'IL' | state == 'OH' | state == 'KY' | state == 'TN' | state == 'WV' ~ 'OV',
+                                 state == 'MD' | state == 'DE' | state == 'PA' | state == 'NJ' | state == 'NY' | state == 'MA' | state == 'RI' | state == 'CT' | state == 'VT' | state == 'NH' | state == 'ME' ~ 'NE'
+                                 ))
+
+PredData$above_cyan <- as.character(PredData$above_cyan)
+
+test <- PredData |>
+  dplyr::group_by(alt_regions, above_cyan) |>
+  summarize(sum_area = sum(lake_area)) |>
+  st_drop_geometry()
+
+final <- test |>
+  group_by(alt_regions) |>
+  summarize(total = sum(sum_area)) |>
+  left_join(test, by = 'alt_regions')
+
+final <- final |>
+  rowwise() |>
+  mutate(prop_cyano = sum_area / total) |>
+  filter(above_cyan == 1)
+
+micx <- PredData |>
+  dplyr::group_by(alt_regions, above_micx) |>
+  summarize(sum_area = sum(lake_area)) |>
+  st_drop_geometry()
+
+final_m <- micx |>
+  group_by(alt_regions) |>
+  summarize(total = sum(sum_area)) |>
+  left_join(micx, by = 'alt_regions')
+
+final_m <- final_m |>
+  rowwise() |>
+  mutate(prop_micx = sum_area / total) |>
+  filter(above_micx == 1)
+
+# mapping this
+
+states <- states |>
+  mutate(alt_regions = case_when(STUSPS == 'WA' | STUSPS == 'ID' | STUSPS == 'OR' ~ 'PNW',
+                                 STUSPS == 'CA' | STUSPS == 'NV' ~ 'W',
+                                 STUSPS == 'MT' | STUSPS == 'WY' | STUSPS == 'ND' | STUSPS == 'SD' | STUSPS == 'NE' ~ 'NRP',
+                                 STUSPS == 'NM' | STUSPS == 'UT' | STUSPS == 'CO' | STUSPS == 'AZ' ~ 'SW',
+                                 STUSPS == 'TX' | STUSPS == 'LA' | STUSPS == 'OK' | STUSPS == 'KS' | STUSPS == 'MS' | STUSPS == 'AR' ~ 'S',
+                                 STUSPS == 'IA' | STUSPS == 'MN' | STUSPS == 'WI' | STUSPS =='MI' ~ 'UMW',
+                                 STUSPS == 'AL' | STUSPS == 'FL' | STUSPS == 'GA' | STUSPS == 'SC' | STUSPS == 'NC' | STUSPS == 'VA' ~ 'SE',
+                                 STUSPS == 'MO' | STUSPS == 'IN' | STUSPS == 'IL' | STUSPS == 'OH' | STUSPS == 'KY' | STUSPS == 'TN' | STUSPS == 'WV' ~ 'OV',
+                                 STUSPS == 'MD' | STUSPS == 'DE' | STUSPS == 'PA' | STUSPS == 'NJ' | STUSPS == 'NY' | STUSPS == 'MA' | STUSPS == 'RI' | STUSPS == 'CT' | STUSPS == 'VT' | STUSPS == 'NH' | STUSPS == 'ME' ~ 'NE'
+  ))
+
+
+ggplot(states) +
+  geom_sf(aes(fill = alt_regions)) +
+  theme_void()
+
+ggsave("alt_regions.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1500)
+
+final_m <- final_m |>
+  rowwise() |>
+  mutate(sq_mi = sum_area * 0.0000003861)
+
+
+
+
+
+
+
+
+
 
 
 
