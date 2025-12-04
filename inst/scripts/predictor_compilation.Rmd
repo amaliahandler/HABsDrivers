@@ -479,12 +479,12 @@ PredData <- PredData |>
 ```{r}
 
 # Save the data as part of the package
-#usethis::use_data(PredData, overwrite = T)
+usethis::use_data(PredData, overwrite = T)
 
 ```
 
 # Generate models for spatial analysis
-```{r}
+```{r, eval = FALSE}
 
 # set up data frames 
 comp_micx <- PredData |>
@@ -525,15 +525,20 @@ comp_cyano <- PredData |>
 comp_cyano <- comp_cyano |>
   mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
 
+# Create models needed for ANOVAs in Results
+
 bf_model <- splm(BFIWs ~ all_pred, comp_cyano, spcov_type = "exponential")
 #anova(bf_model)
 saveRDS(bf_model, file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/model_objects/bf_model_cyano.rds')
 
 ad_model <- splm(log10(ad_ratio) ~ all_pred, comp_cyano, spcov_type = "exponential")
 #anova(ad_model)
+saveRDS(ad_model, file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/model_objects/ad_model_cyano.rds')
 
 precip <- splm(log10(Precip8110Ws) ~ all_pred, comp_cyano, spcov_type = "exponential")
 #anova(precip)
+saveRDS(precip, file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/model_objects/precip_model_cyano.rds')
+
 
 # micx
 comp_micx <- comp_micx |>
@@ -541,12 +546,17 @@ comp_micx <- comp_micx |>
 
 bfm_model <- splm(BFIWs ~ all_pred, comp_micx, spcov_type = "exponential")
 #anova(bfm_model)
+saveRDS(bfm_model, file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/model_objects/bf_model_micx.rds')
+
 
 adm_model <- splm(log10(ad_ratio) ~ all_pred, comp_micx, spcov_type = "exponential")
 #anova(adm_model)
+saveRDS(adm_model, file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/model_objects/ad_model_micx.rds')
+
 
 precipm <- splm(log10(Precip8110Ws) ~ all_pred, comp_micx, spcov_type = "exponential")
 #anova(precipm)
+saveRDS(precipm, file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/model_objects/precip_model_micx.rds')
 
 ```
 
