@@ -1598,8 +1598,8 @@ comp_micx|>
 
 # drain ratio ------------------------------------------------------------------
 
-get_nlcd <- function(coms){
-  StreamCatTools::lc_get_data(metric = 'pctconif2016',
+get_sal <- function(coms){
+  StreamCatTools::lc_get_data(metric = 'pctsallake',
                               aoi='ws',
                               comid = coms,
                               showAreaSqKm = TRUE)
@@ -1607,11 +1607,11 @@ get_nlcd <- function(coms){
 
 # divide existing predictor data set into groups of 500 by COMID
 # increasing efficiency in pulling NLCD data
-chunks <- split(PredData$COMID, ceiling(seq_along(PredData$COMID) / 500))
+chunks <- split(doc_test$COMID, ceiling(seq_along(doc_test$COMID) / 100))
 
 
 # using lapply function to pull NLCD data from each chunk by COMID
-ws_area <- do.call(rbind, lapply(chunks, get_nlcd))
+salinity <- do.call(rbind, lapply(chunks, get_sal))
 
 ws_area <- ws_area |>
   rename(COMID = comid)
@@ -1646,18 +1646,18 @@ ggplot(PredData, aes(drain_ratio, pred_cyano_fit)) +
   stat_poly_line() +
   stat_poly_eq(use_label(c("eq", "P", "adj.R2"))) +
   xlim(0,150) +
-  ylim(0,10)
-scale_y_continuous(trans = "log") +
+  ylim(0,10) +
+  scale_y_continuous(trans = "log") +
   scale_x_continuous(trans = "log")
 
 ggpubr::ggqqplot(residuals(ad_model, type = "standardized"))
 
-no_sf_pred <- PredData |>
+habs_nogeo <- habs |>
   st_drop_geometry() |>
   select(COMID, drain_ratio)
 
 
-doc_test <- left_join(no_sf_pred, habs, by = 'COMID') |>
+doc_test <- left_join(PredData, habs_nogeo, by = 'COMID') |>
   drop_na()
 
 
@@ -1866,21 +1866,21 @@ all_df <- habs |>
   dplyr::select(COMID, DOC) |>
   left_join(PredData, by = 'COMID')
 
-habs <- habs %>%
-  mutate(disc_doc = factor(case_when(DOC < 10 ~ 'B1',
-                                     DOC >= 10 & DOC ~ 'B2'),
+doc_test <- doc_test %>%
+  mutate(Q3_doc = factor(case_when(DOC < 11.312 ~ 'B1',
+                                     DOC >= 11.312 & DOC ~ 'B2'),
                            levels = c('B1', 'B2'))) %>%
-  arrange(disc_doc)
+  arrange(Q3_doc)
 
 
-ggplot(habs, aes(color = disc_doc)) +
+ggplot(doc_test, aes(color = Q3_doc)) +
   geom_sf(size = 2) +
   geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
-ggplot(all_df, aes(pred_cyano_fit, DOC)) +
-  geom_point(aes(color = cyano_pred)) +
+ggplot(doc_test, aes(drain_ratio, DOC)) +
+  geom_point() +
   #facet_wrap(~cyano_pred) +
   # ylim(2,12) +
   # xlim(0,150) +
@@ -2016,13 +2016,39 @@ final_m <- final_m |>
   mutate(sq_mi = sum_area * 0.0000003861)
 
 
+###
 
+cond <- read_csv('C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/dw-nitrate/gw-cyanotox/nla_obs.csv')
 
+pred_nla <- PredData |>
+  filter(UNIQUE_ID != 0)
 
+#length(intersect(pred_nla$UNIQUE_ID, habs$UNIQUE_ID))
 
+pred_nla <- pred_nla |>
+  left_join(cond, by = 'UNIQUE_ID') |>
+  drop_na()
 
+ggplot(pred_nla, aes(pred_micx_fit, COND_RESULT)) +
+  geom_point() +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "P", "adj.R2"))) +
+  scale_y_continuous(trans = "log10") +
+  scale_x_continuous(trans = "log10") +
+  labs(y = "Conductivity", x = "Predicted Probability of Microcysin Detection")
 
+pred_nla <- pred_nla %>%
+  mutate(cond_disc = factor(case_when(COND_RESULT < 68.75 ~ 'B1',
+                                      COND_RESULT >= 68.75 & COND_RESULT < 200.30 ~ 'B2',
+                                      COND_RESULT >= 200.30 & COND_RESULT < 406.20 ~ 'B3',
+                                      COND_RESULT > 406.20 ~ 'B4'),
+                         levels = c('B1', 'B2', 'B3', 'B4'))) %>%
+  arrange(cond_disc)
 
-
+ggplot(pred_nla, aes(color = cond_disc)) +
+  geom_sf(size = 2) +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
 
 
