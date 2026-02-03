@@ -647,12 +647,12 @@ comp_cyano <- PredData |>
     arrange(all_pred)
 
 cyano_nutr <- round((table(comp_cyano$all_pred)/lakes_num)*100, digits = 1)
-expec_cyano <- cyano_nutr[1] + cyano_nutr[4]
-off_cyano <- cyano_nutr[2] + cyano_nutr[3]
+expec_cyano <- cyano_nutr[['HNHC']] + cyano_nutr[['LNLC']]
+off_cyano <- cyano_nutr[['HNLC']] + cyano_nutr[['LNHC']]
 
 micx_nutr <- round((table(comp_micx$all_pred)/lakes_num)*100, digits = 1)
-expec_micx <- micx_nutr[1] + micx_nutr[4]
-off_micx <- micx_nutr[2] + micx_nutr[3]
+expec_micx <- micx_nutr[['HNHC']] + micx_nutr[['LNLC']]
+off_micx <-  micx_nutr[['HNLC']] + micx_nutr[['LNHC']]
 
 ```
 
