@@ -167,9 +167,10 @@ comp_micx$Shape <- st_point_on_surface(comp_micx$Shape)|>
 
 oregon <- comp_micx |>
   filter(state == 'OR') |>
-  st_transform(crs=2992)
+  st_transform(crs=5072)
 
-oregon_counties <- counties("OR")
+oregon_counties <- counties("OR") |>
+  st_transform(crs=5072)
 
 pblg <- places('OR') |>
   subset(NAME %in% c("Portland","Burns", "La Grande", "Bend")) |>
@@ -1278,14 +1279,14 @@ state_cols <- PredDataMini |>
 
 state_cols <- state_cols |>
   mutate(class_micx = factor(case_when(
-    pred_micx[, "fit"] >= 0.50 ~ 'HM',
-    pred_micx[, "fit"] < 0.50 ~ 'LM',
+    pred_micx_fit >= 0.50 ~ 'HM',
+    pred_micx_fit < 0.50 ~ 'LM',
     TRUE ~ 'OTHER'),
     levels = c('HM','LM'))) %>%
   arrange(class_micx) |>
   mutate(class_cyano = factor(case_when(
-    pred_cyano[, "fit"] >= 5 ~ 'HC',
-    pred_cyano[, "fit"] < 5 ~ 'LC',
+    pred_cyano_fit >= 5 ~ 'HC',
+    pred_cyano_fit < 5 ~ 'LC',
     TRUE ~ 'OTHER'),
     levels = c('HC','LC'))) %>%
   arrange(class_cyano) |>
@@ -2018,37 +2019,76 @@ final_m <- final_m |>
 
 ###
 
-cond <- read_csv('C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/dw-nitrate/gw-cyanotox/nla_obs.csv')
+loc <- "O:/LAB/COR/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
 
-pred_nla <- PredData |>
-  filter(UNIQUE_ID != 0)
+wbd <- sf::st_read(dsn = loc, layer = 'NHDWaterbody') |>
+  st_transform(5072)
 
-#length(intersect(pred_nla$UNIQUE_ID, habs$UNIQUE_ID))
+wbd_copy <- wbd |>
+  subset(COMID %in% PredData$COMID) |>
+  dplyr::select(COMID, GNIS_NAME) |>
+  st_drop_geometry()
 
-pred_nla <- pred_nla |>
-  left_join(cond, by = 'UNIQUE_ID') |>
-  drop_na()
+wbd_copy |>
+  filter(str_detect(GNIS_NAME, "Fern Ridge"))
 
-ggplot(pred_nla, aes(pred_micx_fit, COND_RESULT)) +
-  geom_point() +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "P", "adj.R2"))) +
-  scale_y_continuous(trans = "log10") +
-  scale_x_continuous(trans = "log10") +
-  labs(y = "Conductivity", x = "Predicted Probability of Microcysin Detection")
+PredData <- left_join(PredData, wbd_copy, by = 'COMID')
 
-pred_nla <- pred_nla %>%
-  mutate(cond_disc = factor(case_when(COND_RESULT < 68.75 ~ 'B1',
-                                      COND_RESULT >= 68.75 & COND_RESULT < 200.30 ~ 'B2',
-                                      COND_RESULT >= 200.30 & COND_RESULT < 406.20 ~ 'B3',
-                                      COND_RESULT > 406.20 ~ 'B4'),
-                         levels = c('B1', 'B2', 'B3', 'B4'))) %>%
-  arrange(cond_disc)
+fern_ridge <- PredData |>
+  filter(str_detect(COMID, "23769069"))
 
-ggplot(pred_nla, aes(color = cond_disc)) +
+ggplot(fern_ridge, aes(color = pred_micx_fit)) +
   geom_sf(size = 2) +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
-  theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
+  geom_sf(data = oregon_counties, fill = NA, color = "black", lwd = 0.1)
+
+fr_nla <- fern_ridge_nla |>
+  rowwise() |>
+  distinct()
+
+write.csv(fern_ridge_nla, file = "fern_ridge_nla_report.csv", row.names = TRUE)
+
+fern_ridge_nla <- habs |>
+  filter(str_detect(UNIQUE_ID, "NLA_OR-10039"))
+
+states <- states(cb = TRUE, progress_bar = FALSE)  %>%
+  filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI'))  %>%
+  st_transform(crs = 5072)
+
+# Cyano Predictions Map
+
+PredData <- PredData %>%
+  mutate(disc_cyano = factor(case_when(pred_cyano_fit < 4.41497 ~ 'B1', # under 25k
+                                       pred_cyano_fit >= 4.41497 & pred_cyano_fit < 4.70757 ~ 'B2', # 25k - 50k
+                                       pred_cyano_fit >= 4.70757 & pred_cyano_fit < 5.00432 ~ 'B3', # 50k - 100k
+                                       pred_cyano_fit >= 5.00432 & pred_cyano_fit < 5.39967 ~ 'B4', # 100k - 250k
+                                       pred_cyano_fit >= 5.39967 & pred_cyano_fit < 5.69984 ~ 'B5', # 250k-500k
+                                       pred_cyano_fit >= 5.69984 ~ 'B6', # 500k
+                                       TRUE ~ NA),
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+  arrange(disc_cyano)
+
+sub_25 <- PredData %>%
+  filter(disc_cyano == 'B1')
+
+cyano_labels <- c('< 25', '≥ 25 - 50', '≥ 50 - 100', '≥ 100 - 250', '≥ 250 - 500', '≥ 500')
+cyano_colors <- c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000")
+
+cyano_pred_map <- ggplot() +
+  geom_sf(data = PredData,
+          aes(color = disc_cyano),
+          size = 5.5,
+          alpha = 0.8) +
+  scale_color_manual(values = cyano_colors,
+                     labels = cyano_labels,
+                     name = "Abundance \n(1000 cells/mL)") +
+  geom_sf(data = sub_25,
+          aes(color = disc_cyano),
+          size = 5.5,
+          alpha = 0.8)  +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 1.5) +
+  theme_void() +
+  theme(legend.position = "none")
+
+ggsave("habs_large.png", width = 50, height = 40, device = 'png', dpi = 500, limitsize = FALSE)
 
 

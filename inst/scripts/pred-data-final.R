@@ -89,7 +89,7 @@ PredData <- ncldMas |>
 
 loc <- "O:/LAB/COR/Geospatial_Library_Resource/Physical/HYDROLOGY/NHDPlusV21/NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"
 
-wbd <- sf::st_read(dsn = loc, layer = 'Waterbody') |>
+wbd <- sf::st_read(dsn = loc, layer = 'NHDWaterbody') |>
   st_transform(5072)
 
 wbd_copy <- wbd |>
