@@ -511,10 +511,10 @@ above_50 <- PredData |>
   filter(disc_micx == 'M3' | disc_micx == 'M4' )
 per_50 <- round(nrow(above_50)/lakes_num, digits = 3) * 100
 
-load(paste0(here(),'/inst/PredDataMini.rda'))
-state_cols <- PredDataMini |>
-  dplyr::select(c(COMID, state)) |>
-  left_join(PredData, by = 'COMID')
+load(paste0(here(),'/inst/states_data.rda'))
+
+state_cols <- PredData |>
+  left_join(states_data, by = 'COMID')
 
 state_cols <- state_cols |>
   mutate(class_micx = factor(case_when(
