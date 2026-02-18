@@ -1,6 +1,6 @@
 ---
 title: "Spatial Modeling of Cyanobacteria Bloom Risk to Disentangle Nutrients and Other Drivers for 125,000 Lakes in the USA"
-format: html
+format: docx
 authors: Amalia Handler, Michael Dumelle, and Melanie Reynolds
 editor: visual
 editor_options: 
@@ -656,7 +656,6 @@ off_micx <-  micx_nutr[['HNLC']] + micx_nutr[['LNHC']]
 
 ```
 
-
 The farm and developed nutrient inputs included in the models were lower in the West and Eastern Highland ecoregions, while much of the Plains and Lowland ecoregion had higher inputs (@fig-nut-input-map). The majority of the cyanoHABs predictions (`r expec_cyano`% for cyanobacteria, `r expec_micx`% for microcystin) were consistent with expectations based on nutrient inputs included in the model, meaning that both cyanoHABs predictions and nutrient inputs were in the same cutoff category (Table 3). Lakes with either lower nutrient inputs and high cyanoHABs risk or higher nutrient inputs and low cyanoHABs risk accounted for `r off_cyano`% of cyanobacteria predictions and `r off_micx`% of microcystin predictions.
 
 Table 3. The number and percent of lake predictions within each category for annual anthropogenic nutrient inputs and cyanoHABs risk.
@@ -841,29 +840,35 @@ ggpubr::ggarrange(precip_den, bfi_den, ad_den,
 # cyanos
 
 # Deal with infinite area depth ratios from zero depth values. Reset these depths to instead be a very small number.
-comp_cyano <- comp_cyano |>
-  mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
+# comp_cyano <- comp_cyano |>
+#   mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
 
-bf_model <- splm(BFIWs ~ all_pred, comp_cyano, spcov_type = "exponential")
+#bf_model <- splm(BFIWs ~ all_pred, comp_cyano, spcov_type = "exponential")
+bf_model <- readRDS(paste0(here(), '/inst/model_objects/bf_model_cyano.rds'))
 anova(bf_model)
 
-ad_model <- splm(log10(ad_ratio) ~ all_pred, comp_cyano, spcov_type = "exponential")
+#ad_model <- splm(log10(ad_ratio) ~ all_pred, comp_cyano, spcov_type = "exponential")
+ad_model <- readRDS(paste0(here(), '/inst/model_objects/ad_model_cyano.rds'))
 anova(ad_model)
 
-precip <- splm(log10(Precip8110Ws) ~ all_pred, comp_cyano, spcov_type = "exponential")
+#precip <- splm(log10(Precip8110Ws) ~ all_pred, comp_cyano, spcov_type = "exponential")
+precip <- readRDS(paste0(here(), '/inst/model_objects/precip_model_cyano.rds'))
 anova(precip)
 
 # micx
-comp_micx <- comp_micx |>
-  mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
+# comp_micx <- comp_micx |>
+#   mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
 
-bfm_model <- splm(BFIWs ~ all_pred, comp_micx, spcov_type = "exponential")
+# bfm_model <- splm(BFIWs ~ all_pred, comp_micx, spcov_type = "exponential")
+bfm_model <- readRDS(paste0(here(), '/inst/model_objects/bf_model_micx.rds'))
 anova(bfm_model)
 
-adm_model <- splm(log10(ad_ratio) ~ all_pred, comp_micx, spcov_type = "exponential")
+#adm_model <- splm(log10(ad_ratio) ~ all_pred, comp_micx, spcov_type = "exponential")
+adm_model <- readRDS(paste0(here(), '/inst/model_objects/ad_model_micx.rds'))
 anova(adm_model)
 
-precipm <- splm(log10(Precip8110Ws) ~ all_pred, comp_micx, spcov_type = "exponential")
+#precipm <- splm(log10(Precip8110Ws) ~ all_pred, comp_micx, spcov_type = "exponential")
+precipm <- readRDS(paste0(here(), '/inst/model_objects/precip_model_micx.rds'))
 anova(precipm)
 
 ```
