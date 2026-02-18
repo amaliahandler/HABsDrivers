@@ -2092,3 +2092,11 @@ cyano_pred_map <- ggplot() +
 ggsave("habs_large.png", width = 50, height = 40, device = 'png', dpi = 500, limitsize = FALSE)
 
 
+# expanding predictor dataset test =============================================
+
+get_nni <- function(coms){
+  StreamCatTools::lc_get_data(metric = 'pctmxfst2016,pctdecid2016,pctconif2016',
+                              aoi='ws',
+                              comid = coms,
+                              showAreaSqKm = TRUE)
+}
