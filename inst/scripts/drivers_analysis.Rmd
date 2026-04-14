@@ -442,7 +442,7 @@ dat_micx_lake <- habs |>
          # Nutrient input fixed effects
          p_farm_inputs, 
          # Lake water fixed effects
-         NTL, NITRATE_N, DOC, TEMPERATURE, EVAP_INFL) |>
+         NTL, NITRATE_N, DOC, TEMPERATURE, EVAP_INFL, PH) |>
   drop_na()
 
 # Function to run independent error models with maximum likelihood 
@@ -476,11 +476,14 @@ mx5 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Prec
 # What is there an interaction?
 mx6 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
 
+# What if we try better matching the cyano in-lake model?
+mx7 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
+
 # Review model AIC/BIC
-glances(mx1, mx2, mx3, mx4, mx5, mx6)
+glances(mx1, mx2, mx3, mx4, mx5, mx6, mx7)
 
 # Make a list of the independent error models to compare
-mx_ie_mods <- list(mx1, mx2, mx3, mx4, mx5, mx6)
+mx_ie_mods <- list(mx1, mx2, mx3, mx4, mx5, mx6, mx7)
 
 # Run leave one out cross validation
 mx_ie_loovc <- lapply(mx_ie_mods, loocv, cv_predict = TRUE)
