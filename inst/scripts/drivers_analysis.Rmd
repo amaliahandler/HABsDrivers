@@ -88,13 +88,16 @@ print(c_value)
 
 ```{r cyano with lake data}
 
+# What about a ration of TN and TP?
+habs <- mutate(habs, np_ratio = NTL/PTL)
+
 # Construct the model
 dep_var  <- "B_G_DENS"
 const    <- 1000
 
 # Filter to the same set of observations for model comparison purposes. These are all the variables that will be tested for the model.
 habs_mod <- habs |>
-  select(B_G_DENS, NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
+  select(B_G_DENS, NTL, PTL, np_ratio, NITRATE_N, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
   drop_na()
 
 # Function to run the cyano models for model comparison.
@@ -128,13 +131,16 @@ cy6 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "
 # How does simplifying the model to better match microcystin impact the model?
 cy7 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
 
+# What about the N/P ratio?
+cy8 <- run_cyano_ml(mod_vars = c("np_ratio", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * NTL")
+
 # Make a table of the model comparison
 
 # Variables common to all models
 com_vars <- c("NITRATE_N", "DOC", "PH", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch")
 
 # Which models are included in the table?
-cy_list <- list(cy1, cy2, cy3, cy4, cy5, cy6, cy7)
+cy_list <- list(cy1, cy2, cy3, cy4, cy5, cy6, cy7, cy8)
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(cy_list, function(mod){
@@ -147,7 +153,7 @@ dif_vars <- sapply(cy_list, function(mod){
 cymods_ml_loocv <- do.call(rbind, lapply(cy_list, loocv))
 
 # Put it all together into a table
-cy_res_table <- glances(cy1, cy2, cy3, cy4, cy5, cy6, cy7) |>
+cy_res_table <- glances(cy1, cy2, cy3, cy4, cy5, cy6, cy7, cy8) |>
   arrange(model) |>
   select(model, n, p, npar, AIC, AICc, BIC) |>
   cbind(cymods_ml_loocv) |>
