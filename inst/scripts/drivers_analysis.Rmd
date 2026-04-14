@@ -125,13 +125,16 @@ cy5 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "
 
 cy6 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * NTL")
 
+# How does simplifying the model to better match microcystin impact the model?
+cy7 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+
 # Make a table of the model comparison
 
 # Variables common to all models
-com_vars <- c("NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch")
+com_vars <- c("NITRATE_N", "DOC", "PH", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch")
 
 # Which models are included in the table?
-cy_list <- list(cy1, cy2, cy3, cy4, cy5, cy6)
+cy_list <- list(cy1, cy2, cy3, cy4, cy5, cy6, cy7)
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(cy_list, function(mod){
@@ -144,7 +147,7 @@ dif_vars <- sapply(cy_list, function(mod){
 cymods_ml_loocv <- do.call(rbind, lapply(cy_list, loocv))
 
 # Put it all together into a table
-cy_res_table <- glances(cy1, cy2, cy3, cy4, cy5, cy6) |>
+cy_res_table <- glances(cy1, cy2, cy3, cy4, cy5, cy6, cy7) |>
   arrange(model) |>
   select(model, n, p, npar, AIC, AICc, BIC) |>
   cbind(cymods_ml_loocv) |>
