@@ -123,12 +123,13 @@
 #' @source {HABsDrivers} Package for estimating lake HABs risk.
 "habs"
 
-#' Compiled data for the lake HABs risk modeling project
+#' Compiled prediction data for the lake HABs risk modeling project
 #'
-#' A dataset containing data from the National Lakes Assessment as well as
-#'  watershed, climate, and lake characteristics. The variables are as follows:
+#' A sf and dataframe object with prediction data for the finalized HABs risk
+#' models developed in the drivers_analysis.Rmd script. This includes watershed,
+#' climate, and lake characteristics. The variables are as follows:
 #'
-#' @format A data frame with 124529 rows and 27 variables:
+#' @format A dataframe with 124529 rows and 29 variables:
 #' \describe{
 #'   \item{COMID}{A site ID assigned to a lake (character)}
 #'   \item{DSGN_CYCLE}{The year of the NLA survey cycle (2007, 2012, 2017)}
@@ -137,7 +138,7 @@
 #'         and 2012 National Nutrient Inventory (kg N/ha)}
 #'   \item{n_farm_inputs}{Annual total nitrogen inputs from agricultural activities into the watershed, mean of 2002, 2007,
 #'         and 2012 National Nutrient Inventory (kg N/ha)}
-#'   \item{p_dev_inpts}{Annual total phosphorus inputs from development (non-farm) into the watershed, mean of 2002, 2007,
+#'   \item{p_dev_inputs}{Annual total phosphorus inputs from development (non-farm) into the watershed, mean of 2002, 2007,
 #'         and 2012 National Nutrient Inventory (kg P/ha)}
 #'   \item{p_farm_inputs}{Annual total phosphorus inputs from agricultural activities into the watershed, mean of 2002, 2007,
 #'         and 2012 National Nutrient Inventory (kg N/ha)}
@@ -178,7 +179,7 @@
 #' Note this shapefile has been simplified to a reduced number of vertices and is
 #' only intended for data visualization purposes at the national scale.
 #'
-#' @format A sf with 3 rows and 3 variables:
+#' @format A sf object with 3 rows and 3 variables:
 #' \describe{
 #'   \item{WSA_3}{The ecoregion code (character)}
 #'   \item{WSA_3_NM}{The ecoregion name (character)}
