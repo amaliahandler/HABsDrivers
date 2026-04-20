@@ -486,7 +486,19 @@ glances(mx1, mx2, mx3, mx4, mx5, mx6, mx7)
 mx_ie_mods <- list(mx1, mx2, mx3, mx4, mx5, mx6, mx7)
 
 # Run leave one out cross validation
-mx_ie_loovc <- lapply(mx_ie_mods, loocv, cv_predict = TRUE)
+# The code below has failed to run 4 times
+# mx_ie_loovc <- lapply(mx_ie_mods, loocv, cv_predict = TRUE)
+mix_ie_loocv <- vector(mode = "list", length = length(mx_ie_mods))
+
+mix_ie_loocv[[1]] <- loocv(mx1, cv_predict = TRUE)
+mix_ie_loocv[[2]] <- loocv(mx2, cv_predict = TRUE)
+mix_ie_loocv[[3]] <- loocv(mx3, cv_predict = TRUE)
+mix_ie_loocv[[4]] <- loocv(mx4, cv_predict = TRUE)
+mix_ie_loocv[[5]] <- loocv(mx5, cv_predict = TRUE)
+mix_ie_loocv[[6]] <- loocv(mx6, cv_predict = TRUE)
+mix_ie_loocv[[7]] <- loocv(mx7, cv_predict = TRUE)
+
+mx_ie_loovc <- mix_ie_loocv
 
 # AUC based on loocv
 mx_ie_auc_loocv <- sapply(1:length(mx_ie_loovc), function(i){
@@ -510,7 +522,7 @@ dif_vars <- sapply(mx_ie_mods, function(mod){
 # Get any interaction terms
 
 # Put it all together into a table, note that the table is organized by BIC
-mx_ie_modcomp <- glances(mx1, mx2, mx3, mx4, mx5, mx6) |>
+mx_ie_modcomp <- glances(mx1, mx2, mx3, mx4, mx5, mx6, mx7) |>
   arrange(model) |>
   cbind(mx_withlake_ie_fit) |>
   select(-npar, -value, -AICc, -logLik, -pseudo.r.squared) |> 
@@ -520,7 +532,7 @@ mx_ie_modcomp <- glances(mx1, mx2, mx3, mx4, mx5, mx6) |>
   arrange(BIC)
 
 # Save the model comparison table
-saveRDS(mx_ie_modcomp, "./inst/model_objects/micx_iemod_compare_withlakedata.rds")
+saveRDS(mx_ie_modcomp, "./inst/model_objects/micx_iemod_compare_withlakedata_20260417.rds")
 
 # Based on the above analysis, models m4, m5, and m6 have the lower AIC/BIC and will be run with spatial covariance for final model selection
 
