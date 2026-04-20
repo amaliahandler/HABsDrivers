@@ -3,9 +3,9 @@
 \docType{data}
 \name{PredData}
 \alias{PredData}
-\title{Compiled data for the lake HABs risk modeling project}
+\title{Compiled prediction data for the lake HABs risk modeling project}
 \format{
-A data frame with 124529 rows and 27 variables:
+A dataframe with 124529 rows and 29 variables:
 \describe{
 \item{COMID}{A site ID assigned to a lake (character)}
 \item{DSGN_CYCLE}{The year of the NLA survey cycle (2007, 2012, 2017)}
@@ -14,7 +14,7 @@ A data frame with 124529 rows and 27 variables:
 and 2012 National Nutrient Inventory (kg N/ha)}
 \item{n_farm_inputs}{Annual total nitrogen inputs from agricultural activities into the watershed, mean of 2002, 2007,
 and 2012 National Nutrient Inventory (kg N/ha)}
-\item{p_dev_inpts}{Annual total phosphorus inputs from development (non-farm) into the watershed, mean of 2002, 2007,
+\item{p_dev_inputs}{Annual total phosphorus inputs from development (non-farm) into the watershed, mean of 2002, 2007,
 and 2012 National Nutrient Inventory (kg P/ha)}
 \item{p_farm_inputs}{Annual total phosphorus inputs from agricultural activities into the watershed, mean of 2002, 2007,
 and 2012 National Nutrient Inventory (kg N/ha)}
@@ -53,7 +53,8 @@ NLA 2017 - NLCD 2016 (percent)}
 PredData
 }
 \description{
-A dataset containing data from the National Lakes Assessment as well as
-watershed, climate, and lake characteristics. The variables are as follows:
+A sf and dataframe object with prediction data for the finalized HABs risk
+models developed in the drivers_analysis.Rmd script. This includes watershed,
+climate, and lake characteristics. The variables are as follows:
 }
 \keyword{datasets}

@@ -6,10 +6,10 @@
 \alias{HABsDrivers-package}
 \title{HABsDrivers: Patterns and Predicting CyanoHABs in US Lakes}
 \description{
-Analysis of the factors associated with harmful algal bloom (HAB) risk. This project draws from EPA dataset to assess the risk of HABs in lakes across the contiguous US.
+Analysis of the factors associated with harmful algal bloom (HAB) risk. This project draws from EPA datasets to assess the risk of HABs in lakes across the contiguous US.
 }
 \author{
-\strong{Maintainer}: Amalia Handler \email{handler.amalia@epa.gov} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
+\strong{Maintainer}: Amalia Handler \email{amhandle@asu.edu} (\href{https://orcid.org/0000-0001-8372-6488}{ORCID})
 
 }
 \keyword{internal}
