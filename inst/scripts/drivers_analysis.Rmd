@@ -465,25 +465,25 @@ mx1 <-run_micx_ie(mod_vars = c("NTL", "DOC", "precip_mean_month", "TEMPERATURE",
 mx2 <-run_micx_ie(mod_vars = c("NTL", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
 # Do dissolved N species improve model fit?
-mx3 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
+mx3 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
 # What about additional watershed metrics?
-mx4 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
+mx4 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
 # What about ecoregion?
-mx5 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
+mx5 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
 
 # What is there an interaction?
-mx6 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
+mx6 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
 
-# What if we try better matching the cyano in-lake model?
-mx7 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
+# # What if we try better matching the cyano in-lake model?
+# mx7 <-run_micx_ie(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
 
 # Review model AIC/BIC
-glances(mx1, mx2, mx3, mx4, mx5, mx6, mx7)
+glances(mx1, mx2, mx3, mx4, mx5, mx6)
 
 # Make a list of the independent error models to compare
-mx_ie_mods <- list(mx1, mx2, mx3, mx4, mx5, mx6, mx7)
+mx_ie_mods <- list(mx1, mx2, mx3, mx4, mx5, mx6)
 
 # Run leave one out cross validation
 # The code below has failed to run 4 times
@@ -494,11 +494,11 @@ mix_ie_loocv[[1]] <- loocv(mx1, cv_predict = TRUE)
 mix_ie_loocv[[2]] <- loocv(mx2, cv_predict = TRUE)
 mix_ie_loocv[[3]] <- loocv(mx3, cv_predict = TRUE)
 mix_ie_loocv[[4]] <- loocv(mx4, cv_predict = TRUE)
-mix_ie_loocv[[5]] <- loocv(mx5, cv_predict = TRUE)
+mix_ie_loocv[[5]] <- mix_ie_loocv[[7]]
 mix_ie_loocv[[6]] <- loocv(mx6, cv_predict = TRUE)
-mix_ie_loocv[[7]] <- loocv(mx7, cv_predict = TRUE)
+# mix_ie_loocv[[7]] <- loocv(mx7, cv_predict = TRUE)
 
-mx_ie_loovc <- mix_ie_loocv
+mx_ie_loovc <- mix_ie_loocv[1:6]
 
 # AUC based on loocv
 mx_ie_auc_loocv <- sapply(1:length(mx_ie_loovc), function(i){
@@ -522,7 +522,7 @@ dif_vars <- sapply(mx_ie_mods, function(mod){
 # Get any interaction terms
 
 # Put it all together into a table, note that the table is organized by BIC
-mx_ie_modcomp <- glances(mx1, mx2, mx3, mx4, mx5, mx6, mx7) |>
+mx_ie_modcomp <- glances(mx1, mx2, mx3, mx4, mx5, mx6) |>
   arrange(model) |>
   cbind(mx_withlake_ie_fit) |>
   select(-npar, -value, -AICc, -logLik, -pseudo.r.squared) |> 
