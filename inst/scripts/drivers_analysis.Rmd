@@ -548,17 +548,24 @@ run_micx_sp <- function(mod_vars, int = NULL){
 }
 
 # Running with spatial covariance
-mx4_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
+mx4_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
-mx5_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
+mx5_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
 
-mx6_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
+mx6_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
 
 # Make a list of the models to compare
 mx_lake_sp_mods <- list(mx4_sp, mx5_sp, mx6_sp)
 
 # Run leave one out cross validation
 mx_lake_sp_loocv <- lapply(mx_lake_sp_mods, loocv, cv_predict = TRUE)
+
+# Run loocv sequentially since lapply seems to hang on my personal computer
+mx_lake_sp_loocv <- vector(mode = "list", length = length(mx_lake_sp_mods))
+
+mx_lake_sp_loocv[[1]] <- loocv(mx4_sp, cv_predict = TRUE)
+mx_lake_sp_loocv[[2]] <- loocv(mx5_sp, cv_predict = TRUE)
+mx_lake_sp_loocv[[3]] <- loocv(mx6_sp, cv_predict = TRUE)
 
 mx_lake_sp_fit <- do.call(rbind, lapply(mx_lake_sp_loocv, function(list.obj){list.obj$stats}))
 
@@ -570,7 +577,7 @@ mx_lake_sp_auc <- sapply(1:length(mx_lake_sp_loocv), function(i){
 })
 
 # Variables common to all models
-com_vars <- c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
+com_vars <- c("NTL", "NITRATE_N", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(mx_lake_sp_mods, function(mod){
@@ -588,7 +595,7 @@ mx_lake_sp_modcomp <- mx_lake_sp_fit |>
   arrange(desc(AUC))
 
 # Save the model comparison table
-saveRDS(mx_lake_sp_modcomp, "./inst/model_objects/mixc_spmod_compare_withlakedata.rds")
+saveRDS(mx_lake_sp_modcomp, "./inst/model_objects/mixc_spmod_compare_withlakedata_20260420.rds")
 
 # The final model is model mx5_sp due to the highest AUC and lowest MSPE, though mx4_sp performs virtually identically
 # The final model should be run using all available observations and with local = F
