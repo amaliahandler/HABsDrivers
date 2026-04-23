@@ -548,6 +548,12 @@ run_micx_sp <- function(mod_vars, int = NULL){
 }
 
 # Running with spatial covariance
+mx1_sp <- run_micx_sp(mod_vars = c("NTL", "DOC", "precip_mean_month", "TEMPERATURE", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
+
+mx2_sp <-run_micx_sp(mod_vars = c("NTL", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
+
+mx3_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
+
 mx4_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
 mx5_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
@@ -556,6 +562,8 @@ mx6_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "p_farm_input
 
 # Make a list of the models to compare
 mx_lake_sp_mods <- list(mx4_sp, mx5_sp, mx6_sp)
+
+mx_lake_sp_mods2 <- list(mx1_sp, mx2_sp, mx3_sp, mx4_sp, mx5_sp, mx6_sp)
 
 # Run leave one out cross validation
 mx_lake_sp_loocv <- lapply(mx_lake_sp_mods, loocv, cv_predict = TRUE)
@@ -567,6 +575,29 @@ mx_lake_sp_loocv[[1]] <- loocv(mx4_sp, cv_predict = TRUE)
 mx_lake_sp_loocv[[2]] <- loocv(mx5_sp, cv_predict = TRUE)
 mx_lake_sp_loocv[[3]] <- loocv(mx6_sp, cv_predict = TRUE)
 
+# Once mods 1, 2, and 3 are done running, run the LOOCV below
+mx_lake_sp_loocv2 <- vector(mode = "list", length = length(mx_lake_sp_mods2))
+
+# Add the previously run models to the list
+mx_lake_sp_loocv2[[4]] <- mx_lake_sp_loocv[[1]]
+mx_lake_sp_loocv2[[5]] <- mx_lake_sp_loocv[[2]]
+mx_lake_sp_loocv2[[6]] <- mx_lake_sp_loocv[[3]]
+
+# Run the new spatial models
+mx_lake_sp_loocv2[[1]] <- loocv(mx4_sp, cv_predict = TRUE)
+mx_lake_sp_loocv2[[2]] <- loocv(mx5_sp, cv_predict = TRUE)
+mx_lake_sp_loocv2[[3]] <- loocv(mx6_sp, cv_predict = TRUE)
+
+# Save the revised spatial models
+saveRDS(mx_lake_sp_mods2, "./inst/model_objects/mx_lake_sp_6modobjs.rds")
+saveRDS(mx_lake_sp_loocv2, "./inst/model_objects/mx_lake_sp_loocv_6mods.rds")
+
+# 
+mx_lake_sp_mods <- mx_lake_sp_mods2
+mx_lake_sp_loocv <- mx_lake_sp_loocv2
+
+# Check that everything run here. If yes, overwrite the mx_lake_sp_loocv object with the complete 6 models.
+
 mx_lake_sp_fit <- do.call(rbind, lapply(mx_lake_sp_loocv, function(list.obj){list.obj$stats}))
 
 # AUC based on loocv
@@ -577,7 +608,7 @@ mx_lake_sp_auc <- sapply(1:length(mx_lake_sp_loocv), function(i){
 })
 
 # Variables common to all models
-com_vars <- c("NTL", "NITRATE_N", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
+com_vars <- c("NTL", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(mx_lake_sp_mods, function(mod){
@@ -588,14 +619,14 @@ dif_vars <- sapply(mx_lake_sp_mods, function(mod){
 
 # Put it all together into a table
 mx_lake_sp_modcomp <- mx_lake_sp_fit |>
-  mutate(model = c("mx4_sp", "mx5_sp", "mx6_sp"),
+  mutate(model = c("mx1_sp", "mx2_sp", "mx3_sp", "mx4_sp", "mx5_sp", "mx6_sp"),
          AUC = mx_lake_sp_auc,
          distinct_vars = dif_vars,
          common_vars = paste(com_vars, collapse = ", ")) |>
   arrange(desc(AUC))
 
 # Save the model comparison table
-saveRDS(mx_lake_sp_modcomp, "./inst/model_objects/mixc_spmod_compare_withlakedata_20260420.rds")
+saveRDS(mx_lake_sp_modcomp, "./inst/model_objects/mixc_spmod_compare_withlakedata_20260423.rds")
 
 # The final model is model mx5_sp due to the highest AUC and lowest MSPE, though mx4_sp performs virtually identically
 # The final model should be run using all available observations and with local = F
