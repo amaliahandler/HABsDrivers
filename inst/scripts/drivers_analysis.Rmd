@@ -122,10 +122,10 @@ cy3 <- run_cyano_ml(mod_vars = c("np_ratio", "DOC", "Precip8110Ws", "Tmean8110Ws
 # Monthly mean temperature and precipitation or climate normals?
 cy4 <- run_cyano_ml(mod_vars = c("NTL", "DOC", "precip_mean_month", "temp_mean_month", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
 
-# How does additional dissolved water data improve the model?
-cy5 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
-
 # Are there ecoregional differences?
+cy5 <- run_cyano_ml(mod_vars = c("NTL", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+
+# Does additional in-lake water data improve the model?
 cy6 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
 
 # # Do interactions improve the model?
