@@ -112,35 +112,40 @@ run_cyano_ml <- function(mod_vars, interact){
 
 # Model comparison
 
-# Does TN or TP fit better?
-cy1 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+# Does TN, TP, or TN/TP fit better?
+cy1 <- run_cyano_ml(mod_vars = c("NTL", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
 
-cy2 <- run_cyano_ml(mod_vars = c("PTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+cy2 <- run_cyano_ml(mod_vars = c("PTL", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+cy3 <- run_cyano_ml(mod_vars = c("np_ratio", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
 
 # Monthly mean temperature and precipitation or climate normals?
-cy3 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "precip_mean_month", "temp_mean_month", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+cy4 <- run_cyano_ml(mod_vars = c("NTL", "DOC", "precip_mean_month", "temp_mean_month", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+# How does additional dissolved water data improve the model?
+cy5 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
 
 # Are there ecoregional differences?
-cy4 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+cy6 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
 
-# Do interactions improve the model?
-cy5 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = "MAXDEPTH * NTL")
-
-cy6 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * NTL")
-
-# How does simplifying the model to better match microcystin impact the model?
-cy7 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
-
-# What about the N/P ratio?
-cy8 <- run_cyano_ml(mod_vars = c("np_ratio", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * NTL")
+# # Do interactions improve the model?
+# cy5 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = "MAXDEPTH * NTL")
+# 
+# cy6 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * NTL")
+# 
+# # How does simplifying the model to better match microcystin impact the model?
+# cy7 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+# 
+# # What about the N/P ratio?
+# cy8 <- run_cyano_ml(mod_vars = c("np_ratio", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * NTL")
 
 # Make a table of the model comparison
 
 # Variables common to all models
-com_vars <- c("NITRATE_N", "DOC", "PH", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch")
+com_vars <- c("DOC", "MAXDEPTH", "EVAP_INFL", "lakemorpho_fetch")
 
 # Which models are included in the table?
-cy_list <- list(cy1, cy2, cy3, cy4, cy5, cy6, cy7, cy8)
+cy_list <- list(cy1, cy2, cy3, cy4, cy5, cy6)
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(cy_list, function(mod){
@@ -153,7 +158,7 @@ dif_vars <- sapply(cy_list, function(mod){
 cymods_ml_loocv <- do.call(rbind, lapply(cy_list, loocv))
 
 # Put it all together into a table
-cy_res_table <- glances(cy1, cy2, cy3, cy4, cy5, cy6, cy7, cy8) |>
+cy_res_table <- glances(cy1, cy2, cy3, cy4, cy5, cy6) |>
   arrange(model) |>
   select(model, n, p, npar, AIC, AICc, BIC) |>
   cbind(cymods_ml_loocv) |>
@@ -163,7 +168,7 @@ cy_res_table <- glances(cy1, cy2, cy3, cy4, cy5, cy6, cy7, cy8) |>
   tibble()
 
 # Save the model comparison table for inclusion in supplement
-saveRDS(cy_res_table, "./inst/model_objects/cyano_mod_compare_withlakedata.rds")
+saveRDS(cy_res_table, "./inst/model_objects/cyano_mod_compare_withlakedata_20260429.rds")
 
 # Run best fit model (c6) with all available oberservations with local = F
 mod_vars <- c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3") 
