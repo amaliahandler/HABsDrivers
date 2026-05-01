@@ -33,7 +33,13 @@ set.seed(99)
 
 ```{r data prep}
 # Set the western mountains to the base group
-habs <- mutate(habs, AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
+# Calculate N/P ratio
+# Calculate total N and P inputs
+habs <- habs |>
+  mutate(
+    AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")),
+    np_ratio = NTL/PTL,
+    p_total_inputs = p_farm_inputs + p_dev_inputs + P_Deposition)
 
 # Load CONUS polygon for making maps
 conus <- st_transform(AOI::aoi_get(state = "conus"), 5072)
@@ -87,9 +93,6 @@ print(c_value)
 ### Cyanobacteria, With In-Lake Conditions
 
 ```{r cyano with lake data}
-
-# What about a ration of TN and TP?
-habs <- mutate(habs, np_ratio = NTL/PTL)
 
 # Construct the model
 dep_var  <- "B_G_DENS"
@@ -171,8 +174,8 @@ cy_res_table <- glances(cy1, cy2, cy3, cy4, cy5, cy6) |>
 saveRDS(cy_res_table, "./inst/model_objects/cyano_mod_compare_withlakedata_20260429.rds")
 
 # Run best fit model (c6) with all available oberservations with local = F
-mod_vars <- c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3") 
-interact <- "AG_ECO3 * NTL"
+mod_vars <- c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3") 
+interact <- NULL
 dat_final <- habs |>
   select(all_of(mod_vars), B_G_DENS, DSGN_CYCLE, UNIQUE_ID) |>
   drop_na()
@@ -211,7 +214,7 @@ ggsave(paste0("./inst/figures/cyano_withlake_sp_final_fitted_preds.png"), fig, h
 # Several very high predictions appear to be due to extremely high TN concentrations. These are outliers, but there's no reason to believe the predictor data are problematic.
 
 # Save the model
-# saveRDS(cyano_withlake_sp, "./inst/model_objects/model_cyano_withlakedata.rds")
+# saveRDS(cyano_withlake_sp, "./inst/model_objects/model_cyano_withlakedata_20260429.rds")
 
 # Map of fitted values
 ggplot() + 
@@ -237,7 +240,7 @@ const    <- 1000
 
 # Filter to the same set of observations for model comparison
 habs_mod <- habs |>
-  select(B_G_DENS, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, p_farm_inputs, n_farm_inputs, fst_ws, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
+  select(B_G_DENS, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, p_farm_inputs, n_farm_inputs, n_dev_inputs, N_Total_Inputs, p_total_inputs, fst_ws, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
   drop_na()
 
 # Function to run the cyano models for model comparison. Figured out that these models should be run with local = F for more stable AIC/BIC comparison. These don't take much longer to run than local = T models.
@@ -252,6 +255,20 @@ run_cyano_ml <- function(mod_vars, interact){
 
 # Base model
 c1 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+c1a <- run_cyano_ml(mod_vars = c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+c1b <- run_cyano_ml(mod_vars = c("N_Total_Inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+c1c <- run_cyano_ml(mod_vars = c("p_total_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+c1d <- run_cyano_ml(mod_vars = c("N_Total_Inputs", "p_total_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+c1e <- run_cyano_ml(mod_vars = c("p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+c1f <- run_cyano_ml(mod_vars = c("n_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+
+
 
 # Additional land cover
 c2 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
