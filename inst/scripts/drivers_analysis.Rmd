@@ -240,7 +240,7 @@ const    <- 1000
 
 # Filter to the same set of observations for model comparison
 habs_mod <- habs |>
-  select(B_G_DENS, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, p_farm_inputs, n_farm_inputs, n_dev_inputs, N_Total_Inputs, p_total_inputs, fst_ws, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
+  select(B_G_DENS, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, p_farm_inputs, n_farm_inputs, n_dev_inputs, N_Total_Inputs, p_total_inputs, fst_ws, wet_ws, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
   drop_na()
 
 # Function to run the cyano models for model comparison. Figured out that these models should be run with local = F for more stable AIC/BIC comparison. These don't take much longer to run than local = T models.
@@ -256,39 +256,29 @@ run_cyano_ml <- function(mod_vars, interact){
 # Base model
 c1 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
 
-c1a <- run_cyano_ml(mod_vars = c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
-
-c1b <- run_cyano_ml(mod_vars = c("N_Total_Inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
-
-c1c <- run_cyano_ml(mod_vars = c("p_total_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
-
-c1d <- run_cyano_ml(mod_vars = c("N_Total_Inputs", "p_total_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
-
-c1e <- run_cyano_ml(mod_vars = c("p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
-
-c1f <- run_cyano_ml(mod_vars = c("n_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
-
-
-
 # Additional land cover
-c2 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+c2 <- run_cyano_ml(mod_vars = c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
 
 # Climate normals versus monthly precip and temp
-c3 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "precip_mean_month", "temp_mean_month", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
+c3 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "precip_mean_month", "temp_mean_month", "BFIWs", "MAXDEPTH", "lakemorpho_fetch"), interact = NULL)
 
 # Ecoregions
-c4 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+c4 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+
+# Other land cover
+c5 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "wet_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
 
 # Interactions
-c5 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "MAXDEPTH * n_farm_inputs")
-
 c6 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * n_farm_inputs")
 
 # Variables common to all models
-com_vars <- c("n_farm_inputs", "p_dev_inputs", "BFIWs", "MAXDEPTH", "lakemorpho_fetch")
+com_vars <- c("BFIWs", "MAXDEPTH", "lakemorpho_fetch")
 
 # Which models are included in the table?
 cy_list <- list(c1, c2, c3, c4, c5, c6)
+
+# Save the models
+# saveRDS(cy_list, "./inst/model_objects/cyano_mods_nolakedata_20260504.rds")
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(cy_list, function(mod){
@@ -311,7 +301,7 @@ cmods_ml_nolake <- glances(c1, c2, c3, c4, c5, c6) |>
   tibble()
 
 # Save the model comparison table for inclusion in supplement
-saveRDS(cmods_ml_nolake, "./inst/model_objects/cyano_mod_compare_nolakedata.rds")
+saveRDS(cmods_ml_nolake, "./inst/model_objects/cyano_mod_compare_nolakedata_20260504.rds")
 
 # Run best fit model (c1) with all available observations with local = F
 mod_vars <- c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch") 
