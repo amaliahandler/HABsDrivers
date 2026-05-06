@@ -240,7 +240,7 @@ const    <- 1000
 
 # Filter to the same set of observations for model comparison
 habs_mod <- habs |>
-  select(B_G_DENS, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, p_farm_inputs, n_farm_inputs, n_dev_inputs, N_Total_Inputs, p_total_inputs, fst_ws, wet_ws, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
+  select(B_G_DENS, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, BFIWs, MAXDEPTH, lakemorpho_fetch, p_dev_inputs, p_farm_inputs, n_farm_inputs, n_dev_inputs, N_Total_Inputs, p_total_inputs, fst_ws, wet_ws,KffactWs, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
   drop_na()
 
 # Function to run the cyano models for model comparison. Figured out that these models should be run with local = F for more stable AIC/BIC comparison. These don't take much longer to run than local = T models.
@@ -271,14 +271,33 @@ c5 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "wet_
 # Interactions
 c6 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * n_farm_inputs")
 
+
+
+
+# Base model, in-lake model with a few variables for nutrient inputs
+c1 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+
+# Source of N and P switched
+c2 <- run_cyano_ml(mod_vars = c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+
+# What about using the total nutrient inputs?
+c3 <- run_cyano_ml(mod_vars = c("N_Total_Inputs", "p_total_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+
+# Other land cover
+c4 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+
+c5 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "BFIWs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+
+c6 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "KffactWs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
+
 # Variables common to all models
-com_vars <- c("BFIWs", "MAXDEPTH", "lakemorpho_fetch")
+com_vars <- c("Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
 
 # Which models are included in the table?
 cy_list <- list(c1, c2, c3, c4, c5, c6)
 
 # Save the models
-# saveRDS(cy_list, "./inst/model_objects/cyano_mods_nolakedata_20260504.rds")
+# saveRDS(cy_list, "./inst/model_objects/cyano_mods_nolakedata_20260506.rds")
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(cy_list, function(mod){
@@ -301,10 +320,10 @@ cmods_ml_nolake <- glances(c1, c2, c3, c4, c5, c6) |>
   tibble()
 
 # Save the model comparison table for inclusion in supplement
-saveRDS(cmods_ml_nolake, "./inst/model_objects/cyano_mod_compare_nolakedata_20260504.rds")
+saveRDS(cmods_ml_nolake, "./inst/model_objects/cyano_mod_compare_nolakedata_20260506.rds")
 
-# Run best fit model (c1) with all available observations with local = F
-mod_vars <- c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "BFIWs", "MAXDEPTH", "lakemorpho_fetch") 
+# Run best fit model (c3) with all available observations with local = F
+mod_vars <- c("N_Total_Inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
 interact <- NULL
 dat_final <- habs |>
   select(all_of(mod_vars), B_G_DENS, DSGN_CYCLE, UNIQUE_ID) |>
@@ -318,9 +337,9 @@ cyano_nolake_sp <- splm(create_formula(dep_var, mod_vars, log = T, const = const
                           local = F)
 
 # Save the model
-saveRDS(cyano_nolake_sp, "./inst/model_objects/model_cyano_nolakedata.rds")
+saveRDS(cyano_nolake_sp, "./inst/model_objects/model_cyano_nolakedata_20260505.rds")
   
-# Run the best fit model, c1, without spatial correlation for comparison
+# Run the best fit model, c3, without spatial correlation for comparison
 cmod_final_nolake_nsp <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
                               data = dat_final,
                               spcov_type = "none",
@@ -732,7 +751,7 @@ dat_micx <- habs |>
          # Lake morphology fixed effects
          MAXDEPTH, lakemorpho_fetch, 
          # Nutrient input fixed effects
-         p_dev_inputs, n_dev_inputs, N_Total_Deposition, N_Surplus, p_farm_inputs, n_farm_inputs, fst_ws, wet_ws, KffactWs) |> 
+         p_dev_inputs, n_dev_inputs, N_Total_Deposition, N_Total_Inputs, p_total_inputs, p_farm_inputs, n_farm_inputs, fst_ws, wet_ws, KffactWs) |> 
   mutate(AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH"))) |>
   drop_na()
 
