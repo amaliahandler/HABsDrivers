@@ -322,8 +322,8 @@ cmods_ml_nolake <- glances(c1, c2, c3, c4, c5, c6) |>
 # Save the model comparison table for inclusion in supplement
 saveRDS(cmods_ml_nolake, "./inst/model_objects/cyano_mod_compare_nolakedata_20260506.rds")
 
-# Run best fit model (c3) with all available observations with local = F
-mod_vars <- c("N_Total_Inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
+# Run best fit model (c1) with all available observations with local = F
+mod_vars <- c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
 interact <- NULL
 dat_final <- habs |>
   select(all_of(mod_vars), B_G_DENS, DSGN_CYCLE, UNIQUE_ID) |>
@@ -337,7 +337,7 @@ cyano_nolake_sp <- splm(create_formula(dep_var, mod_vars, log = T, const = const
                           local = F)
 
 # Save the model
-saveRDS(cyano_nolake_sp, "./inst/model_objects/model_cyano_nolakedata_20260505.rds")
+saveRDS(cyano_nolake_sp, "./inst/model_objects/model_cyano_nolakedata_20260507.rds")
   
 # Run the best fit model, c3, without spatial correlation for comparison
 cmod_final_nolake_nsp <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
@@ -850,11 +850,44 @@ m5_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Pr
 
 m6_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3"), int = "p_farm_inputs * AG_ECO3")
 
+# Version 2 models for Ecol Apps revisions
+
+# Base model, in-lake model with a few variables for nutrient inputs
+m1_sp <- run_micx_sp(mod_vars = c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), int = NULL)
+
+# Source of N and P switched
+m2_sp <- run_micx_sp(mod_vars = c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), int = NULL)
+
+# What about using the total nutrient inputs?
+m3_sp <- run_micx_sp(mod_vars = c("N_Total_Inputs", "p_total_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), int = NULL)
+
+# Other land cover
+m4_sp <- run_micx_sp(mod_vars = c("n_farm_inputs", "p_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), int = NULL)
+
+m5_sp <- run_micx_sp(mod_vars = c("n_farm_inputs", "p_dev_inputs", "BFIWs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), int = NULL)
+
+m6_sp <- run_micx_sp(mod_vars = c("n_farm_inputs", "p_dev_inputs", "KffactWs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), int = NULL)
+
 # Make a list of the models to compare
-micx_sp_mods <- list(m3_sp, m5_sp, m6_sp)
+micx_sp_mods <- list(m1_sp, m2_sp, m3_sp, m4_sp, m5_sp, m6_sp)
+
+# Save the models
+# saveRDS(micx_sp_mods, "./inst/model_objects/micx_mods_nolakedata_20260506.rds")
 
 # Run leave one out cross validation
-micx_sp_loocv <- lapply(micx_sp_mods, loocv, cv_predict = TRUE)
+# micx_sp_loocv <- lapply(micx_sp_mods, loocv, cv_predict = TRUE)
+
+# Run the loocv in parts
+m1_sp_loocv <- loocv(m1_sp, cv_predict = TRUE)
+m2_sp_loocv <- loocv(m2_sp, cv_predict = TRUE)
+m3_sp_loocv <- loocv(m3_sp, cv_predict = TRUE)
+m4_sp_loocv <- loocv(m4_sp, cv_predict = TRUE)
+m5_sp_loocv <- loocv(m5_sp, cv_predict = TRUE)
+m6_sp_loocv <- loocv(m6_sp, cv_predict = TRUE)
+
+# Compile in the list
+micx_sp_loocv <- list(m1_sp_loocv, m2_sp_loocv, m3_sp_loocv,
+                      m4_sp_loocv, m5_sp_loocv, m6_sp_loocv)
 
 # AUC based on loocv
 micx_sp_auc_loocv <- sapply(1:length(micx_sp_loocv), function(i){
@@ -864,7 +897,7 @@ micx_sp_auc_loocv <- sapply(1:length(micx_sp_loocv), function(i){
 })
 
 # Variables common to all models
-com_vars <- c("p_farm_inputs", "n_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3")
+com_vars <- c("Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(micx_sp_mods, function(mod){
@@ -873,9 +906,14 @@ dif_vars <- sapply(micx_sp_mods, function(mod){
   paste(coef_names, collapse = ", ")
 })
 
+# Get the stats tables
+micx_sp_loocv_stats <- do.call(rbind, lapply(1:length(micx_sp_loocv), function(i){
+  micx_sp_loocv[[i]]$stats
+}))
+
 # Put it all together into a table
-micx_sp_modcomp <- rbind(micx_sp_loocv[[1]]$stats, micx_sp_loocv[[2]]$stats, micx_sp_loocv[[3]]$stats) |>
-  mutate(model = c("m3_sp", "m5_sp", "m6_sp"),
+micx_sp_modcomp <- micx_sp_loocv_stats |>
+  mutate(model = c("m1_sp", "m2_sp", "m3_sp", "m4_sp", "m5_sp", "m6_sp"),
          AUC = micx_sp_auc_loocv,
          distinct_vars = dif_vars,
          common_vars = paste(com_vars, collapse = ", ")) |>
@@ -883,7 +921,7 @@ micx_sp_modcomp <- rbind(micx_sp_loocv[[1]]$stats, micx_sp_loocv[[2]]$stats, mic
   tibble()
 
 # Save the model comparison table
-saveRDS(micx_sp_modcomp, "./inst/model_objects/micx_spmod_compare_nolakedata.rds")
+saveRDS(micx_sp_modcomp, "./inst/model_objects/micx_spmod_compare_nolakedata_20260507.rds")
 
 # Two models, m6_sp and m5_sp, had the highest AUC values. Chose to go with m5_sp because if it's slightly simpler forumulation and interpretation (no interactions)
 # The final model should be run using all available observations and with local = F
