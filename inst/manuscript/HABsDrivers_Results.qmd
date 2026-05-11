@@ -968,9 +968,43 @@ tabs <- c("cyano_mod_compare_withlakedata.rds",
           "micx_spmod_compare_withlakedata.rds",
           "micx_spmod_compare_nolakedata.rds")
 
+## Creating a temporary set of tables for comparing the revised in-lake and no-lake models
+tabs <- c("cyano_mod_compare_withlakedata_20260429.rds",
+          # "micx_iemod_compare_withlakedata_20260420.rds",
+          "micx_spmod_compare_withlakedata_20260508.rds",
+          "cyano_mod_compare_nolakedata_20260511.rds",
+          "micx_spmod_compare_nolakedata_20260511.rds")
+
+## Manual edits to tables since it takes so long to rerun all the models and diagnostics
+# micx_sp_compare <- readRDS(paste0(here(), "./inst/model_objects/", "micx_spmod_compare_withlakedata_20260423.rds"))|>
+#   mutate(
+#     distinct_vars = case_when(
+#     model == "mx2_sp" ~ "Precip8110Ws, Tmean8110Ws",
+#     model != "mx1_sp" ~ paste0(distinct_vars, ", Precip8110Ws, Tmean8110Ws"),
+#     TRUE ~ distinct_vars
+#   ),
+#   common_vars = str_remove(common_vars, " Precip8110Ws, Tmean8110Ws,")
+#   ) |>
+#   saveRDS(paste0(here(), "./inst/model_objects/", "micx_spmod_compare_withlakedata_20260508.rds"))
+
+# Manual edits to tables since it takes so long to rerun all the models and diagnostics
+# cyano_nolake_compare <- readRDS(paste0(here(), "./inst/model_objects/", "cyano_mod_compare_nolakedata_20260506.rds"))|>
+#   mutate(
+#     distinct_vars = str_replace(distinct_vars, ", AG_ECO3PLNLOW, AG_ECO3EHIGH", "")
+#   ) |>
+#   saveRDS(paste0(here(), "./inst/model_objects/", "cyano_mod_compare_nolakedata_20260511.rds"))
+# 
+# # Manual edits to tables since it takes so long to rerun all the models and diagnostics
+# micx_nolake_compare <- readRDS(paste0(here(), "./inst/model_objects/", "micx_spmod_compare_nolakedata_20260507.rds"))|>
+#   mutate(
+#     distinct_vars = str_replace(distinct_vars, ", AG_ECO3PLNLOW, AG_ECO3EHIGH", "")
+#   ) |>
+#   saveRDS(paste0(here(), "./inst/model_objects/", "micx_spmod_compare_nolakedata_20260511.rds"))
+
 # Vector of strings to replace with covariate names
 covar_labs <-  c("NTL" = "Total N",
                  "PTL" = "Total P",
+                 "np_ratio" = "N/P Ratio",
                  "NITRATE_N" = "Nitrate",
                  "AMMONIA_N" = "Ammonium",
                  "DOC" = "DOC",
@@ -983,18 +1017,22 @@ covar_labs <-  c("NTL" = "Total N",
                  "p_farm_inputs" = "Farm P Inputs",
                  "n_dev_inputs" = "Developed N Inputs",
                  "p_dev_inputs" = "Developed P Inputs",
+                 "N_Total_Inputs" = "Total N Inputs",
+                 "p_total_inputs" = "Total P Inputs",
+                 "KffactWs" = "Soil Erodability",
                  "fst_ws" = "Forest Cover",
                  "BFIWs" = "Baseflow Index",
                  "Precip8110Ws" = "Annual Precip",
                  "Tmean8110Ws" = "Annual Air Temp",
                  "precip_mean_month" = "Monthly Precip",
                  "temp_mean_month" = "Monthly Air Temp",
+                 "AG_ECO3" = "Ecoregion",
                  "AG_ECO3PLNLOW" = "Ecoregion",
                  "AG_ECO3EHIGH" = "Ecoregion",
                  ":" = " * ")
 
 # A few expressions end up being repeated when there are interactions with ecoregion
-# rep_expr <- c("Total N * Ecoregion", "Farm N Inputs * Ecoregion", "Farm P Inputs * Ecoregion")
+rep_expr <- c("Total N * Ecoregion", "Farm N Inputs * Ecoregion", "Farm P Inputs * Ecoregion")
 
 # The columns to be displayed from each table
 cyano_cols   <- c("BIC", "bias", "RMSPE", "cor2")
@@ -1058,6 +1096,9 @@ mod_comp_tabs <- lapply(tabs, function(tab){
   
     return(list(cap, flex_dat))
 })
+
+# # Save the tables for the new model comparison markdown
+saveRDS(mod_comp_tabs, here("inst", "model_objects", "model_tables_update_20260511.rds"))
 
 
 ```

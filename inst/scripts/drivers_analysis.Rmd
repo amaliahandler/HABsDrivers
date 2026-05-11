@@ -291,7 +291,7 @@ c5 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "BFIWs", "Preci
 c6 <- run_cyano_ml(mod_vars = c("n_farm_inputs", "p_dev_inputs", "KffactWs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
 
 # Variables common to all models
-com_vars <- c("Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
+com_vars <- c("Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3PLNLOW", "AG_ECO3EHIGH")
 
 # Which models are included in the table?
 cy_list <- list(c1, c2, c3, c4, c5, c6)
@@ -301,6 +301,9 @@ cy_list <- list(c1, c2, c3, c4, c5, c6)
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(cy_list, function(mod){
+  # ecor <- ifelse("AG_ECO3" %in% com_vars),
+  # com_vars <- ifelse(ecor, com_vars[!com_vars == "AG_ECO3"]),
+  # com_vars <- c(com_vars, "AG_ECO3PLNLOW", "PLNLOW"),
   coef_names <- names(mod$coefficients$fixed)
   coef_names <- coef_names[!coef_names %in% c("(Intercept)", com_vars)]
   paste(coef_names, collapse = ", ")
@@ -470,8 +473,6 @@ dat_micx_lake <- habs |>
          AG_ECO3, 
          # Lake morphology fixed effects
          MAXDEPTH, lakemorpho_fetch, 
-         # Nutrient input fixed effects
-         p_farm_inputs, 
          # Lake water fixed effects
          NTL, NITRATE_N, DOC, TEMPERATURE, EVAP_INFL, PH) |>
   drop_na()
@@ -525,7 +526,7 @@ mix_ie_loocv[[1]] <- loocv(mx1, cv_predict = TRUE)
 mix_ie_loocv[[2]] <- loocv(mx2, cv_predict = TRUE)
 mix_ie_loocv[[3]] <- loocv(mx3, cv_predict = TRUE)
 mix_ie_loocv[[4]] <- loocv(mx4, cv_predict = TRUE)
-mix_ie_loocv[[5]] <- mix_ie_loocv[[7]]
+mix_ie_loocv[[5]] <- loocv(mx4, cv_predict = TRUE)
 mix_ie_loocv[[6]] <- loocv(mx6, cv_predict = TRUE)
 # mix_ie_loocv[[7]] <- loocv(mx7, cv_predict = TRUE)
 
@@ -639,7 +640,7 @@ mx_lake_sp_auc <- sapply(1:length(mx_lake_sp_loocv), function(i){
 })
 
 # Variables common to all models
-com_vars <- c("NTL", "DOC", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
+com_vars <- c("NTL", "DOC", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch")
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(mx_lake_sp_mods, function(mod){
@@ -897,7 +898,7 @@ micx_sp_auc_loocv <- sapply(1:length(micx_sp_loocv), function(i){
 })
 
 # Variables common to all models
-com_vars <- c("Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
+com_vars <- c("Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3PLNLOW", "AG_ECO3EHIGH")
 
 # Get the fixed effects that are different between the models
 dif_vars <- sapply(micx_sp_mods, function(mod){
@@ -925,7 +926,7 @@ saveRDS(micx_sp_modcomp, "./inst/model_objects/micx_spmod_compare_nolakedata_202
 
 # Two models, m6_sp and m5_sp, had the highest AUC values. Chose to go with m5_sp because if it's slightly simpler forumulation and interpretation (no interactions)
 # The final model should be run using all available observations and with local = F
-mod_vars <- c("p_farm_inputs", "n_dev_inputs", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "BFIWs", "AG_ECO3")
+mod_vars <- c("n_farm_inputs", "p_dev_inputs", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
 int <- NULL
 dat_final <- habs |>
   select(all_of(mod_vars), MICX_DET, DSGN_CYCLE, UNIQUE_ID) |>
@@ -955,7 +956,7 @@ micx_sp_nolake_auc <- as.numeric(auc$auc)
 Sys.time()
 
 # Save the best performing micx model so far
-saveRDS(micx_sp_nolake, "./inst/model_objects/model_micx_nolakedata.rds")
+saveRDS(micx_sp_nolake, "./inst/model_objects/model_micx_nolakedata_20260507.rds")
 
 # Run non-spatial model for comparison to final model
 micx_nsp_nolake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
