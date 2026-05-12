@@ -200,6 +200,7 @@ PredData <- merge(PredData, nutrMas, by = 'COMID')
 
 # mean cbnf values from stream cat and natrional nutrient inventory 
 PredData <- PredData |>
+  rowwise() |>
   mutate(n_cbnf = ((n_cbnf + N_CBNF_2007)/2),
          .keep = 'unused')
 
@@ -307,7 +308,8 @@ PredData <- PredData |>
   filter(!is.na(lake_m_depth))
 
 # area:depth ratio 
-PredData <- PredData %>%
+PredData <- PredData |>
+  rowwise() |> 
   mutate(area_km = lake_area / 1000000,
          ad_ratio = (sqrt(area_km)) / lake_m_depth) 
 
@@ -342,6 +344,7 @@ PredData <- PredData |>
 # combining nutrient data to create final nutrient covariates 
 # remove unnecessary columns 
 PredData <- PredData |>
+  rowwise() |>
   mutate(n_farm_inputs = n_livestock + n_cbnf + N_Fert_Farm_2007,
          n_dev_inputs = n_human + n_fert_urb,
          p_farm_inputs = p_f_fert + p_livestock,
@@ -376,6 +379,7 @@ PredData <- subset(PredData, select = -c(...1))
 # select on necessary covariates for the model run
 # drop any NA rows
 PredData <- PredData |>
+  rowwise() |>
   mutate(WSAREAHA = WSAREASQKM * 100,
          n_dev_inputs = n_dev_inputs / WSAREAHA,
          n_farm_inputs = n_farm_inputs / WSAREAHA,
@@ -390,7 +394,7 @@ PredData <- PredData |>
                   BFIWs, MAXDEPTH,lakemorpho_fetch, lake_area, ad_ratio,
                   Precip8110Ws, Tmean8110Ws,
                   fst_ws, AG_ECO3,
-                  DSGN_CYCLE, UNIQUE_ID, geometry)) |>
+                  DSGN_CYCLE, UNIQUE_ID, Shape)) |>
   drop_na()
 
 ```
@@ -406,7 +410,7 @@ Pred <- predict(object = model_cyano_nolakes, newdata = PredData,
 Sys.time()
 
 # perform log transformation on cyano data
-pred_df <- final_pred %>%
+pred_df <- final_pred |>
   mutate(pred_cyano = Pred,
          cyano_transform = 10^Pred - 1000)
 
@@ -418,7 +422,7 @@ MicxPred <- predict(object = model_micx_nolakes, newdata = PredData,
 Sys.time()
 
 # perform transformation on the micx data 
-micx_pred_df <- final_pred %>%
+micx_pred_df <- final_pred |>
   mutate(pred_micx = MicxPred,
          micx_transform = 10^Pred - 1000)
 
@@ -479,7 +483,7 @@ PredData <- PredData |>
 ```{r}
 
 # Save the data as part of the package
-usethis::use_data(PredData, overwrite = T)
+#usethis::use_data(PredData, overwrite = T)
 
 ```
 
