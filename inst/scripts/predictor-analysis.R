@@ -790,7 +790,7 @@ q <- ggplot() +
   theme(axis.title.y=element_blank(),
         legend.position = "none")
 
-ggsave("cyano_oregon.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1500)
+ggsave("cyano_ecocond.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1500)
 
 
 # Base flow --------------------------------------------------------------------
@@ -964,7 +964,7 @@ micxcat_labels <- c('High Nutrient, High HABs',
                     'Low Nutrient, High HABs',
                     'Low Nutrient, Low HABs')
 
-precip_den_micx <- ggplot(comp_micx, aes(x=n_dev_inputs, y= micx_class)) +
+precip_den_micx <- ggplot(comp_micx, aes(x=ad_ratio, y= micx_class)) +
   ggridges::geom_density_ridges(aes(fill = micx_class),
                                 scale = 2,
                                 alpha = 0.85,
@@ -2092,11 +2092,448 @@ cyano_pred_map <- ggplot() +
 ggsave("habs_large.png", width = 50, height = 40, device = 'png', dpi = 500, limitsize = FALSE)
 
 
-# expanding predictor dataset test =============================================
+# ecoregion threshold test =====================================================
 
-get_nni <- function(coms){
-  StreamCatTools::lc_get_data(metric = 'pctmxfst2016,pctdecid2016,pctconif2016',
-                              aoi='ws',
-                              comid = coms,
-                              showAreaSqKm = TRUE)
-}
+test <- PredData |>
+  st_drop_geometry() |>
+  group_by(AG_ECO3) |>
+  mutate(micx_mean = mean(pred_micx_fit, na.rm = TRUE),
+         cyano_mean = mean(pred_cyano_fit, na.rm = TRUE)) |>
+  ungroup()
+
+test <- test |>
+  rowwise() |>
+  mutate(micx_relative = factor(case_when(pred_micx_fit < micx_mean ~ 'B1',
+                                       pred_micx_fit >= micx_mean ~ 'B2',
+                                       TRUE ~ NA)),
+         cyano_relative = factor(case_when(pred_cyano_fit < cyano_mean ~ 'B1',
+                                      pred_cyano_fit >= cyano_mean ~ 'B2',
+                                      TRUE ~ NA)))
+
+test.geo <- PredData |>
+  dplyr::select(COMID, Shape) |>
+  left_join(test, by = 'COMID')
+
+ggplot() +
+  geom_sf(data = test.geo,
+          aes(color = cyano_relative),
+          size = 0.75,
+          alpha = 0.8) +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 1.5) +
+  theme_void()
+
+# national thresholds  =========================================================
+
+site2007 <- read_csv("inst/nla2007_sampledlakeinformation.csv")
+site2012 <- read_csv("inst/nla2012_siteinfo.csv")
+site2017 <- read_csv("inst/nla_2017_site_information-data.csv")
+
+ref_2007 <- site2007 |>
+  filter(RT_NLA == "REF")|>
+  distinct() |>
+  dplyr::select(SITE_ID, WSA_ECO3, COM_ID,
+                RT_NLA, VISIT_NO,
+                LON_DD, LAT_DD) |>
+  mutate(year = 2007)
+
+ref_2012 <- site2012 |>
+  filter(RT_NLA12 == 'R') |>
+  distinct() |>
+  dplyr::select(SITE_ID, AGGR_ECO3_2015, COMID2012,
+                RT_NLA12, VISIT_NO,
+                LON_DD83, LAT_DD83) |>
+  mutate(year = 2012) |>
+  rename(WSA_ECO3 = AGGR_ECO3_2015,
+         COM_ID = COMID2012,
+         RT_NLA = RT_NLA12,
+         LON_DD = LON_DD83,
+         LAT_DD = LAT_DD83)
+
+ref_2017 <- site2017 |>
+  filter(RT_NLA17 == 'R') |>
+  distinct() |>
+  dplyr::select(SITE_ID, AG_ECO3, COMID,
+                RT_NLA17, VISIT_NO,
+                LON_DD83, LAT_DD83) |>
+  mutate(year = 2017) |>
+  rename(WSA_ECO3 = AG_ECO3,
+         COM_ID = COMID,
+         RT_NLA = RT_NLA17,
+         LON_DD = LON_DD83,
+         LAT_DD = LAT_DD83)
+
+
+ref_all <- bind_rows(ref_2007, ref_2012, ref_2017)
+
+ref_all <- ref_all |>
+  filter(VISIT_NO == '1') |>
+  distinct()
+
+cyano_ref <- ref_all |>
+  left_join(habs, by = 'SITE_ID')|>
+  drop_na(B_G_DENS)
+
+cyano_ref <- cyano_ref |>
+  mutate(state = substr(UNIQUE_ID, 5, 6))
+
+ore_ref <- cyano_ref |>
+  filter(state == 'OR')
+
+or_habs <- habs |>
+  mutate(state = substr(UNIQUE_ID, 5, 6)) |>
+  filter(state == 'OR')
+
+# 1.5 IQR
+Q1 <- quantile(cyano_ref$B_G_DENS, 0.25)
+Q3 <- quantile(cyano_ref$B_G_DENS, 0.75)
+IQR_val <- Q3 - Q1
+
+lower_bound <- Q1 - 1.5 * IQR_val
+upper_bound <- Q3 + 1.5 * IQR_val
+
+outliers <- cyano_ref$B_G_DENS[cyano_ref$B_G_DENS < lower_bound | cyano_ref$B_G_DENS > upper_bound]
+print(outliers)
+
+habs_filter <- cyano_ref |>
+  filter(!B_G_DENS %in% outliers)
+
+
+# national thresholds?
+
+# good | fair cutoff at 40,438
+g.f <- quantile(habs_filter$B_G_DENS, 0.75)
+
+# fair | poor cutoff at 96,051
+f.p <- quantile(habs_filter$B_G_DENS, 0.99)
+
+# eco region thresholds ========================================================
+
+# EHIGH
+ehigh_ref <- cyano_ref |>
+  filter(WSA_ECO3 == 'EHIGH')
+
+test_out <- ehigh_ref |> identify_outliers(B_G_DENS)
+
+test_filter <- ehigh_ref |>
+  filter(!B_G_DENS %in% test_out$B_G_DENS)
+
+# good | fair cutoff at 35,670
+g.f.ehigh <- quantile(test_filter$B_G_DENS, 0.75)
+
+# fair | poor cutoff at 77,792
+f.p.ehigh <- quantile(test_filter$B_G_DENS, 0.99)
+
+
+# PLNLOW
+
+pln_ref <- cyano_ref |>
+  filter(WSA_ECO3 == 'PLNLOW')
+
+test_out <- pln_ref |> identify_outliers(B_G_DENS)
+
+test_filter <- pln_ref |>
+  filter(!B_G_DENS %in% test_out$B_G_DENS)
+
+# good | fair cutoff at 89,726
+g.f.pln <- quantile(test_filter$B_G_DENS, 0.75)
+
+# fair | poor cutoff at 169,365
+f.p.pln <- quantile(test_filter$B_G_DENS, 0.99)
+
+
+# WMTNS
+
+west_ref <- cyano_ref |>
+  filter(WSA_ECO3 == 'WMTNS')
+
+test_out <- west_ref |> identify_outliers(B_G_DENS)
+
+test_filter <- west_ref |>
+  filter(!B_G_DENS %in% test_out$B_G_DENS)
+
+# good | fair cutoff at 22,249
+g.f.west <- quantile(test_filter$B_G_DENS, 0.75)
+
+# fair | poor cutoff at 30,391
+f.p.west <- quantile(test_filter$B_G_DENS, 0.99)
+
+
+# apply gfp to pred habs =======================================================
+
+PredData <- PredData |>
+  mutate(cyano_ecocond = factor(case_when(AG_ECO3 == "EHIGH" & cyano_transform_fit <= g.f.ehigh ~ 'Good',
+                                       AG_ECO3 == "EHIGH" & cyano_transform_fit >= g.f.ehigh & cyano_transform_fit < f.p.ehigh ~ 'Fair',
+                                       AG_ECO3 == "EHIGH" & cyano_transform_fit >= f.p.ehigh ~ 'Poor',
+
+                                       AG_ECO3 == "PLNLOW" & cyano_transform_fit <= g.f.pln ~ 'Good',
+                                       AG_ECO3 == "PLNLOW" & cyano_transform_fit >= g.f.pln & cyano_transform_fit < f.p.pln ~ 'Fair',
+                                       AG_ECO3 == "PLNLOW" & cyano_transform_fit >= f.p.pln ~ 'Poor',
+
+                                       AG_ECO3 == "WMTNS" & cyano_transform_fit <= g.f.west ~ 'Good',
+                                       AG_ECO3 == "WMTNS" & cyano_transform_fit >= g.f.west & cyano_transform_fit < f.p.west ~ 'Fair',
+                                       AG_ECO3 == "WMTNS" & cyano_transform_fit >= f.p.west ~ 'Poor'),
+  levels = c("Poor","Fair","Good" ))) |>
+  arrange(cyano_ecocond)
+
+colorscond <- c('Good' = '#85B2DC',
+                'Fair'='#FFCF7A',
+                'Poor'='#FF7978')
+
+ggplot(PredData, aes(color = cyano_ecocond)) +
+  geom_sf(size = 0.8) +
+  scale_color_manual(values = colorscond) +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+ # geom_sf(data = eco_ag3_simpl, fill = NA, color = "black", lwd = 0.3) +
+  theme_void()
+
+ggplot(PredData, aes(color = micx_ecocond)) +
+  geom_sf(size = 0.8) +
+  scale_color_manual(values = colorscond) +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  geom_sf(data = eco_ag3_simpl, fill = NA, color = "blue", lwd = 0.1) +
+  theme_void()
+
+cyano_ref |>
+  ggplot(aes(B_G_DENS)) +
+  facet_wrap(~AG_ECO3) +
+  geom_histogram()
+
+
+# micx threshold ===============================================================
+
+micx_ref_grp <- cyano_ref |>
+  st_drop_geometry() |>
+  drop_na(MICX_DET) |>
+  group_by(WSA_ECO3) |>
+  count(MICX_DET) |>
+  mutate(total = n()) |>
+  mutate(prop = n / sum(n))
+
+PredData <- PredData |>
+  mutate(micx_refcond = factor(case_when(AG_ECO3 == "EHIGH" & pred_micx_fit <= 0.0877 ~ 'Below',
+                                         AG_ECO3 == "EHIGH" & pred_micx_fit > 0.0877 ~ 'Above',
+
+                                         AG_ECO3 == "PLNLOW" & pred_micx_fit <= 0.246  ~ 'Below',
+                                         AG_ECO3 == "PLNLOW" & pred_micx_fit > 0.246  ~ 'Above',
+
+                                         AG_ECO3 == "WMTNS" & pred_micx_fit <= 0.0223 ~ 'Below',
+                                         AG_ECO3 == "WMTNS" & pred_micx_fit > 0.0223 ~ 'Above'),
+                               levels = c("Above","Below" ))) |>
+  arrange(micx_refcond)
+
+total_micx_ref <- PredData |>
+  st_drop_geometry() |>
+  dplyr::select(AG_ECO3, micx_refcond) |>
+  group_by(micx_refcond, AG_ECO3) |>
+  mutate(total = n()) |>
+  distinct()
+
+eco2007 <- site2007 |>
+  select(SITE_ID, WSA_ECO3, LAT_DD, LON_DD)
+
+taxa07 <- phyto2007 |>
+  left_join(eco2007, by = 'SITE_ID', relationship = 'one-to-many') |>
+  distinct() |>
+  select(WSA_ECO3, TAXANAME, ABUND) |>
+  group_by(WSA_ECO3, TAXANAME) |>
+  mutate(taxa_count = sum(ABUND))
+
+# thresholds w/ HABs data ======================================================
+
+library(rstatix)
+load_all()
+habs <- habs |> drop_na(B_G_DENS)
+
+# EHIGH
+ehigh_habs <- habs |>
+  filter(AG_ECO3 == 'EHIGH')
+
+test_out <- ehigh_habs |> identify_outliers(B_G_DENS)
+
+test_filter <- ehigh_habs |>
+  filter(!B_G_DENS %in% test_out$B_G_DENS)
+
+# good | fair cutoff at 29,855
+g.f.ehigh <- quantile(test_filter$B_G_DENS, 0.75)
+
+# fair | poor cutoff at 92,127
+f.p.ehigh <- quantile(test_filter$B_G_DENS, 0.95)
+
+
+# PLNLOW
+
+pln_habs <- habs |>
+  filter(AG_ECO3 == 'PLNLOW')
+
+test_out <- pln_habs |> identify_outliers(B_G_DENS)
+
+test_filter <- pln_habs |>
+  filter(!B_G_DENS %in% test_out$B_G_DENS)
+
+# good | fair cutoff at 80,282
+g.f.pln <- quantile(test_filter$B_G_DENS, 0.75)
+
+# fair | poor cutoff at 258,390
+f.p.pln <- quantile(test_filter$B_G_DENS, 0.95)
+
+
+# WMTNS
+
+west_habs <- habs |>
+  filter(AG_ECO3 == 'WMTNS')
+
+test_out <- west_habs |> identify_outliers(B_G_DENS)
+
+test_filter <- west_habs |>
+  filter(!B_G_DENS %in% test_out$B_G_DENS)
+
+# good | fair cutoff at 20,800
+g.f.west <- quantile(test_filter$B_G_DENS, 0.75)
+
+# fair | poor cutoff at 54,598
+f.p.west <- quantile(test_filter$B_G_DENS, 0.95)
+
+# get ecoregional totals
+total_table <- PredData |>
+  st_drop_geometry() |>
+  dplyr::select(AG_ECO3, cyano_ecocond) |>
+  group_by(cyano_ecocond, AG_ECO3) |>
+  mutate(total = n()) |>
+  distinct()
+
+PredData |>
+  st_drop_geometry() |>
+  group_by(cyano_ecocond) |>
+  get_summary_stats(Precip8110Ws, type = 'mean_sd')
+
+bf_model <- splm(BFIWs ~ cyano_ecocond, PredData, spcov_type = "exponential")
+anova(bf_model)
+
+PredData |>
+  st_drop_geometry() |>
+  dplyr::filter(MAXDEPTH >0) |>
+  select(cyano_pred,n_dev_inputs:fst_ws) |>
+  tbl_summary(by = cyano_pred,
+              statistic = list(all_continuous() ~ "{mean}")) |>
+  gtsummary::add_p()
+
+PredData <- PredData |>
+  mutate(cyano_pred2 = factor(case_when(
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'Poor' ~ 'HNHC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == 'Poor' ~ 'LNHC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'Good' | cyano_ecocond == 'Fair' ~ 'HNLC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == "Good" | cyano_ecocond == 'Fair '~ 'LNLC',
+    TRUE ~ 'OTHER'),
+    levels = c('HNHC','HNLC','LNHC','LNLC'))) |>
+  arrange(cyano_pred2)
+
+baseflow_den_cyano <- ggplot(PredData, aes(x=BFIWs, y= cyano_pred)) +
+  ggridges::geom_density_ridges(aes(fill = cyano_pred),
+                                scale = 2,
+                                alpha = 0.85,
+                                quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5"),
+                    labels = micxcat_labels) +
+  xlim(0,100) +
+  labs(x = "BaseFlow (%)", y = "Density Distribution",  fill = 'Class',
+       title = 'Cyanobacteria') +
+  theme(axis.title.y=element_blank()) +
+  guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
+
+ggplot() +
+  geom_density(data = pred_filter, aes((x = log(cyano_transform_fit)))) +
+  geom_density(data = habs, (aes(x = log(B_G_DENS))))
+
+
+# thresholds w/ PredData  ======================================================
+
+library(rstatix)
+load_all()
+PredData <- PredData |> drop_na(cyano_transform_fit)
+
+# EHIGH
+ehigh_PredData <- PredData |>
+  filter(AG_ECO3 == 'EHIGH')
+
+test_out <- ehigh_PredData |> identify_outliers(cyano_transform_fit)
+
+test_filter <- ehigh_PredData |>
+  filter(!cyano_transform_fit %in% test_out$cyano_transform_fit)
+
+# good | fair cutoff at 125,377
+g.f.ehigh <- quantile(test_filter$cyano_transform_fit, 0.75)
+
+# fair | poor cutoff at 242,242
+f.p.ehigh <- quantile(test_filter$cyano_transform_fit, 0.95)
+
+
+# PLNLOW
+
+pln_PredData <- PredData |>
+  filter(AG_ECO3 == 'PLNLOW')
+
+test_out <- pln_PredData |> identify_outliers(cyano_transform_fit)
+
+test_filter <- pln_PredData |>
+  filter(!cyano_transform_fit %in% test_out$cyano_transform_fit)
+
+# good | fair cutoff at 212,240
+g.f.pln <- quantile(test_filter$cyano_transform_fit, 0.75)
+
+# fair | poor cutoff at 338,178
+f.p.pln <- quantile(test_filter$cyano_transform_fit, 0.95)
+
+
+# WMTNS
+
+west_PredData <- PredData |>
+  filter(AG_ECO3 == 'WMTNS')
+
+test_out <- west_PredData |> identify_outliers(cyano_transform_fit)
+
+test_filter <- west_PredData |>
+  filter(!cyano_transform_fit %in% test_out$cyano_transform_fit)
+
+# good | fair cutoff at 77,413
+g.f.west <- quantile(test_filter$cyano_transform_fit, 0.75)
+
+# fair | poor cutoff at 136,937
+f.p.west <- quantile(test_filter$cyano_transform_fit, 0.95)
+
+# get ecoregional totals
+total_table <- PredData |>
+  st_drop_geometry() |>
+  dplyr::select(AG_ECO3, cyano_ecocond) |>
+  group_by(cyano_ecocond, AG_ECO3) |>
+  mutate(total = n()) |>
+  distinct()
+
+# WITH MICROCYSTIN
+
+micx_grp <- habs |>
+  st_drop_geometry() |>
+  drop_na(MICX_DET) |>
+  group_by(AG_ECO3) |>
+  count(MICX_DET) |>
+  mutate(total = n()) |>
+  mutate(prop = n / sum(n))
+
+PredData <- PredData |>
+  mutate(micx_ecocond = factor(case_when(AG_ECO3 == "EHIGH" & pred_micx_fit <= 0.220 ~ 'Below',
+                                         AG_ECO3 == "EHIGH" & pred_micx_fit > 0.220 ~ 'Above',
+
+                                         AG_ECO3 == "PLNLOW" & pred_micx_fit <= 0.472 ~ 'Below',
+                                         AG_ECO3 == "PLNLOW" & pred_micx_fit > 0.472 ~ 'Above',
+
+                                         AG_ECO3 == "WMTNS" & pred_micx_fit <= 0.125 ~ 'Below',
+                                         AG_ECO3 == "WMTNS" & pred_micx_fit > 0.125 ~ 'Above'),
+                               levels = c("Above","Below" ))) |>
+  arrange(micx_ecocond)
+
+total_micx <- PredData |>
+  st_drop_geometry() |>
+  dplyr::select(AG_ECO3, micx_ecocond) |>
+  group_by(micx_ecocond, AG_ECO3) |>
+  mutate(total = n()) |>
+  distinct()
+
