@@ -348,7 +348,7 @@ cmod_final_nolake_nsp <- splm(create_formula(dep_var, mod_vars, log = T, const =
                               spcov_type = "none",
                               local = F)
   
-# Evaluate fit of non-spatial model
+# Evaluate fit of spatial and non-spatial models
 cyano_nolake_nsp_loocv <- loocv(cmod_final_nolake_nsp)
 
 # Visual the fit of the final spatial model
@@ -447,7 +447,7 @@ cyano_spatial_comp <-
          spatial_mod = c(rep(c("spatial", "non-spatial"), 2)), .before = bias)
 
 # Save the table
-saveRDS(cyano_spatial_comp, "./inst/model_objects/spatial_compare_cyano.rds")
+saveRDS(cyano_spatial_comp, "./inst/model_objects/spatial_compare_cyano_20260512.rds")
 
 ```
 
@@ -690,7 +690,9 @@ micx_sp_withlake_auc <- as.numeric(auc$auc)
 Sys.time()
 
 # Save the best performing micx model so far
-saveRDS(micx_sp_withlake, "./inst/model_objects/model_micx_withlakedata.rds")
+saveRDS(micx_sp_withlake, "./inst/model_objects/model_micx_withlakedata_20260513.rds")
+saveRDS(micx_sp_withlake_auc, "./inst/model_objects/model_micx_withlakedata_auc_20260513.rds")
+saveRDS(micx_sp_withlake_loocv, "./inst/model_objects/model_micx_withlakedata_loovc_20260513.rds")
 
 # Run non-spatial model for comparison to final model
 micx_nsp_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
@@ -707,6 +709,10 @@ micx_nsp_withlake_loocv <- loocv(micx_nsp_withlake, cv_predict = TRUE)
 auc <- pROC::roc(micx_nsp_withlake$obdata$MICX_DET, micx_nsp_withlake_loocv$cv_predict)
 
 micx_nsp_withlake_auc <- as.numeric(auc$auc)
+
+saveRDS(micx_nsp_withlake, "./inst/model_objects/model_micx_withlakedata_nonspat_20260513.rds")
+saveRDS(micx_nsp_withlake_auc, "./inst/model_objects/model_micx_withlakedata_nonspat_auc_20260513.rds")
+saveRDS(micx_nsp_withlake_loocv, "./inst/model_objects/model_micx_withlakedata_nonspat_loocv_20260513.rds")
 
 # Visualize the results
 # Boxplot of probabilities
@@ -945,6 +951,8 @@ Sys.time()
 # Get AUC of final model
 # micx_sp_nolake_auc <- AUROC(micx_sp_nolake)
 
+micx_sp_nolake <- readRDS(here("inst", "model_objects", "model_micx_nolakedata_20260507.rds"))
+
 # Get bias, MSPE
 micx_sp_nolake_loocv <- loocv(micx_sp_nolake, cv_predict = TRUE)
 
@@ -952,6 +960,9 @@ micx_sp_nolake_loocv <- loocv(micx_sp_nolake, cv_predict = TRUE)
 auc <- pROC::roc(micx_sp_nolake$obdata$MICX_DET, micx_sp_nolake_loocv$cv_predict)
 
 micx_sp_nolake_auc <- as.numeric(auc$auc)
+
+saveRDS(micx_sp_withlake_auc, "./inst/model_objects/model_micx_nolakedata_auc_20260513.rds")
+saveRDS(micx_sp_withlake_loocv, "./inst/model_objects/model_micx_nolakedata_loovc_20260513.rds")
 
 Sys.time()
 
@@ -973,6 +984,10 @@ micx_nsp_nolake_loocv <- loocv(micx_nsp_nolake, cv_predict = TRUE)
 auc <- pROC::roc(micx_nsp_nolake$obdata$MICX_DET, micx_nsp_nolake_loocv$cv_predict)
 
 micx_nsp_nolake_auc <- as.numeric(auc$auc)
+
+saveRDS(micx_nsp_nolake, "./inst/model_objects/model_micx_nolakedata_nsp_20260514.rds")
+saveRDS(micx_sp_withlake_auc, "./inst/model_objects/model_micx_nolakedata_auc_nsp_20260514.rds")
+saveRDS(micx_sp_withlake_loocv, "./inst/model_objects/model_micx_nolakedata_loovc_nsp_20260514.rds")
 
 # Visualize the results
 # Boxplot of probabilities
@@ -1069,7 +1084,7 @@ micx_spatial_comp <-
                  micx_nsp_nolake_auc))
 
 # Save the table
-saveRDS(micx_spatial_comp, "./inst/model_objects/spatial_compare_micx.rds")
+saveRDS(micx_spatial_comp, "./inst/model_objects/spatial_compare_micx_20260514.rds")
 
 ```
 
