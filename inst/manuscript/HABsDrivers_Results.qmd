@@ -969,13 +969,19 @@ tabs <- c("cyano_mod_compare_withlakedata.rds",
           "micx_spmod_compare_nolakedata.rds")
 
 ## Creating a temporary set of tables for comparing the revised in-lake and no-lake models
-tabs <- c("cyano_mod_compare_withlakedata_20260429.rds",
+tabs <- c("cyano_mod_compare_withlakedata_20260512.rds",
           # "micx_iemod_compare_withlakedata_20260420.rds",
           "micx_spmod_compare_withlakedata_20260508.rds",
           "cyano_mod_compare_nolakedata_20260511.rds",
           "micx_spmod_compare_nolakedata_20260511.rds")
 
 ## Manual edits to tables since it takes so long to rerun all the models and diagnostics
+# cyano_withlake_compare <- readRDS(paste0(here(), "./inst/model_objects/", "cyano_mod_compare_withlakedata_20260429.rds"))|>
+#   mutate(
+#     distinct_vars = str_replace(distinct_vars, "AG_ECO3PLNLOW, AG_ECO3EHIGH", "AG_ECO3")
+#   ) |>
+#   saveRDS(paste0(here(), "./inst/model_objects/", "cyano_mod_compare_withlakedata_20260512.rds"))
+
 # micx_sp_compare <- readRDS(paste0(here(), "./inst/model_objects/", "micx_spmod_compare_withlakedata_20260423.rds"))|>
 #   mutate(
 #     distinct_vars = case_when(
@@ -983,7 +989,8 @@ tabs <- c("cyano_mod_compare_withlakedata_20260429.rds",
 #     model != "mx1_sp" ~ paste0(distinct_vars, ", Precip8110Ws, Tmean8110Ws"),
 #     TRUE ~ distinct_vars
 #   ),
-#   common_vars = str_remove(common_vars, " Precip8110Ws, Tmean8110Ws,")
+#   common_vars = str_remove(common_vars, " Precip8110Ws, Tmean8110Ws,"),
+#   distinct_vars = str_replace(distinct_vars, "AG_ECO3PLNLOW, AG_ECO3EHIGH", "AG_ECO3")
 #   ) |>
 #   saveRDS(paste0(here(), "./inst/model_objects/", "micx_spmod_compare_withlakedata_20260508.rds"))
 
@@ -1011,6 +1018,7 @@ covar_labs <-  c("NTL" = "Total N",
                  "TURB" = "Turbidity",
                  "PH" = "pH",
                  "EVAP_INFL" = "Evaporation/Inflow",
+                 "TEMPERATURE" = "Water Temperature",
                  "MAXDEPTH" = "Lake Depth",
                  "lakemorpho_fetch" = "Lake Fetch",
                  "n_farm_inputs" = "Farm N Inputs",
