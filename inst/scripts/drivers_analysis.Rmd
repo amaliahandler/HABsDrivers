@@ -75,13 +75,13 @@ find_c <- function(par, formula, data) {
 dat <- data.frame(x = rnorm(10), y = rnorm(10, mean = 10))
 
 # HABs data
-dat <- st_drop_geometry(drop_na(select(habs, B_G_DENS, NTL, NITRATE_N, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3)))
+dat <- st_drop_geometry(drop_na(select(habs, B_G_DENS, NTL, NITRATE_N, DOC, PH, Precip8110Ws, Tmean8110Ws, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3)))
 
-# Finds the c for log(y + c) (note that y should be on the original scale for the purposes of this function. The find_c function take the log of the response variable)
-# Note that changing the covariates impacts the constant. By trying different sets and numbers of covariates, the constant bounces around a bit, but is usually in the 100's to the 1000's. 
+# Finds the c for log(y + c) (note that y should be on the original scale for the purposes of this function. The find_c function takes the log of the response variable)
+# Note that changing the covariates impacts the constant. By trying different sets of covariates, the constant bounces around a bit, but is usually in the 100's to the 1000's. 
 out <- optim(0, 
              fn = find_c, 
-             formula = B_G_DENS ~ NTL + AMMONIA_N + DOC + PH + TURB + Precip8110Ws + Tmean8110Ws + EVAP_INFL + MAXDEPTH + lakemorpho_fetch + AG_ECO3, 
+             formula = B_G_DENS ~ NTL + NITRATE_N + DOC + PH + EVAP_INFL + Precip8110Ws + Tmean8110Ws + MAXDEPTH + lakemorpho_fetch + AG_ECO3, 
              data = dat, 
              method = "Brent", 
              lower = -10, upper = 10)
@@ -100,7 +100,9 @@ const    <- 1000
 
 # Filter to the same set of observations for model comparison purposes. These are all the variables that will be tested for the model.
 habs_mod <- habs |>
-  select(B_G_DENS, NTL, PTL, np_ratio, NITRATE_N, AMMONIA_N, DOC, PH, TURB, Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, EVAP_INFL, MAXDEPTH, lakemorpho_fetch, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
+  select(B_G_DENS, NTL, PTL, np_ratio, NITRATE_N, DOC, PH, EVAP_INFL,
+         Precip8110Ws, Tmean8110Ws, precip_mean_month, temp_mean_month, 
+         MAXDEPTH, lakemorpho_fetch, AG_ECO3, UNIQUE_ID, DSGN_CYCLE) |>
   drop_na()
 
 # Function to run the cyano models for model comparison.
@@ -131,17 +133,6 @@ cy5 <- run_cyano_ml(mod_vars = c("NTL", "DOC", "Precip8110Ws", "Tmean8110Ws", "E
 # Does additional in-lake water data improve the model?
 cy6 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
 
-# # Do interactions improve the model?
-# cy5 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"), interact = "MAXDEPTH * NTL")
-# 
-# cy6 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * NTL")
-# 
-# # How does simplifying the model to better match microcystin impact the model?
-# cy7 <- run_cyano_ml(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = NULL)
-# 
-# # What about the N/P ratio?
-# cy8 <- run_cyano_ml(mod_vars = c("np_ratio", "NITRATE_N", "AMMONIA_N", "DOC", "PH", "TURB", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"), interact = "AG_ECO3 * NTL")
-
 # Make a table of the model comparison
 
 # Variables common to all models
@@ -171,7 +162,7 @@ cy_res_table <- glances(cy1, cy2, cy3, cy4, cy5, cy6) |>
   tibble()
 
 # Save the model comparison table for inclusion in supplement
-saveRDS(cy_res_table, "./inst/model_objects/cyano_mod_compare_withlakedata_20260429.rds")
+saveRDS(cy_res_table, "./inst/model_objects/cyano_mod_compare_withlakedata.rds")
 
 # Run best fit model (c6) with all available oberservations with local = F
 mod_vars <- c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3") 
@@ -187,6 +178,12 @@ cyano_withlake_sp <- splm(create_formula(dep_var, mod_vars, log = T, const = con
                           estmethod = "ml",
                           local = F)
 
+# Save the model
+saveRDS(cyano_withlake_sp, "./inst/model_objects/model_cyano_withlakedata.rds")
+
+# Get model fit
+cyano_withlake_sp_loocv <- loocv(cyano_withlake_sp, cv_predict = TRUE)
+
 # Run the best fit model without spatial correlation for comparison
 cmod_final_withlake_nsp <- splm(create_formula(dep_var, mod_vars, log = T, const = const, interact),
                               data = dat_final,
@@ -197,7 +194,6 @@ cmod_final_withlake_nsp <- splm(create_formula(dep_var, mod_vars, log = T, const
 cyano_withlake_nsp_loocv <- loocv(cmod_final_withlake_nsp)
 
 # Visualize the fit of the final spatial model
-cyano_withlake_sp_loocv <- loocv(cyano_withlake_sp, cv_predict = TRUE)
 dat_final$preds         <- cyano_withlake_sp_loocv$cv_predict
 
 max_val <- max(log10(dat_final$B_G_DENS + const), dat_final$preds)
@@ -213,9 +209,6 @@ ggsave(paste0("./inst/figures/cyano_withlake_sp_final_fitted_preds.png"), fig, h
 
 # Several very high predictions appear to be due to extremely high TN concentrations. These are outliers, but there's no reason to believe the predictor data are problematic.
 
-# Save the model
-# saveRDS(cyano_withlake_sp, "./inst/model_objects/model_cyano_withlakedata_20260429.rds")
-
 # Map of fitted values
 ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
@@ -226,8 +219,6 @@ ggplot() +
   theme_void()
 ggsave("./inst/figures/cyano_withlake_sp_final_fitted_preds_map.png", width = 7, height = 3.5, units = "in", dpi = 600)
 
-# Save the model
-# saveRDS(cymod_final_withlake, "./inst/model_objects/model_cyano_withlakedata.rds")
 ```
 
 
