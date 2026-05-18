@@ -662,7 +662,7 @@ saveRDS(mx_lake_sp_modcomp, "./inst/model_objects/mixc_spmod_compare_withlakedat
 
 # The final model is model mx5_sp due to the highest AUC and lowest MSPE, though mx4_sp performs virtually identically
 # The final model should be run using all available observations and with local = F
-mod_vars <- c("NTL", "NITRATE_N", "DOC", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
+mod_vars <- c("NTL", "NITRATE_N", "DOC", "PH", "EVAP_INFL", "Precip8110Ws", "Tmean8110Ws", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3")
 int <- NULL
 dat_final <- habs |>
   select(all_of(mod_vars), MICX_DET, DSGN_CYCLE, UNIQUE_ID) |>
