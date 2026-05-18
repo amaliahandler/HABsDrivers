@@ -2341,6 +2341,7 @@ taxa07 <- phyto2007 |>
 # thresholds w/ HABs data ======================================================
 
 library(rstatix)
+library(gtsummary)
 load_all()
 habs <- habs |> drop_na(B_G_DENS)
 
@@ -2393,6 +2394,19 @@ g.f.west <- quantile(test_filter$B_G_DENS, 0.75)
 # fair | poor cutoff at 54,598
 f.p.west <- quantile(test_filter$B_G_DENS, 0.95)
 
+PredData <- PredData |>
+  mutate(cyano_ecocond = factor(case_when(AG_ECO3 == "EHIGH" & cyano_transform_fit < f.p.ehigh ~ 'Low',
+                                          AG_ECO3 == "EHIGH" & cyano_transform_fit >= f.p.ehigh ~ 'High',
+
+                                          AG_ECO3 == "PLNLOW" & cyano_transform_fit < f.p.pln ~ 'Low',
+                                          AG_ECO3 == "PLNLOW" & cyano_transform_fit >= f.p.pln ~ 'High',
+
+                                          AG_ECO3 == "WMTNS" & cyano_transform_fit < f.p.west ~ 'Low',
+                                          AG_ECO3 == "WMTNS" & cyano_transform_fit >= f.p.west ~ 'High'),
+                                levels = c('High','Low'))) |>
+  arrange(cyano_ecocond)
+
+
 # get ecoregional totals
 total_table <- PredData |>
   st_drop_geometry() |>
@@ -2401,41 +2415,124 @@ total_table <- PredData |>
   mutate(total = n()) |>
   distinct()
 
+# WITH MICROCYSTIN
+
+micx_grp <- habs |>
+  st_drop_geometry() |>
+  drop_na(MICX_DET) |>
+  group_by(AG_ECO3) |>
+  count(MICX_DET) |>
+  mutate(total = n()) |>
+  mutate(prop = n / sum(n))
+
+PredData <- PredData |>
+  mutate(micx_ecocond = factor(case_when(AG_ECO3 == "EHIGH" & pred_micx_fit <= 0.220 ~ 'Below',
+                                         AG_ECO3 == "EHIGH" & pred_micx_fit > 0.220 ~ 'Above',
+
+                                         AG_ECO3 == "PLNLOW" & pred_micx_fit <= 0.472 ~ 'Below',
+                                         AG_ECO3 == "PLNLOW" & pred_micx_fit > 0.472 ~ 'Above',
+
+                                         AG_ECO3 == "WMTNS" & pred_micx_fit <= 0.125 ~ 'Below',
+                                         AG_ECO3 == "WMTNS" & pred_micx_fit > 0.125 ~ 'Above'),
+                               levels = c("Above","Below" ))) |>
+  arrange(micx_ecocond)
+
+total_micx <- PredData |>
+  st_drop_geometry() |>
+  dplyr::select(AG_ECO3, micx_ecocond) |>
+  group_by(micx_ecocond, AG_ECO3) |>
+  mutate(total = n()) |>
+  distinct()
+
+# PredData <- PredData |>
+#   rowwise() |>
+#   mutate(tn_inputs = (n_farm_inputs + n_dev_inputs),
+#          tp_inputs = (p_farm_inputs + p_dev_inputs))
+
+# PredData <- PredData |>
+#   mutate(cyano_cat = factor(case_when(
+#     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'High' ~ 'HNHC',
+#     (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == 'High' ~ 'LNHC',
+#     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'Low' ~ 'HNLC',
+#     (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == 'Low' ~ 'LNLC',
+#     TRUE ~ 'OTHER'),
+#     levels = c('HNHC','HNLC','LNHC','LNLC'))) |>
+#   arrange(cyano_cat) |>
+#   mutate(micx_cat = factor(case_when(
+#     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & micx_ecocond == 'Above' ~ 'HNHM',
+#     (n_farm_inputs < 10 | p_dev_inputs < 4) & micx_ecocond == 'Above' ~ 'LNHM',
+#     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & micx_ecocond == 'Below' ~ 'HNLM',
+#     (n_farm_inputs < 10 | p_dev_inputs < 4) & micx_ecocond == 'Below' ~ 'LNLM',
+#     TRUE ~ 'OTHER'),
+#     levels = c('HNHM','HNLM','LNHM','LNLM'))) |>
+#   arrange(micx_cat)
+
+# with model input values
+PredData <- PredData |>
+  mutate(cyano_cat = factor(case_when(
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'High' ~ 'HNHC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == 'High' ~ 'LNHC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'Low' ~ 'HNLC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == 'Low' ~ 'LNLC',
+    TRUE ~ 'OTHER'),
+    levels = c('HNHC','HNLC','LNHC','LNLC'))) |>
+  arrange(cyano_cat) |>
+  mutate(micx_cat = factor(case_when(
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & micx_ecocond == 'Above' ~ 'HNHM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & micx_ecocond == 'Above' ~ 'LNHM',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & micx_ecocond == 'Below' ~ 'HNLM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & micx_ecocond == 'Below' ~ 'LNLM',
+    TRUE ~ 'OTHER'),
+    levels = c('HNHM','HNLM','LNHM','LNLM'))) |>
+  arrange(micx_cat)
+
+
+# analysis
+
+# PredData |>
+#   st_drop_geometry() |>
+#   group_by(cyano_ecocond) |>
+#   get_summary_stats(Precip8110Ws, type = 'mean_sd')
+
+test <- PredData |>
+  filter(MAXDEPTH < 1)
+
+# check all
 PredData |>
   st_drop_geometry() |>
-  group_by(cyano_ecocond) |>
-  get_summary_stats(Precip8110Ws, type = 'mean_sd')
+  dplyr::filter(MAXDEPTH >0) |>
+  select(micx_cat,n_dev_inputs:fst_ws) |>
+  tbl_summary(by = micx_cat,
+              statistic = list(all_continuous() ~ "{mean}")) |>
+  gtsummary::add_p()
+
+hnlm <- HNLM |>
+  dplyr::filter(MAXDEPTH >0)
+
+# ad_ratio
+modelPredData <- PredData |>
+  dplyr::filter(MAXDEPTH >0)
 
 bf_model <- splm(BFIWs ~ cyano_ecocond, PredData, spcov_type = "exponential")
 anova(bf_model)
 
+ad_model <- splm((log10(ad_ratio) + 1) ~  cyano_ecocond, modelPredData, spcov_type = "exponential")
+anova(ad_model)
+
+precip_model <- splm((log10(Precip8110Ws)) ~ cyano_ecocond, PredData, spcov_type = "exponential")
+anova(precip_model)
+
 PredData |>
-  st_drop_geometry() |>
   dplyr::filter(MAXDEPTH >0) |>
-  select(cyano_pred,n_dev_inputs:fst_ws) |>
-  tbl_summary(by = cyano_pred,
-              statistic = list(all_continuous() ~ "{mean}")) |>
-  gtsummary::add_p()
-
-PredData <- PredData |>
-  mutate(cyano_pred2 = factor(case_when(
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'Poor' ~ 'HNHC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == 'Poor' ~ 'LNHC',
-    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'Good' | cyano_ecocond == 'Fair' ~ 'HNLC',
-    (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == "Good" | cyano_ecocond == 'Fair '~ 'LNLC',
-    TRUE ~ 'OTHER'),
-    levels = c('HNHC','HNLC','LNHC','LNLC'))) |>
-  arrange(cyano_pred2)
-
-baseflow_den_cyano <- ggplot(PredData, aes(x=BFIWs, y= cyano_pred)) +
-  ggridges::geom_density_ridges(aes(fill = cyano_pred),
+  ggplot(aes(x=(log10(ad_ratio) + 1), y= cyano_cat)) +
+  ggridges::geom_density_ridges(aes(fill = cyano_cat),
                                 scale = 2,
                                 alpha = 0.85,
                                 quantile_lines = TRUE, quantiles = 2) +
   scale_fill_manual(values = c("#9c0082","#4e8562", "#cc6de4", "#8bd1a5"),
                     labels = micxcat_labels) +
   xlim(0,100) +
-  labs(x = "BaseFlow (%)", y = "Density Distribution",  fill = 'Class',
+  labs(x = "ad_ratio", y = "Density Distribution",  fill = 'Class',
        title = 'Cyanobacteria') +
   theme(axis.title.y=element_blank()) +
   guides(color = guide_legend(ncol=2, override.aes = list(size=4, shape = 15)))
@@ -2500,6 +2597,19 @@ g.f.west <- quantile(test_filter$cyano_transform_fit, 0.75)
 # fair | poor cutoff at 136,937
 f.p.west <- quantile(test_filter$cyano_transform_fit, 0.95)
 
+PredData <- PredData |>
+  mutate(cyano_ecocond = factor(case_when(AG_ECO3 == "EHIGH" & cyano_transform_fit < f.p.ehigh ~ 'Low',
+                                          AG_ECO3 == "EHIGH" & cyano_transform_fit >= f.p.ehigh ~ 'High',
+
+                                          AG_ECO3 == "PLNLOW" & cyano_transform_fit < f.p.pln ~ 'Low',
+                                          AG_ECO3 == "PLNLOW" & cyano_transform_fit >= f.p.pln ~ 'High',
+
+                                          AG_ECO3 == "WMTNS" & cyano_transform_fit < f.p.west ~ 'Low',
+                                          AG_ECO3 == "WMTNS" & cyano_transform_fit >= f.p.west ~ 'High'),
+                                levels = c('High','Low'))) |>
+  arrange(cyano_ecocond)
+
+
 # get ecoregional totals
 total_table <- PredData |>
   st_drop_geometry() |>
@@ -2508,32 +2618,33 @@ total_table <- PredData |>
   mutate(total = n()) |>
   distinct()
 
-# WITH MICROCYSTIN
 
-micx_grp <- habs |>
-  st_drop_geometry() |>
-  drop_na(MICX_DET) |>
-  group_by(AG_ECO3) |>
-  count(MICX_DET) |>
-  mutate(total = n()) |>
-  mutate(prop = n / sum(n))
+# nutrient HABs risk analysis with HABs thresholds 5/11/26 ------------------
 
 PredData <- PredData |>
-  mutate(micx_ecocond = factor(case_when(AG_ECO3 == "EHIGH" & pred_micx_fit <= 0.220 ~ 'Below',
-                                         AG_ECO3 == "EHIGH" & pred_micx_fit > 0.220 ~ 'Above',
+  mutate(cyano_cat = factor(case_when(
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'High' ~ 'HNHC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == 'High' ~ 'LNHC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'Low' ~ 'HNLC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == 'Low' ~ 'LNLC',
+    TRUE ~ 'OTHER'),
+    levels = c('HNHC','HNLC','LNHC','LNLC'))) |>
+  arrange(cyano_cat) |>
+  mutate(micx_cat = factor(case_when(
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & micx_ecocond == 'Above' ~ 'HNHM',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & micx_ecocond == 'Above' ~ 'LNHM',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & micx_ecocond == 'Below' ~ 'HNLM',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & micx_ecocond == 'Below' ~ 'LNLM',
+    TRUE ~ 'OTHER'),
+    levels = c('HNHM','HNLM','LNHM','LNLM'))) |>
+  arrange(micx_cat)
 
-                                         AG_ECO3 == "PLNLOW" & pred_micx_fit <= 0.472 ~ 'Below',
-                                         AG_ECO3 == "PLNLOW" & pred_micx_fit > 0.472 ~ 'Above',
 
-                                         AG_ECO3 == "WMTNS" & pred_micx_fit <= 0.125 ~ 'Below',
-                                         AG_ECO3 == "WMTNS" & pred_micx_fit > 0.125 ~ 'Above'),
-                               levels = c("Above","Below" ))) |>
-  arrange(micx_ecocond)
 
-total_micx <- PredData |>
-  st_drop_geometry() |>
-  dplyr::select(AG_ECO3, micx_ecocond) |>
-  group_by(micx_ecocond, AG_ECO3) |>
-  mutate(total = n()) |>
-  distinct()
+
+
+
+
+
+
 
