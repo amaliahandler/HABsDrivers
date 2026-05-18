@@ -34,7 +34,7 @@ set.seed(99)
 ```{r data prep}
 # Set the western mountains to the base group
 # Calculate N/P ratio
-# Calculate total N and P inputs
+# Calculate total P inputs
 habs <- habs |>
   mutate(
     AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")),
@@ -212,7 +212,7 @@ ggsave(paste0("./inst/figures/cyano_withlake_sp_final_fitted_preds.png"), fig, h
 # Map of fitted values
 ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = arrange(habs_mod, preds), 
+  geom_sf(data = arrange(dat_final, preds), 
           aes(fill = preds), pch = 21, size = 2) +
   scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
                        name = "Log10(Cyanobacteria + 1000)") +
@@ -344,7 +344,7 @@ ggsave(paste0("./inst/figures/cyano_sp_final_fitted_preds.png"), fig, height = 4
 conus <- st_transform(AOI::aoi_get(state = "conus"), 5072)
 ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
-  geom_sf(data = arrange(habs_mod, preds), 
+  geom_sf(data = arrange(dat_final, preds), 
           aes(fill = preds), pch = 21, size = 2) +
   scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, 'YlOrRd'),
                        name = "Log10(Cyanobacteria + 1000)") +
@@ -352,7 +352,7 @@ ggplot() +
 ggsave("./inst/figures/cyano_sp_final_fitted_preds_map.png", width = 7, height = 3.5, units = "in", dpi = 600)
 
 # Map of standardized residuals
-cyano_aug <- augment(c4)
+cyano_aug <- augment(cyano_nolake_sp)
 breaks <- c(-2, 0, 2, 3, 4)
 cols <- rev(RColorBrewer::brewer.pal(6, "Spectral"))
 ggplot() + 
