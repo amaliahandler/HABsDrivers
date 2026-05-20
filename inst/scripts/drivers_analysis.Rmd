@@ -434,8 +434,6 @@ saveRDS(cyano_spatial_comp, "./inst/model_objects/spatial_compare_cyano.rds")
 # Set the dependent variable
 dep <- "MICX_DET"
 
-# First conduct model comparison with independent error models. We do this because fitting spatial models is computationally expensive to do so in a way that models can be compared.
-
 # Comparing AIC/BIC between models requires the same set of observations be used for all models. Trim the dataset to include just the variables that will be investigated as potential fixed effects in the model.
 dat_micx_lake <- habs |>
   select(# Dependent variable and random effects
@@ -443,7 +441,7 @@ dat_micx_lake <- habs |>
          # Climate fixed effects
          Precip8110Ws, Tmean8110Ws, precip_mean_month, 
          # Setting fixed effects
-         AG_ECO3, 
+         AG_ECO3, fst_ws,
          # Lake morphology fixed effects
          MAXDEPTH, lakemorpho_fetch, 
          # Lake water fixed effects
@@ -468,49 +466,26 @@ mx2_sp <-run_micx_sp(mod_vars = c("NTL", "DOC", "Precip8110Ws", "Tmean8110Ws", "
 
 mx3_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
-mx4_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
+mx4_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "fst_ws", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch"))
 
 mx5_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3"))
 
-mx6_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "p_farm_inputs", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
+mx6_sp <-run_micx_sp(mod_vars = c("NTL", "NITRATE_N", "DOC", "PH", "Precip8110Ws", "Tmean8110Ws", "EVAP_INFL", "MAXDEPTH", "lakemorpho_fetch", "AG_ECO3", int = "NTL * MAXDEPTH"))
 
-# Make a list of the models to compare
-mx_lake_sp_mods <- list(mx4_sp, mx5_sp, mx6_sp)
-
-mx_lake_sp_mods2 <- list(mx1_sp, mx2_sp, mx3_sp, mx4_sp, mx5_sp, mx6_sp)
+mx_lake_sp_mods <- list(mx1_sp, mx2_sp, mx3_sp, mx4_sp, mx5_sp, mx6_sp)
 
 # Run leave one out cross validation
-mx_lake_sp_loocv <- lapply(mx_lake_sp_mods, loocv, cv_predict = TRUE)
+# mx_lake_sp_loocv <- lapply(mx_lake_sp_mods, loocv, cv_predict = TRUE)
 
 # Run loocv sequentially since lapply seems to hang on my personal computer
 mx_lake_sp_loocv <- vector(mode = "list", length = length(mx_lake_sp_mods))
 
-mx_lake_sp_loocv[[1]] <- loocv(mx4_sp, cv_predict = TRUE)
-mx_lake_sp_loocv[[2]] <- loocv(mx5_sp, cv_predict = TRUE)
-mx_lake_sp_loocv[[3]] <- loocv(mx6_sp, cv_predict = TRUE)
-
-# Once mods 1, 2, and 3 are done running, run the LOOCV below
-mx_lake_sp_loocv2 <- vector(mode = "list", length = length(mx_lake_sp_mods2))
-
-# Add the previously run models to the list
-mx_lake_sp_loocv2[[4]] <- mx_lake_sp_loocv[[1]]
-mx_lake_sp_loocv2[[5]] <- mx_lake_sp_loocv[[2]]
-mx_lake_sp_loocv2[[6]] <- mx_lake_sp_loocv[[3]]
-
-# Run the new spatial models
-mx_lake_sp_loocv2[[1]] <- loocv(mx4_sp, cv_predict = TRUE)
-mx_lake_sp_loocv2[[2]] <- loocv(mx5_sp, cv_predict = TRUE)
-mx_lake_sp_loocv2[[3]] <- loocv(mx6_sp, cv_predict = TRUE)
-
-# Save the revised spatial models
-saveRDS(mx_lake_sp_mods2, "./inst/model_objects/mx_lake_sp_6modobjs.rds")
-saveRDS(mx_lake_sp_loocv2, "./inst/model_objects/mx_lake_sp_loocv_6mods.rds")
-
-# 
-mx_lake_sp_mods <- mx_lake_sp_mods2
-mx_lake_sp_loocv <- mx_lake_sp_loocv2
-
-# Check that everything run here. If yes, overwrite the mx_lake_sp_loocv object with the complete 6 models.
+mx_lake_sp_loocv[[1]] <- loocv(mx1_sp, cv_predict = TRUE)
+mx_lake_sp_loocv[[2]] <- loocv(mx2_sp, cv_predict = TRUE)
+mx_lake_sp_loocv[[3]] <- loocv(mx3_sp, cv_predict = TRUE)
+mx_lake_sp_loocv[[4]] <- loocv(mx4_sp, cv_predict = TRUE)
+mx_lake_sp_loocv[[5]] <- loocv(mx5_sp, cv_predict = TRUE)
+mx_lake_sp_loocv[[6]] <- loocv(mx6_sp, cv_predict = TRUE)
 
 mx_lake_sp_fit <- do.call(rbind, lapply(mx_lake_sp_loocv, function(list.obj){list.obj$stats}))
 
@@ -540,7 +515,7 @@ mx_lake_sp_modcomp <- mx_lake_sp_fit |>
   arrange(desc(AUC))
 
 # Save the model comparison table
-saveRDS(mx_lake_sp_modcomp, "./inst/model_objects/mixc_spmod_compare_withlakedata_20260423.rds")
+saveRDS(mx_lake_sp_modcomp, "./inst/model_objects/mixc_spmod_compare_withlakedata.rds")
 
 # The final model is model mx5_sp due to the highest AUC and lowest MSPE, though mx4_sp performs virtually identically
 # The final model should be run using all available observations and with local = F
@@ -572,9 +547,7 @@ micx_sp_withlake_auc <- as.numeric(auc$auc)
 Sys.time()
 
 # Save the best performing micx model so far
-saveRDS(micx_sp_withlake, "./inst/model_objects/model_micx_withlakedata_20260513.rds")
-saveRDS(micx_sp_withlake_auc, "./inst/model_objects/model_micx_withlakedata_auc_20260513.rds")
-saveRDS(micx_sp_withlake_loocv, "./inst/model_objects/model_micx_withlakedata_loovc_20260513.rds")
+saveRDS(micx_sp_withlake, "./inst/model_objects/model_micx_withlakedata.rds")
 
 # Run non-spatial model for comparison to final model
 micx_nsp_withlake <- spglm(create_formula(dep_var = dep, ind_vars = mod_vars, interact = int),
@@ -592,23 +565,20 @@ auc <- pROC::roc(micx_nsp_withlake$obdata$MICX_DET, micx_nsp_withlake_loocv$cv_p
 
 micx_nsp_withlake_auc <- as.numeric(auc$auc)
 
-saveRDS(micx_nsp_withlake, "./inst/model_objects/model_micx_withlakedata_nonspat_20260513.rds")
-saveRDS(micx_nsp_withlake_auc, "./inst/model_objects/model_micx_withlakedata_nonspat_auc_20260513.rds")
-saveRDS(micx_nsp_withlake_loocv, "./inst/model_objects/model_micx_withlakedata_nonspat_loocv_20260513.rds")
+saveRDS(micx_nsp_withlake, "./inst/model_objects/model_micx_withlakedata_nonspat.rds")
 
 # Visualize the results
 # Boxplot of probabilities
-micx_sp_withlake_aug <- augment(micx_sp_final_withlake, type.predict = "response")
+micx_sp_withlake_aug <- augment(micx_nsp_withlake, type.predict = "response")
 levels(micx_sp_withlake_aug$MICX_DET) <- c("Below Detection", "Above Detection")
 
-ggplot(data = micx_sp_withlake_aug, aes(x = MICX_DET, y = .fitted)) + 
+ggplot(data = micx_sp_withlake_aug, aes(x = as.factor(MICX_DET), y = .fitted)) + 
       geom_boxplot(color = "#2A6BA6", alpha=0.3) + 
       xlab("Observed") +
       ylab("Fitted Probability") 
 ggsave("./inst/figures/micx_sp_final_withlake_fitted_probs.png", height = 3, width = 3)
 
 # Map of fitted probabilities
-
 conus <- st_transform(AOI::aoi_get(state = "conus"), 5072)
 ggplot() + 
   geom_sf(data = conus, fill = "#e2e2e2", color = "white", lwd = 1) +
@@ -640,8 +610,8 @@ dat_micx <- habs |>
          # Lake morphology fixed effects
          MAXDEPTH, lakemorpho_fetch, 
          # Nutrient input fixed effects
-         p_dev_inputs, n_dev_inputs, N_Total_Deposition, N_Total_Inputs, p_total_inputs, p_farm_inputs, n_farm_inputs, fst_ws, wet_ws, KffactWs) |> 
-  mutate(AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH"))) |>
+         p_dev_inputs, n_dev_inputs, N_Total_Deposition, N_Total_Inputs, p_total_inputs, p_farm_inputs, n_farm_inputs, 
+         fst_ws, wet_ws, KffactWs) |>
   drop_na()
 
 # Function to run independent error models
