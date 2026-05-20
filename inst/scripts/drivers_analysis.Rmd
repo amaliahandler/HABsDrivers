@@ -515,7 +515,7 @@ mx_lake_sp_modcomp <- mx_lake_sp_fit |>
   arrange(desc(AUC))
 
 # Save the model comparison table
-saveRDS(mx_lake_sp_modcomp, "./inst/model_objects/mixc_spmod_compare_withlakedata.rds")
+saveRDS(mx_lake_sp_modcomp, "./inst/model_objects/micx_spmod_compare_withlakedata.rds")
 
 # The final model is model mx5_sp due to the highest AUC and lowest MSPE, though mx4_sp performs virtually identically
 # The final model should be run using all available observations and with local = F
