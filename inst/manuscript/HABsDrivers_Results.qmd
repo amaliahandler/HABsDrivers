@@ -186,13 +186,22 @@ We investigated the distribution of other non-nutrient variables to gain insight
 # Trim to just the variables explored in the models
 cor_dat <- habs |>
   st_drop_geometry() |>
-  select(B_G_DENS, MICX, TEMPERATURE, MAXDEPTH, AMMONIA_N, DOC:NITRATE_N, PH, EVAP_INFL, fst_ws, wet_ws, precip_mean_month, temp_mean_month, lakemorpho_fetch, BFIWs, KffactWs:Precip_Minus_EVTWs, Precip8110Ws, Tmean8110Ws, N_Total_Deposition, P_Deposition, n_farm_inputs:p_dev_inputs, P_Accumulated_ag_inputs, P_Legacy_P) |>
-  relocate(B_G_DENS, MICX, NTL, PTL, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, EVAP_INFL, fst_ws, wet_ws, KffactWs, n_farm_inputs, p_farm_inputs, P_Accumulated_ag_inputs, P_Legacy_P, n_dev_inputs, p_dev_inputs, N_Total_Deposition, P_Deposition, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws, Precip_Minus_EVTWs, RunoffWs, BFIWs, MAXDEPTH, lakemorpho_fetch) 
+  select(B_G_DENS, MICX, AMMONIA_N, DOC:NITRATE_N, PH, EVAP_INFL, np_ratio,
+         TEMPERATURE, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws,
+         lakemorpho_fetch, MAXDEPTH, 
+         fst_ws, wet_ws, BFIWs, KffactWs,  
+         N_Total_Deposition, P_Deposition, N_Total_Inputs, p_total_inputs, n_farm_inputs:p_dev_inputs, P_Legacy_P) |>
+  relocate(B_G_DENS, MICX, NTL, PTL, np_ratio, NITRATE_N, AMMONIA_N, DOC, PH, TEMPERATURE, TURB, EVAP_INFL, 
+           fst_ws, wet_ws, KffactWs, 
+           n_farm_inputs, p_farm_inputs, n_dev_inputs, p_dev_inputs, P_Legacy_P, N_Total_Deposition, P_Deposition, N_Total_Inputs, p_total_inputs,
+           precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws, BFIWs, 
+           MAXDEPTH, lakemorpho_fetch) 
 
 var_names <- c("Cyanobacteria*", 
                "Microcystin*", 
                "Total N*", 
-               "Total P*",   
+               "Total P*", 
+               "N:P Ratio*",
                "Nitrate*", 
                "Ammonia*", 
                "DOC*", 
@@ -207,16 +216,15 @@ var_names <- c("Cyanobacteria*",
                "Farm P Inputs",
                "Developed N Inputs", 
                "Developed P Inputs",
-               "Accumulated P Inputs",
                "Legacy P Inputs",
                "Deposition N",
                "Deposition P",
+               "Total N Inputs",
+               "Total P Inputs",
                "Monthly Precip",
                "Monthly Air Temp",
                "Annual Precip", 
                "Annual Air Temp",
-               "Annual Precip-ET",
-               "Runoff", 
                "Baseflow Index",
                "Lake Depth",
                "Lake Fetch")
