@@ -296,9 +296,7 @@ est_and_sign <- fixed_df |>
          fixed_effect = factor(fixed_effect, 
                                levels = c("NTL",
                                           "NITRATE_N",
-                                          "AMMONIA_N",
                                           "DOC",
-                                          "TURB",
                                           "PH",
                                           "EVAP_INFL",
                                           "n_farm_inputs",
@@ -312,10 +310,8 @@ est_and_sign <- fixed_df |>
                                           "Precip8110Ws",
                                           "Tmean8110Ws",
                                           "AG_ECO3PLNLOW",
-                                          "AG_ECO3EHIGH",
-                                          "NTL:AG_ECO3PLNLOW",
-                                          "NTL:AG_ECO3EHIGH"))
-         ) |>
+                                          "AG_ECO3EHIGH"))
+  ) |>
   select(response_var:fixed_effect, est_sig) |>
   pivot_wider(names_from = response_var:lake_data,
               values_from = est_sig,
@@ -323,32 +319,23 @@ est_and_sign <- fixed_df |>
   arrange(fixed_effect) |>
   relocate(fixed_effect, cyano_present, micx_present, cyano_absent, micx_absent) |>
   mutate(fixed_effect = c("Total N",
-                       "Nitrate",
-                       "Ammonium",
-                       "DOC",
-                       "Turbidity",
-                       "pH",
-                       "Evaporation/Inflow",
-                       "Farm N Inputs",
-                       "Farm P Inputs",
-                       "Developed N Inputs",
-                       "Developed P Inputs",
-                       "Forest Cover",
-                       "Lake Depth",
-                       "Lake Fetch",
-                       "Baseflow Index",
-                       "Annual Precip",
-                       "Annual Air Temp",
-                       "Ecoregion PLNLOW",
-                       "Ecoregion EHIGH",
-                       "Total N * PLNLOW",
-                       "Total N * EHIGH"),
-         Type = c(rep("In-Lake Conditions", 7),
-                  rep("Nutrient Inputs", 5),
+                          "Nitrate",
+                          "DOC",
+                          "pH",
+                          "Evaporation/Inflow",
+                          "Farm N Inputs",
+                          "Developed P Inputs",
+                          "Lake Depth",
+                          "Lake Fetch",
+                          "Annual Precip",
+                          "Annual Air Temp",
+                          "Ecoregion PLNLOW",
+                          "Ecoregion EHIGH"),
+         Type = c(rep("In-Lake Conditions", 5),
+                  rep("Nutrient Inputs", 2), # starting with in-lake models only
                   rep("Lake Geometry", 2),
-                  rep("Geographic Setting", 5),
-                  rep("Interactions", 2)), .before = fixed_effect
-            ) |>
+                  rep("Geographic Setting", 4)), .before = fixed_effect
+  ) |>
   rename(Covariates = fixed_effect)
 
 colorer <- function(i){
@@ -366,7 +353,7 @@ colorer <- function(i){
 est_header <- data.frame(
   col_keys = colnames(est_and_sign),
   line2 = c(rep("Model", 2), rep("In-Lake Conditions", 4)),
-  line3 = c(rep("Model", 2), c(rep("Present", 2), rep("Absent", 2))),
+  line3 = c(rep("Model", 2), c(rep("Present", 2), rep("Absent", 2))), #
   line4 = c("Type", "Covariates", rep(c("Cyano", "Micx"), 2))
 )
 
@@ -380,7 +367,8 @@ covar_tbl <- est_and_sign |>
   bg(bg = colorer,
      j = 3:6, # All columns in the body except for the first one
      part = "body") |>
-  bg(j = c(5:6), i = c(1:7), bg = "#606060") |> # Covariates that weren't available to the models
+  bg(j = c(5:6), i = c(1:5), bg = "#606060") |> 
+  bg(j = c(3:4), i = c(6:7), bg = "#606060") |> 
   theme_box() |>
   align(align = "center", part = "header") |>
   fontsize(size = 10, part = "body") |>
