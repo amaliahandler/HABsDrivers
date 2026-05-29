@@ -35,6 +35,7 @@ library(remotes)
 library(units)
 library(fs)
 library(readr)
+library(purrr)
 
 ```
 
@@ -389,59 +390,64 @@ PredData <- PredData |>
          Precip8110Ws = Precip9120Ws,
          MAXDEPTH = lake_m_depth,
          lakemorpho_fetch = fetch,
-         AG_ECO3 = ag_eco3) |>
+         AG_ECO3 = ag_eco3,
+         geometry = Shape) |>
   dplyr::select(c(COMID, n_dev_inputs, n_farm_inputs, p_dev_inputs, p_farm_inputs,
                   BFIWs, MAXDEPTH,lakemorpho_fetch, lake_area, ad_ratio,
                   Precip8110Ws, Tmean8110Ws,
                   fst_ws, AG_ECO3,
-                  DSGN_CYCLE, UNIQUE_ID, Shape)) |>
+                  DSGN_CYCLE, UNIQUE_ID, geometry)) |>
   drop_na()
 
 ```
 
-```{r, eval=FALSE}
+```{r, eval = FALSE}
 
 # use spmodel function to run cyano model
 # add system time stamps to record processing time
 Sys.time()
-Pred <- predict(object = model_cyano_nolakes, newdata = PredData, 
+PredData$preds <- predict(object = model_cyano_nolakedata, newdata = PredData, 
                 local = list(method = 'all', parallel = TRUE, ncores = 48),
                 interval = 'prediction') # run with 95% prediction intervals
 Sys.time()
 
 # perform log transformation on cyano data
-pred_df <- final_pred |>
-  mutate(pred_cyano = Pred,
+PredData <- PredData |>
+  mutate(pred_cyano = preds,
          cyano_transform = 10^Pred - 1000)
 
 # run the micx model
 Sys.time()
-MicxPred <- predict(object = model_micx_nolakes, newdata = PredData, 
+PredData$micxpreds <- predict(object = model_micx_nolakedata, newdata = PredData, 
                 local = list(method = 'all', parallel = TRUE, ncores = 48),
                 interval = 'prediction') # run with 95% prediction intervals
 Sys.time()
 
 # perform transformation on the micx data 
-micx_pred_df <- final_pred |>
-  mutate(pred_micx = MicxPred,
+PredData <- PredData |>
+  mutate(pred_micx = micxpreds,
          micx_transform = 10^Pred - 1000)
 
-micx_pred_df$pred_micx <- boot::inv.logit(micx_pred_df$pred_micx)
+PredData$pred_micx <- boot::inv.logit(PredData$pred_micx)
+
+# saveRDS(pred_df, file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/cyano_predictions_2026.rds")
+# 
+# saveRDS(micx_pred_df, file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/micx_predictions_2026.rds")
 
 ```
 
-```{r}
+```{r, eval = FALSE}
 
 # for easier data use / analysis, pulling in predictions that were run in the cloud
 # load cyano predictions
-load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/cyano_preds.rda")
-
+# load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/cyano_predictions_2026.rds")
+# 
 # load micx predictions
-load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/micx_preds.rda")
+# load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/micx_predictions_2026.rds")
 
 ```
 
-```{r}
+```{r, eval = FALSE}
 
 # add predictions to final PredData set
 PredData <- pred_df |>
@@ -473,8 +479,9 @@ PredData <- PredData |>
          cyano_transform_lwr = (cyano_transform[, "lwr"]),
          cyano_transform_upr = (cyano_transform[, "upr"]),
          .keep = 'unused') |>
-  relocate(COMID)
-
+  relocate(COMID) |>
+  dplyr::select(-c(preds, micxpreds))
+  
 ```
 
 
@@ -483,7 +490,7 @@ PredData <- PredData |>
 ```{r}
 
 # Save the data as part of the package
-#usethis::use_data(PredData, overwrite = T)
+usethis::use_data(PredData, overwrite = T)
 
 ```
 
