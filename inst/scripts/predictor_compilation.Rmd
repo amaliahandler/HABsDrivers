@@ -36,6 +36,7 @@ library(units)
 library(fs)
 library(readr)
 library(purrr)
+library(here)
 
 ```
 
@@ -461,9 +462,7 @@ PredData <- PredData |>
 ```{r Thresholds, eval = FALSE}
 
 library(rstatix)
-library(gtsummary)
-load_all()
-habs <- habs |> drop_na(B_G_DENS)
+habs <-  load(paste0(here(), "/data/habs.rda"))
 
 # EHIGH
 ehigh_habs <- habs |>
