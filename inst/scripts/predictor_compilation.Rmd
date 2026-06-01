@@ -401,6 +401,7 @@ PredData <- PredData |>
 
 ```
 
+# generate predicitons
 ```{r, eval = FALSE}
 
 # use spmodel function to run cyano model
@@ -430,40 +431,12 @@ PredData <- PredData |>
 
 PredData$pred_micx <- boot::inv.logit(PredData$pred_micx)
 
-# saveRDS(pred_df, file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/cyano_predictions_2026.rds")
-# 
-# saveRDS(micx_pred_df, file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/micx_predictions_2026.rds")
+# save as an object just in case
+# saveRDS(PredData, file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/PredData_2026.rds")
 
 ```
-
-```{r, eval = FALSE}
-
-# for easier data use / analysis, pulling in predictions that were run in the cloud
-# load cyano predictions
-# load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/cyano_predictions_2026.rds")
-# 
-# load micx predictions
-# load(file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/predictions/micx_predictions_2026.rds")
-
-```
-
-```{r, eval = FALSE}
-
-# add predictions to final PredData set
-PredData <- pred_df |>
-  dplyr::select(Shape, pred_cyano, cyano_transform) |>
-  st_join(PredData) |>
-  drop_na()
-
-PredData <- micx_pred_df |>
-  dplyr::select(Shape, pred_micx, micx_transform) |>
-  st_join(PredData) |>
-  drop_na() |>
-  distinct(COMID, .keep_all = TRUE)
-
-```
-
-```{r}
+# Clean predicition data
+```{r Rename predictions}
 
 PredData <- PredData |>
   mutate(pred_micx_fit = (pred_micx[, "fit"]),
@@ -482,6 +455,120 @@ PredData <- PredData |>
   relocate(COMID) |>
   dplyr::select(-c(preds, micxpreds))
   
+```
+
+# set thresholds based on NLA data
+```{r Thresholds, eval = FALSE}
+
+library(rstatix)
+library(gtsummary)
+load_all()
+habs <- habs |> drop_na(B_G_DENS)
+
+# EHIGH
+ehigh_habs <- habs |>
+  filter(AG_ECO3 == 'EHIGH')
+
+test_out <- ehigh_habs |> identify_outliers(B_G_DENS)
+
+test_filter <- ehigh_habs |>
+  filter(!B_G_DENS %in% test_out$B_G_DENS)
+
+# good | fair cutoff at 29,855
+g.f.ehigh <- quantile(test_filter$B_G_DENS, 0.75)
+
+# fair | poor cutoff at 92,127
+f.p.ehigh <- quantile(test_filter$B_G_DENS, 0.95)
+
+
+# PLNLOW
+pln_habs <- habs |>
+  filter(AG_ECO3 == 'PLNLOW')
+
+test_out <- pln_habs |> identify_outliers(B_G_DENS)
+
+test_filter <- pln_habs |>
+  filter(!B_G_DENS %in% test_out$B_G_DENS)
+
+# good | fair cutoff at 80,282
+g.f.pln <- quantile(test_filter$B_G_DENS, 0.75)
+
+# fair | poor cutoff at 258,390
+f.p.pln <- quantile(test_filter$B_G_DENS, 0.95)
+
+
+# WMTNS
+west_habs <- habs |>
+  filter(AG_ECO3 == 'WMTNS')
+
+test_out <- west_habs |> identify_outliers(B_G_DENS)
+
+test_filter <- west_habs |>
+  filter(!B_G_DENS %in% test_out$B_G_DENS)
+
+# good | fair cutoff at 20,800
+g.f.west <- quantile(test_filter$B_G_DENS, 0.75)
+
+# fair | poor cutoff at 54,598
+f.p.west <- quantile(test_filter$B_G_DENS, 0.95)
+
+PredData <- PredData |>
+  mutate(cyano_ecocond = factor(case_when(AG_ECO3 == "EHIGH" & cyano_transform_fit < f.p.ehigh ~ 'Low',
+                                          AG_ECO3 == "EHIGH" & cyano_transform_fit >= f.p.ehigh ~ 'High',
+
+                                          AG_ECO3 == "PLNLOW" & cyano_transform_fit < f.p.pln ~ 'Low',
+                                          AG_ECO3 == "PLNLOW" & cyano_transform_fit >= f.p.pln ~ 'High',
+
+                                          AG_ECO3 == "WMTNS" & cyano_transform_fit < f.p.west ~ 'Low',
+                                          AG_ECO3 == "WMTNS" & cyano_transform_fit >= f.p.west ~ 'High'),
+                                levels = c('High','Low'))) |>
+  arrange(cyano_ecocond)
+
+# micx thresholds
+
+micx_grp <- habs |>
+  st_drop_geometry() |>
+  drop_na(MICX_DET) |>
+  group_by(AG_ECO3) |>
+  count(MICX_DET) |>
+  mutate(total = n()) |>
+  mutate(prop = n / sum(n))
+
+PredData <- PredData |>
+  mutate(micx_ecocond = factor(case_when(AG_ECO3 == "EHIGH" & pred_micx_fit <= 0.220 ~ 'Below',
+                                         AG_ECO3 == "EHIGH" & pred_micx_fit > 0.220 ~ 'Above',
+
+                                         AG_ECO3 == "PLNLOW" & pred_micx_fit <= 0.472 ~ 'Below',
+                                         AG_ECO3 == "PLNLOW" & pred_micx_fit > 0.472 ~ 'Above',
+
+                                         AG_ECO3 == "WMTNS" & pred_micx_fit <= 0.125 ~ 'Below',
+                                         AG_ECO3 == "WMTNS" & pred_micx_fit > 0.125 ~ 'Above'),
+                               levels = c("Above","Below" ))) |>
+  arrange(micx_ecocond)
+
+```
+
+```{r Nutr/Risk Categories, eval = FALSE}
+
+PredData <- PredData |>
+  mutate(cyano_cat = factor(case_when(
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'High' ~ 'HNHC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == 'High' ~ 'LNHC',
+    (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'Low' ~ 'HNLC',
+    (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == 'Low' ~ 'LNLC',
+    TRUE ~ 'OTHER'),
+    levels = c('HNHC','HNLC','LNHC','LNLC'))) |>
+  arrange(cyano_cat) |>
+  mutate(micx_cat = factor(case_when(
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & micx_ecocond == 'Above' ~ 'HNHM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & micx_ecocond == 'Above' ~ 'LNHM',
+    (n_dev_inputs >= 10 | p_farm_inputs >= 4) & micx_ecocond == 'Below' ~ 'HNLM',
+    (n_dev_inputs < 10 | p_farm_inputs < 4) & micx_ecocond == 'Below' ~ 'LNLM',
+    TRUE ~ 'OTHER'),
+    levels = c('HNHM','HNLM','LNHM','LNLM'))) |>
+  arrange(micx_cat)
+
+
 ```
 
 
