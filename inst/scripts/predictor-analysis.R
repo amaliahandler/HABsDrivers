@@ -790,7 +790,7 @@ q <- ggplot() +
   theme(axis.title.y=element_blank(),
         legend.position = "none")
 
-ggsave("cyano_ecocond.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 1500)
+ggsave("new_micx_preds26.jpeg", width = 10, height = 6, device = 'jpeg', dpi = 600)
 
 
 # Base flow --------------------------------------------------------------------
@@ -1628,17 +1628,44 @@ PredData <-PredData |>
          lake_areaha = lake_area / 10000,
          drain_ratio = wsareaha / lake_areaha)
 
-dr_model_cy <- splm(drain_ratio ~ cyano_pred, PredData, spcov_type = "exponential")
-ggpubr::ggqqplot(residuals(bf_model))
+test <- PredData |>
+  st_drop_geometry() |>
+  ungroup()
 
+test <- dplyr::sample_n(test, size = 1500, replace = FALSE)
+
+shapiro.test(test$BFIWs)
+
+dr_model_cy <- splm(drain_ratio ~ cyano_cat, PredData, spcov_type = "exponential")
 anova(dr_model_cy)
 
-ggplot(comp_micx, aes(x=drain_ratio, y= all_pred)) +
-  ggridges::geom_density_ridges(aes(fill = all_pred), quantile_lines = TRUE, quantiles = 2) +
+dr_model_mx <- splm(drain_ratio ~ micx_cat, PredData, spcov_type = "exponential")
+anova(dr_model_mx)
+
+bf_model_cy <- splm(BFIWs ~ cyano_cat, PredData, spcov_type = "exponential")
+anova(bf_model_cy)
+
+bf_model_mx <- splm(BFIWs ~ micx_cat, PredData, spcov_type = "exponential")
+anova(bf_model_mx)
+
+ad_model_cy <- splm(ad_ratio ~ cyano_cat, PredData, spcov_type = "exponential")
+anova(ad_model_cy)
+
+ad_model_mx <- splm(ad_ratio ~ micx_cat, PredData, spcov_type = "exponential")
+anova(ad_model_mx)
+
+
+saveRDS(bf_model_cy,
+        file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/model_objects/bf_model_cy26.rds')
+
+kruskal.test(drain_ratio ~ cyano_cat, data = PredData)
+
+ggplot(PredData, aes(x=BFIWs, y= micx_cat)) +
+  ggridges::geom_density_ridges(aes(fill = micx_cat), quantile_lines = TRUE, quantiles = 2) +
   # scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
   xlim(0, 300) +
-  labs(x = "drain ratio", fill = 'Class',
-       title = 'cyano') +
+  labs(x = "base flow", fill = 'Class',
+       title = 'micx') +
   theme(axis.title.y=element_blank(),
         legend.position = "none")
 
@@ -1651,15 +1678,6 @@ ggplot(PredData, aes(drain_ratio, pred_cyano_fit)) +
   scale_y_continuous(trans = "log") +
   scale_x_continuous(trans = "log")
 
-ggpubr::ggqqplot(residuals(ad_model, type = "standardized"))
-
-habs_nogeo <- habs |>
-  st_drop_geometry() |>
-  select(COMID, drain_ratio)
-
-
-doc_test <- left_join(PredData, habs_nogeo, by = 'COMID') |>
-  drop_na()
 
 
 # drain ratio with habs data ---------------------------------------------------
