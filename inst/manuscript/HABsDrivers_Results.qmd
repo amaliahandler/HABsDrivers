@@ -875,8 +875,8 @@ anova(precipm)
 
 #### Contents
 
--   Tables S1-S8
--   Figures S1-S4 \*\* @fig-covar-contri \*\* @fig-std-resid-maps \*\* @fig-resid-maps-inlake \*\* @fig-nut-input-map
+- Tables S1-S8
+- Figures S1-S4 \*\* @fig-covar-contri \*\* @fig-std-resid-maps \*\* @fig-resid-maps-inlake \*\* @fig-nut-input-map
 
 Table S1. Summary statistics for response variable and covariates explored in model selection.
 
