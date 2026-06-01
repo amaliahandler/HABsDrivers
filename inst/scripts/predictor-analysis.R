@@ -31,10 +31,10 @@ state_lakes <- state_lakes |>
 # comp_micx <- comp_micx |>
 #   drop_na(pred_micx)
 
-# micx_pred_df <- micx_pred_df %>%
-#   mutate(y_partial_p_farm = (coef(model_micx_nolakes)[2]) * p_farm_inputs,
-#          y_partial_n_dev = (coef(model_micx_nolakes)[3]) * n_dev_inputs,
-#          y_partial_nutr_all = y_partial_p_farm + y_partial_n_dev)
+micx_pred_df <- micx_pred_df %>%
+  mutate(y_partial_p_farm = (coef(model_micx_nolakes)[2]) * p_farm_inputs,
+         y_partial_n_dev = (coef(model_micx_nolakes)[3]) * n_dev_inputs,
+         y_partial_nutr_all = y_partial_p_farm + y_partial_n_dev)
 
 # Nutrients --------------------------------------------------------------------
 
@@ -2408,12 +2408,12 @@ PredData <- PredData |>
 
 
 # get ecoregional totals
-total_table <- PredData |>
-  st_drop_geometry() |>
-  dplyr::select(AG_ECO3, cyano_ecocond) |>
-  group_by(cyano_ecocond, AG_ECO3) |>
-  mutate(total = n()) |>
-  distinct()
+# total_table <- PredData |>
+#   st_drop_geometry() |>
+#   dplyr::select(AG_ECO3, cyano_ecocond) |>
+#   group_by(cyano_ecocond, AG_ECO3) |>
+#   mutate(total = n()) |>
+#   distinct()
 
 # WITH MICROCYSTIN
 
@@ -2437,12 +2437,12 @@ PredData <- PredData |>
                                levels = c("Above","Below" ))) |>
   arrange(micx_ecocond)
 
-total_micx <- PredData |>
-  st_drop_geometry() |>
-  dplyr::select(AG_ECO3, micx_ecocond) |>
-  group_by(micx_ecocond, AG_ECO3) |>
-  mutate(total = n()) |>
-  distinct()
+# total_micx <- PredData |>
+#   st_drop_geometry() |>
+#   dplyr::select(AG_ECO3, micx_ecocond) |>
+#   group_by(micx_ecocond, AG_ECO3) |>
+#   mutate(total = n()) |>
+#   distinct()
 
 # PredData <- PredData |>
 #   rowwise() |>
@@ -2545,78 +2545,78 @@ ggplot() +
 # thresholds w/ PredData  ======================================================
 
 library(rstatix)
-load_all()
-PredData <- PredData |> drop_na(cyano_transform_fit)
-
-# EHIGH
-ehigh_PredData <- PredData |>
-  filter(AG_ECO3 == 'EHIGH')
-
-test_out <- ehigh_PredData |> identify_outliers(cyano_transform_fit)
-
-test_filter <- ehigh_PredData |>
-  filter(!cyano_transform_fit %in% test_out$cyano_transform_fit)
-
-# good | fair cutoff at 125,377
-g.f.ehigh <- quantile(test_filter$cyano_transform_fit, 0.75)
-
-# fair | poor cutoff at 242,242
-f.p.ehigh <- quantile(test_filter$cyano_transform_fit, 0.95)
-
-
-# PLNLOW
-
-pln_PredData <- PredData |>
-  filter(AG_ECO3 == 'PLNLOW')
-
-test_out <- pln_PredData |> identify_outliers(cyano_transform_fit)
-
-test_filter <- pln_PredData |>
-  filter(!cyano_transform_fit %in% test_out$cyano_transform_fit)
-
-# good | fair cutoff at 212,240
-g.f.pln <- quantile(test_filter$cyano_transform_fit, 0.75)
-
-# fair | poor cutoff at 338,178
-f.p.pln <- quantile(test_filter$cyano_transform_fit, 0.95)
-
-
-# WMTNS
-
-west_PredData <- PredData |>
-  filter(AG_ECO3 == 'WMTNS')
-
-test_out <- west_PredData |> identify_outliers(cyano_transform_fit)
-
-test_filter <- west_PredData |>
-  filter(!cyano_transform_fit %in% test_out$cyano_transform_fit)
-
-# good | fair cutoff at 77,413
-g.f.west <- quantile(test_filter$cyano_transform_fit, 0.75)
-
-# fair | poor cutoff at 136,937
-f.p.west <- quantile(test_filter$cyano_transform_fit, 0.95)
-
-PredData <- PredData |>
-  mutate(cyano_ecocond = factor(case_when(AG_ECO3 == "EHIGH" & cyano_transform_fit < f.p.ehigh ~ 'Low',
-                                          AG_ECO3 == "EHIGH" & cyano_transform_fit >= f.p.ehigh ~ 'High',
-
-                                          AG_ECO3 == "PLNLOW" & cyano_transform_fit < f.p.pln ~ 'Low',
-                                          AG_ECO3 == "PLNLOW" & cyano_transform_fit >= f.p.pln ~ 'High',
-
-                                          AG_ECO3 == "WMTNS" & cyano_transform_fit < f.p.west ~ 'Low',
-                                          AG_ECO3 == "WMTNS" & cyano_transform_fit >= f.p.west ~ 'High'),
-                                levels = c('High','Low'))) |>
-  arrange(cyano_ecocond)
-
-
-# get ecoregional totals
-total_table <- PredData |>
-  st_drop_geometry() |>
-  dplyr::select(AG_ECO3, cyano_ecocond) |>
-  group_by(cyano_ecocond, AG_ECO3) |>
-  mutate(total = n()) |>
-  distinct()
+# load_all()
+# PredData <- PredData |> drop_na(cyano_transform_fit)
+#
+# # EHIGH
+# ehigh_PredData <- PredData |>
+#   filter(AG_ECO3 == 'EHIGH')
+#
+# test_out <- ehigh_PredData |> identify_outliers(cyano_transform_fit)
+#
+# test_filter <- ehigh_PredData |>
+#   filter(!cyano_transform_fit %in% test_out$cyano_transform_fit)
+#
+# # good | fair cutoff at 125,377
+# g.f.ehigh <- quantile(test_filter$cyano_transform_fit, 0.75)
+#
+# # fair | poor cutoff at 242,242
+# f.p.ehigh <- quantile(test_filter$cyano_transform_fit, 0.95)
+#
+#
+# # PLNLOW
+#
+# pln_PredData <- PredData |>
+#   filter(AG_ECO3 == 'PLNLOW')
+#
+# test_out <- pln_PredData |> identify_outliers(cyano_transform_fit)
+#
+# test_filter <- pln_PredData |>
+#   filter(!cyano_transform_fit %in% test_out$cyano_transform_fit)
+#
+# # good | fair cutoff at 212,240
+# g.f.pln <- quantile(test_filter$cyano_transform_fit, 0.75)
+#
+# # fair | poor cutoff at 338,178
+# f.p.pln <- quantile(test_filter$cyano_transform_fit, 0.95)
+#
+#
+# # WMTNS
+#
+# west_PredData <- PredData |>
+#   filter(AG_ECO3 == 'WMTNS')
+#
+# test_out <- west_PredData |> identify_outliers(cyano_transform_fit)
+#
+# test_filter <- west_PredData |>
+#   filter(!cyano_transform_fit %in% test_out$cyano_transform_fit)
+#
+# # good | fair cutoff at 77,413
+# g.f.west <- quantile(test_filter$cyano_transform_fit, 0.75)
+#
+# # fair | poor cutoff at 136,937
+# f.p.west <- quantile(test_filter$cyano_transform_fit, 0.95)
+#
+# PredData <- PredData |>
+#   mutate(cyano_ecocond = factor(case_when(AG_ECO3 == "EHIGH" & cyano_transform_fit < f.p.ehigh ~ 'Low',
+#                                           AG_ECO3 == "EHIGH" & cyano_transform_fit >= f.p.ehigh ~ 'High',
+#
+#                                           AG_ECO3 == "PLNLOW" & cyano_transform_fit < f.p.pln ~ 'Low',
+#                                           AG_ECO3 == "PLNLOW" & cyano_transform_fit >= f.p.pln ~ 'High',
+#
+#                                           AG_ECO3 == "WMTNS" & cyano_transform_fit < f.p.west ~ 'Low',
+#                                           AG_ECO3 == "WMTNS" & cyano_transform_fit >= f.p.west ~ 'High'),
+#                                 levels = c('High','Low'))) |>
+#   arrange(cyano_ecocond)
+#
+#
+# # get ecoregional totals
+# total_table <- PredData |>
+#   st_drop_geometry() |>
+#   dplyr::select(AG_ECO3, cyano_ecocond) |>
+#   group_by(cyano_ecocond, AG_ECO3) |>
+#   mutate(total = n()) |>
+#   distinct()
 
 
 # nutrient HABs risk analysis with HABs thresholds 5/11/26 ------------------
