@@ -704,6 +704,40 @@ pred_nut_table
 
 ```
 
+```{r map nutrient/cyanoHABs categories}
+
+nurisk = c('HNHC' = "#9c0082",
+           'HNLC' = "#cc6de4",
+           'LNHC' = "#4e8562",
+           'LNLC' = "#8bd1a5")
+
+nurisk_m = c('HNHM' = "#9c0082",
+           'HNLM' = "#cc6de4",
+           'LNHM' = "#4e8562",
+           'LNLM' = "#8bd1a5")
+
+ggplot(PredData, aes(color = cyano_cat)) +
+  geom_sf(size = 0.3,
+          alpha = 0.8) +
+  scale_color_manual(values = nurisk,
+                     name = "Category") +
+  labs(title = "Cyanobacteria Nutrient / Risk Combined Category") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggplot(PredData, aes(color = micx_cat)) +
+  geom_sf(size = 0.3,
+          alpha = 0.8) +
+  scale_color_manual(values = nurisk_m,
+                     name = "Category") +
+  labs(title = "Microcystin Nutrient / Risk Combined Category") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+```
+
 \pagebreak
 
 The precipitation, baseflow index, and area:depth ratio had significantly different means across the nutrient-cyanoHAB categories for both the cyanobacteria and microcystin models (ANOVA, p\<0.001, @fig-density-plots). Across both the cyanobacteria and microcystin models the lower nutrient and high cyanoHAB category had median precipitation notably lower relative to the other three nutrient-cyanoHAB categories. For the microcystin model, the median precipitation for the higher nutrient and low cyanoHAB category was notably higher than either the higher nutrient and high cyanoHAB or the lower nutrient and low cyanoHAB categories. Lakes with higher baseflow relative to stormflow had lower cyanoHABs risk, regardless of nutrient inputs. For the microcystin model in particular, the lower nutrient and high cyanoHAB category had a notably lower baseflow index relative to the three other categories. Lakes with higher area:depth ratio were more likely to have high predicted cyanobacteria in both higher and lower nutrient input watersheds. For the microcystin model in particular, the lower nutrient and high cyanoHAB category had a slightly higher area:depth ratio compared to the three other categories.
