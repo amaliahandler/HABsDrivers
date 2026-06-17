@@ -462,7 +462,9 @@ PredData <- PredData |>
 ```{r Thresholds, eval = FALSE}
 
 library(rstatix)
-habs <-  load(paste0(here(), "/data/habs.rda"))
+#habs <-  load(paste0(here(), "/data/habs.rda"))
+habs <- habs |>
+  drop_na(B_G_DENS)
 
 # EHIGH
 ehigh_habs <- habs |>
@@ -583,48 +585,13 @@ usethis::use_data(PredData, overwrite = T)
 # Generate models for spatial analysis
 ```{r, eval = FALSE}
 
-# set up data frames 
-comp_micx <- PredData |>
-  dplyr::select(-starts_with("pred_cyano"),
-                -starts_with("cyano_transform")) |>
-  drop_na(pred_micx_fit) |>
-  mutate(
-    ws_nut_inputs = ifelse((n_farm_inputs + n_dev_inputs) >= 10 | (p_farm_inputs + p_dev_inputs) >= 4, "HIGH", "LOW"),
-    all_pred = factor(case_when(
-      ws_nut_inputs == "HIGH" & pred_micx_fit >= 0.50 ~ 'HNHC',
-      ws_nut_inputs == "LOW" & pred_micx_fit >= 0.50 ~ 'LNHC',
-      ws_nut_inputs == "HIGH" & pred_micx_fit < 0.50 ~ 'HNLC',
-      ws_nut_inputs == "LOW" & pred_micx_fit < 0.50 ~ 'LNLC',
-      TRUE ~ 'OTHER'),
-      levels = c('HNHC','HNLC','LNHC','LNLC'))
-    ) |>
-    arrange(all_pred)
-
-comp_cyano <- PredData |>
-  dplyr::select(-starts_with("pred_micx"),
-                -starts_with("micx_transform")) |>
-  drop_na(cyano_transform_fit) |>
-  mutate(
-    ws_nut_inputs = ifelse((n_farm_inputs + n_dev_inputs) >= 10 | (p_farm_inputs + p_dev_inputs) >= 4, "HIGH", "LOW"),
-    all_pred = factor(case_when(
-      ws_nut_inputs == "HIGH" & pred_cyano_fit >= 5 ~ 'HNHC',
-      ws_nut_inputs == "LOW" & pred_cyano_fit >= 5 ~ 'LNHC',
-      ws_nut_inputs == "HIGH" & pred_cyano_fit < 5 ~ 'HNLC',
-      ws_nut_inputs == "LOW" & pred_cyano_fit < 5 ~ 'LNLC',
-      TRUE ~ 'OTHER'),
-      levels = c('HNHC','HNLC','LNHC','LNLC'))
-    ) |>
-    arrange(all_pred)
-
-# cyanos
-
 # Deal with infinite area depth ratios from zero depth values. Reset these depths to instead be a very small number.
-comp_cyano <- comp_cyano |>
+PredData <- PredData |>
   mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
 
 # Create models needed for ANOVAs in Results
 
-bf_model <- splm(BFIWs ~ all_pred, comp_cyano, spcov_type = "exponential")
+bf_model <- splm(BFIWs ~ cyano_cat, PredData, spcov_type = "exponential")
 #anova(bf_model)
 saveRDS(bf_model, file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/model_objects/bf_model_cyano.rds')
 
