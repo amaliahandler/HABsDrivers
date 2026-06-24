@@ -1634,9 +1634,9 @@ test <- PredData |>
 
 test <- dplyr::sample_n(test, size = 1500, replace = FALSE)
 
-shapiro.test(test$BFIWs)
+shapiro.test(test$drain_ratio)
 
-dr_model_cy <- splm(drain_ratio ~ cyano_cat, PredData, spcov_type = "exponential")
+dr_model_cy <- splm(log10(drain_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
 anova(dr_model_cy)
 
 dr_model_mx <- splm(drain_ratio ~ micx_cat, PredData, spcov_type = "exponential")
@@ -1660,9 +1660,9 @@ saveRDS(bf_model_cy,
 
 kruskal.test(drain_ratio ~ cyano_cat, data = PredData)
 
-ggplot(PredData, aes(x=BFIWs, y= micx_cat)) +
-  ggridges::geom_density_ridges(aes(fill = micx_cat), quantile_lines = TRUE, quantiles = 2) +
-  # scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
+ggplot(PredData, aes(x=drain_ratio, y= cyano_cat)) +
+  ggridges::geom_density_ridges(aes(fill = cyano_cat), quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5")) +
   xlim(0, 300) +
   labs(x = "base flow", fill = 'Class',
        title = 'micx') +
@@ -1670,15 +1670,14 @@ ggplot(PredData, aes(x=BFIWs, y= micx_cat)) +
         legend.position = "none")
 
 ggplot(PredData, aes(drain_ratio, pred_cyano_fit)) +
-  geom_point(aes(colour = disc)) +
+  geom_point(aes(colour = cyano_cat)) +
   stat_poly_line() +
   stat_poly_eq(use_label(c("eq", "P", "adj.R2"))) +
-  xlim(0,150) +
-  ylim(0,10) +
   scale_y_continuous(trans = "log") +
   scale_x_continuous(trans = "log")
 
-
+PredData <- PredData |>
+  relocate(drain_ratio, .after = ad_ratio)
 
 # drain ratio with habs data ---------------------------------------------------
 
@@ -2531,13 +2530,13 @@ hnlm <- HNLM |>
 modelPredData <- PredData |>
   dplyr::filter(MAXDEPTH >0)
 
-bf_model <- splm(BFIWs ~ cyano_ecocond, PredData, spcov_type = "exponential")
+bf_model <- splm(BFIWs ~ cyano_cat, PredData, spcov_type = "exponential")
 anova(bf_model)
 
-ad_model <- splm((log10(ad_ratio) + 1) ~  cyano_ecocond, modelPredData, spcov_type = "exponential")
+ad_model <- splm((log10(ad_ratio)) ~  cyano_cat, PredData, spcov_type = "exponential")
 anova(ad_model)
 
-precip_model <- splm((log10(Precip8110Ws)) ~ cyano_ecocond, PredData, spcov_type = "exponential")
+precip_model <- splm((log10(Precip8110Ws)) ~ cyano_cat, PredData, spcov_type = "exponential")
 anova(precip_model)
 
 PredData |>
@@ -2646,7 +2645,7 @@ PredData <- PredData |>
     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'Low' ~ 'HNLC',
     (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == 'Low' ~ 'LNLC',
     TRUE ~ 'OTHER'),
-    levels = c('HNHC','HNLC','LNHC','LNLC'))) |>
+    levels = c('LNLC','HNHC','HNLC','LNHC'))) |>
   arrange(cyano_cat) |>
   mutate(micx_cat = factor(case_when(
     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & micx_ecocond == 'Above' ~ 'HNHM',
@@ -2654,12 +2653,100 @@ PredData <- PredData |>
     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & micx_ecocond == 'Below' ~ 'HNLM',
     (n_farm_inputs < 10 | p_dev_inputs < 4) & micx_ecocond == 'Below' ~ 'LNLM',
     TRUE ~ 'OTHER'),
-    levels = c('HNHM','HNLM','LNHM','LNLM'))) |>
+    levels = c('LNLM','HNHM','HNLM','LNHM'))) |>
   arrange(micx_cat)
 
+# mapping these ----------------------------------------------------------------
+
+BFIW_col <- RColorBrewer::brewer.pal(4, "YlGnBu")
+
+nurisk = c('HNHC' = "#9c0082",
+           'HNLC' = "#cc6de4",
+           'LNHC' = "#4e8562",
+           'LNLC' = "#8bd1a5")
+
+nurisk_m = c('HNHM' = "#9c0082",
+           'HNLM' = "#cc6de4",
+           'LNHM' = "#4e8562",
+           'LNLM' = "#8bd1a5")
+
+ggplot(PredData, aes(color = cyano_cat)) +
+  geom_sf(size = .25) +
+  scale_color_manual(values = nurisk,
+                     name = "Category") +
+  labs(title = "Cyanobacteria Nutrient / Risk Combined Category") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggplot(PredData, aes(color = micx_cat)) +
+  geom_sf(size = .25) +
+  scale_color_manual(values = nurisk_m,
+                     name = "Category") +
+  labs(title = "Microcystin Nutrient / Risk Combined Category") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggsave("risk_micx.jpeg", width = 12, height = 8, device = 'jpeg', dpi = 500)
 
 
+# final historgrams 2026 -------------------------------------------------------
 
+test <- PredData |>
+  st_drop_geometry() |>
+  ungroup()
+
+test <- dplyr::sample_n(test, size = 1500, replace = FALSE)
+
+shapiro.test(test$ad_ratio)
+kruskal.test(ad_ratio ~ cyano_cat, data = PredData)
+kruskal.test(ad_ratio ~ micx_cat, data = PredData)
+
+shapiro.test(test$drain_ratio)
+kruskal.test(drain_ratio ~ cyano_cat, data = PredData)
+kruskal.test(drain_ratio ~ micx_cat, data = PredData)
+
+shapiro.test(test$BFIWs) # normal distribution, non-transformed ANOVA works
+
+dr_model_cy <- splm(log(drain_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
+anova(dr_model_cy)
+
+dr_model_mx <- splm(log(drain_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
+anova(dr_model_mx)
+
+bf_model_cy <- splm(BFIWs ~ cyano_cat, PredData, spcov_type = "exponential")
+anova(bf_model_cy)
+
+bf_model_mx <- splm(BFIWs ~ micx_cat, PredData, spcov_type = "exponential")
+anova(bf_model_mx)
+
+ad_model_cy <- splm(log(ad_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
+anova(ad_model_cy)
+
+ad_model_mx <- splm(log(ad_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
+anova(ad_model_mx)
+
+# saveRDS(bf_model_cy,
+#         file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/model_objects/bf_model_cy26.rds')
+
+
+ggplot(PredData, aes(x=BFIWs, y= micx_cat)) +
+  ggridges::geom_density_ridges(aes(fill = micx_cat), quantile_lines = TRUE, quantiles = 2) +
+  scale_fill_manual(values = nurisk_m) +
+  labs(x = "Baseflow %", fill = 'Class',
+       title = 'Microcystin and Baseflow') +
+  theme(axis.title.y=element_blank(),
+        legend.position = "none")
+
+ggsave("qqplot_cyano_ad_ratio.jpeg", width = 8, height = 6, device = 'jpeg', dpi = 500)
+
+# ggplot(PredData, aes(drain_ratio, pred_cyano_fit)) +
+#   geom_point(aes(colour = cyano_cat)) +
+#   stat_poly_line() +
+#   stat_poly_eq(use_label(c("eq", "P", "adj.R2"))) +
+#   scale_y_continuous(trans = "log10") +
+#   scale_x_continuous(trans = "log10")
 
 
 

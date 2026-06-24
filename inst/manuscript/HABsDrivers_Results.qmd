@@ -511,7 +511,7 @@ ggarrange(plotlist = list(cyan_spde_map, micx_spde_map), ncol = 1, nrow = 2, lab
 
 ```{r generate disc cyano}
 
-PredData <- PredData %>%
+PredData <- PredData |>
   mutate(disc_cyano = factor(case_when(pred_cyano_fit < 4.41497 ~ 'B1', # under 25k
                                        pred_cyano_fit >= 4.41497 & pred_cyano_fit < 4.70757 ~ 'B2', # 25k - 50k
                                        pred_cyano_fit >= 4.70757 & pred_cyano_fit < 5.0043215 ~ 'B3', # 50k - 100k
@@ -519,10 +519,10 @@ PredData <- PredData %>%
                                        pred_cyano_fit >= 5.39967 & pred_cyano_fit < 5.69984 ~ 'B5', # 250k-500k
                                        pred_cyano_fit >= 5.69984 ~ 'B6', # 500k
                                        TRUE ~ NA),
-                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) %>%
+                             levels = c('B1', 'B2', 'B3', 'B4', 'B5', 'B6'))) |>
   arrange(disc_cyano)
 
-sub_25 <- PredData %>%
+sub_25 <- PredData |>
   filter(disc_cyano == 'B1')
 
 PredData <- PredData |>
@@ -738,6 +738,40 @@ pred_nut_table
 
 ```
 
+```{r map nutrient/cyanoHABs categories}
+
+nurisk = c('HNHC' = "#9c0082",
+           'HNLC' = "#cc6de4",
+           'LNHC' = "#4e8562",
+           'LNLC' = "#8bd1a5")
+
+nurisk_m = c('HNHM' = "#9c0082",
+           'HNLM' = "#cc6de4",
+           'LNHM' = "#4e8562",
+           'LNLM' = "#8bd1a5")
+
+ggplot(PredData, aes(color = cyano_cat)) +
+  geom_sf(size = 0.3,
+          alpha = 0.8) +
+  scale_color_manual(values = nurisk,
+                     name = "Category") +
+  labs(title = "Cyanobacteria Nutrient / Risk Combined Category") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+ggplot(PredData, aes(color = micx_cat)) +
+  geom_sf(size = 0.3,
+          alpha = 0.8) +
+  scale_color_manual(values = nurisk_m,
+                     name = "Category") +
+  labs(title = "Microcystin Nutrient / Risk Combined Category") +
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  theme(plot.title = element_text(size = 12)) +
+  guides(colour = guide_legend(override.aes = list(size=4)))
+
+```
+
 \pagebreak
 
 The precipitation, baseflow index, and area:depth ratio had significantly different means across the nutrient-cyanoHAB categories for both the cyanobacteria and microcystin models (ANOVA, p\<0.001, @fig-density-plots). Across both the cyanobacteria and microcystin models the lower nutrient and high cyanoHAB category had median precipitation notably lower relative to the other three nutrient-cyanoHAB categories. For the microcystin model, the median precipitation for the higher nutrient and low cyanoHAB category was notably higher than either the higher nutrient and high cyanoHAB or the lower nutrient and low cyanoHAB categories. Lakes with higher baseflow relative to stormflow had lower cyanoHABs risk, regardless of nutrient inputs. For the microcystin model in particular, the lower nutrient and high cyanoHAB category had a notably lower baseflow index relative to the three other categories. Lakes with higher area:depth ratio were more likely to have high predicted cyanobacteria in both higher and lower nutrient input watersheds. For the microcystin model in particular, the lower nutrient and high cyanoHAB category had a slightly higher area:depth ratio compared to the three other categories.
@@ -873,33 +907,29 @@ ggpubr::ggarrange(precip_den, bfi_den, ad_den,
 # comp_cyano <- comp_cyano |>
 #   mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
 
-#bf_model <- splm(BFIWs ~ all_pred, comp_cyano, spcov_type = "exponential")
-bf_model <- readRDS(paste0(here(), '/inst/model_objects/bf_model_cyano.rds'))
-anova(bf_model)
+dr_model_cy <- readRDS(paste0(here(), '/inst/model_objects/dr_model_cy26.rds'))
+#dr_model_cy <- splm(log(drain_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
+anova(dr_model_cy)
 
-#ad_model <- splm(log10(ad_ratio) ~ all_pred, comp_cyano, spcov_type = "exponential")
-ad_model <- readRDS(paste0(here(), '/inst/model_objects/ad_model_cyano.rds'))
-anova(ad_model)
+dr_model_mx <- readRDS(paste0(here(), '/inst/model_objects/dr_model_mx26.rds'))
+#dr_model_mx <- splm(log(drain_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
+anova(dr_model_mx)
 
-#precip <- splm(log10(Precip8110Ws) ~ all_pred, comp_cyano, spcov_type = "exponential")
-precip <- readRDS(paste0(here(), '/inst/model_objects/precip_model_cyano.rds'))
-anova(precip)
+bf_model_cy <- readRDS(paste0(here(), '/inst/model_objects/bf_model_cy26.rds'))
+#bf_model_cy <- splm(BFIWs ~ cyano_cat, PredData, spcov_type = "exponential")
+anova(bf_model_cy)
 
-# micx
-# comp_micx <- comp_micx |>
-#   mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
+bf_model_mx <- readRDS(paste0(here(), '/inst/model_objects/bf_model_mx26.rds'))
+#bf_model_mx <- splm(BFIWs ~ micx_cat, PredData, spcov_type = "exponential")
+anova(bf_model_mx)
 
-# bfm_model <- splm(BFIWs ~ all_pred, comp_micx, spcov_type = "exponential")
-bfm_model <- readRDS(paste0(here(), '/inst/model_objects/bf_model_micx.rds'))
-anova(bfm_model)
+ad_model_cy <- readRDS(paste0(here(), '/inst/model_objects/ad_model_cy26.rds'))
+#ad_model_cy <- splm(log(ad_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
+anova(ad_model_cy)
 
-#adm_model <- splm(log10(ad_ratio) ~ all_pred, comp_micx, spcov_type = "exponential")
-adm_model <- readRDS(paste0(here(), '/inst/model_objects/ad_model_micx.rds'))
-anova(adm_model)
-
-#precipm <- splm(log10(Precip8110Ws) ~ all_pred, comp_micx, spcov_type = "exponential")
-precipm <- readRDS(paste0(here(), '/inst/model_objects/precip_model_micx.rds'))
-anova(precipm)
+ad_model_mx <- readRDS(paste0(here(), '/inst/model_objects/ad_model_mx26.rds'))
+#ad_model_mx <- splm(log(ad_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
+anova(ad_model_mx)
 
 ```
 
