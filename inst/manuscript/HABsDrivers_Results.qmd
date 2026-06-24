@@ -60,6 +60,40 @@ int_cyano_plnlow <- pval(summary(cyano_lake)$coefficients$fixed$p[15])
 cyano_constant <- cyano_nolake[["terms"]][[2]][[2]][[3]]
 lakes_num <- nrow(PredData)
 
+# Max number of observations per lake
+max_obs_per_lake <- habs |> 
+  st_drop_geometry() |> 
+  summarise(obs_count = n(), .by = UNIQUE_ID) |> 
+  pull(obs_count) |> max()
+
+# Proportion of microcystin observations that are detect vs. non-detect
+micx_det <- habs |> filter(MICX_DET == 1) |> nrow()
+micx_nd  <- habs |> filter(MICX_DET == 0) |> nrow()
+
+perc_det <- sapply(c(micx_det, micx_nd), function(n){
+  round(n/nrow(filter(habs, is.finite(MICX_DET))) * 100, 1)
+})
+
+# Find the median distance to the nearest lake
+# 1. Create the full distance matrix
+dist_matrix <- st_distance(habs, habs)
+
+# 2. Create a logical matrix where TRUE indicates the rows/columns share the same UNIQUE_ID
+same_id_matrix <- outer(habs$UNIQUE_ID, habs$UNIQUE_ID, "==")
+
+# 3. Mask those distances by setting them to Inf 
+# This eliminates self-matches AND different observations from the same lake
+dist_matrix[same_id_matrix] <- Inf
+
+# 4. Find the minimum distance to a *different* lake for each observation
+nearest_lake_dist <- apply(dist_matrix, 1, min)
+
+# 5. Calculate the median distance between distinct lakes
+# (Optional: remove Inf if a lake has absolutely no neighbors in the dataset)
+valid_distances <- nearest_lake_dist[is.finite(nearest_lake_dist)]
+median_dist     <- median(valid_distances, na.rm = TRUE)
+summary(valid_distances)
+
 
 ```
 
@@ -82,9 +116,9 @@ We incorporated data at both the lake and watershed scale. We used data from the
 
 #### In-Lake Conditions from the National Lakes Assessment
 
-The NLA, part of the broader US EPA’s National Aquatic Resource Survey (NARS) program (www.epa.gov/national-aquatic-resource-surveys), assesses the physical, chemical, and biological condition of lakes across CONUS (Peck et al. 2020). Every five years, a set of lakes are sampled according to a spatially balanced, probability-based survey design (Stevens and Olsen 2003, 2004, Dumelle et al. 2023). For the first NLA in 2007, the target population (i.e., population of interest) included lakes at least 4 ha in surface area and at least 1 m deep. From 2012 onward, the NLA target population was expanded to include lakes at least 1 ha in surface area. Each surveyed year, approximately 1,000 lakes are sampled once between June and September. In addition, approximately 10% of lakes are sampled a second time for the purposes of evaluating sample variability over the sampling period.
+The NLA, part of the broader US EPA’s National Aquatic Resource Survey (NARS) program (www.epa.gov/national-aquatic-resource-surveys), assesses the physical, chemical, and biological condition of lakes across CONUS (Peck et al. 2020). Every five years, a set of lakes are sampled according to a spatially balanced, probability-based survey design (Stevens and Olsen 2003, 2004, Dumelle et al. 2023). For the first NLA in 2007, the target population (i.e., population of interest) included lakes at least 4 ha in surface area and at least 1 m deep. From 2012 onward, the NLA target population was expanded to include lakes at least 1 ha in surface area. Each surveyed year, approximately 1,000 lakes are sampled once between June and September. In addition, approximately 10% of lakes are sampled a second time to evaluate sample variability over the sampling period.
 
-Complete methods are available in technical documentation for the survey (US EPA 2022). Briefly, samples for surface water properties and phytoplankton characterization are collected by boat at the deepest point in the lake. An integrated euphotic zone sample of the water column is used for species-level phytoplankton identification (US EPA 2017). The microscope method requires identifying and enumerating 400 natural algal units per sample including colonies. The cyanotoxin microcystin was measured using a microtiter plate enzyme linked immuno-sorbent assay (ELISA), where the detection limit is 0.1 μg/L. Samples for microcystin were subject to three freeze-thaw cycles to lyse cells and release toxins into the dissolved phase prior to measurement (US EPA 2017). These samples were also analyzed for total nitrogen (TN), total phosphorus (TP), nitrate, ammonium, dissolved organic carbon (DOC), turbidity, and pH. From these water samples, stable isotopes of hydrogen and oxygen were also measured, and this information was used to estimate evaporation-to-inflow ratio for the lake (Brooks et al. 2014). Finally, a vertical profile that includes temperature and a maximum depth measurement is collected. We used data from the 2007, 2012, and 2017 NLA for this analysis (@fig-nla-map). Cyanobacteria abundance was calculated by summing the abundance of all cyanobacteria taxa identified in each sample. We calculated surface water temperature by taking the mean of the top two meters of the water column profile or the entire depth of the lake, whichever was shorter.
+Complete methods are available in technical documentation for the survey (US EPA 2022). Briefly, samples for surface water properties and phytoplankton characterization are collected by boat at the deepest point in the lake. An integrated euphotic zone sample of the water column is used for species-level phytoplankton identification (US EPA 2017). The microscope method requires identifying and enumerating 400 natural algal units per sample including colonies. The cyanotoxin microcystin was measured using a microtiter plate enzyme linked immuno-sorbent assay (ELISA), where the detection limit is 0.1 μg/L. Samples for microcystin were subject to three freeze-thaw cycles to lyse cells and release toxins into the dissolved phase prior to measurement (US EPA 2017). These samples were also analyzed for total nitrogen (TN), total phosphorus (TP), nitrate, ammonium, dissolved organic carbon (DOC), turbidity, and pH. From these water samples, stable isotopes of hydrogen and oxygen were also measured, and this information was used to estimate evaporation-to-inflow ratio for the lake (Brooks et al. 2014). Finally, a vertical profile that includes temperature and a maximum depth measurement is collected. We used data from the 2007, 2012, and 2017 NLA for this analysis (@fig-nla-map). Since lakes can be included in multiple surveys and resampled within a survey, lakes can have as many as `r max_obs_per_lake` observations and as few as one included in the dataset. Cyanobacteria abundance was calculated by summing the abundance of all cyanobacteria taxa identified in each sample. Microcystin concentrations were converted to a binary variable with 0 for non-detect (`r perc_det[2]`% of observations) and 1 for detection (`r perc_det[1]`% of samples). We calculated surface water temperature by taking the mean of the top two meters of the water column profile or the entire depth of the lake, whichever was shorter.
 
 ```{r nla map, message = FALSE}
 #| label: fig-nla-map
@@ -156,7 +190,7 @@ Lake depths were compiled from multiple data sources using a tiered approach. Pr
 
 We used a statistical modeling approach incorporating spatial dependence (i.e., a spatially explicit approach), which offers distinct advantages to modeling and predicting lakes at risk for cyanoHABs at regional and national scales. These spatial models handle the non-independence of lakes with varying proximities to one another by formally building spatial autocorrelation directly into the model structure (Cressie 2015). A key benefit of this approach is that spatial autocorrelation can capture the influence of spatially structured variables that are not explicitly included in the model due to a lack of available, fine-scale spatial data. This capability allows the model to account for local to regional factors that may affect the incidence of cyanoHABs but are not necessarily important on a national scale (Dumelle et al. 2024).
 
-We used the spmodel R package (Dumelle et al., 2023) to build two separate frequentist models: (1) cyanobacteria abundance which was fit using a spatial linear model and (2) presence of microcystin which was fit using a spatial logistic model to estimate the probability of microcystin detection. Cyanobacteria abundance has a high degree of right skew and was log10-transformed. To preserve zero values (non-detection) we added a constant (c) to the cyanobacteria abundance prior to log-transforming. Using an algorithm to choose a value of c that satisfies (approximately) important statistical constraints (Berry 1987), we set c = `r prettyNum(cyano_constant, big.mark = ',')`. This choice of c maintained relative closeness on the log scale among small values in the data. Two models were constructed for each response variable (cyanobacteria abundance or microcystin detection) for a total of four models. First, a model was fit that included the in-lake conditions in addition to watershed and lake characteristics (Figure 1). A second model was fit that excluded the in-lake conditions, leaving only GIS-derived watershed and lake covariates. All models included two random effects, one for the survey year and one for the unique lake identifier to account for variation from resampling a unique site across or within survey years.
+We used the spmodel R package (Dumelle et al., 2023) to build two separate frequentist models: (1) cyanobacteria abundance which was fit using a spatial linear model and (2) presence of microcystin which was fit using a spatial logistic model to estimate the probability of microcystin detection. We chose to model the probability of microcystin detection rather than microcystin concentration because of the high frequency of non-detections in the data. A model based solely on concentration would have just one-third of the observations available to fit the model. Cyanobacteria abundance has a high degree of right skew and was log10-transformed. To preserve zero values (non-detection) we added a constant (c) to the cyanobacteria abundance prior to log-transforming. Using an algorithm to choose a value of c that satisfies (approximately) important statistical constraints (Berry 1987), we set c = `r prettyNum(cyano_constant, big.mark = ',')`. This choice of c maintained relative closeness on the log scale among small values in the data. Two models were constructed for each response variable (cyanobacteria abundance or microcystin detection) for a total of four models. First, a model was fit that included the in-lake conditions in addition to watershed and lake characteristics (Figure 1). A second model was fit that excluded the in-lake conditions, leaving only GIS-derived watershed and lake covariates. All models included two random effects, one for the survey year and one for the unique lake identifier to account for variation from resampling a unique site across or within survey years.
 
 #### Selection of Model Covariates
 
