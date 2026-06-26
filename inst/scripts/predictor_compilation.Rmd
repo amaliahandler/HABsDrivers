@@ -370,7 +370,7 @@ PredData <- left_join(PredData, unique_ids, by = 'COMID')
 PredData$UNIQUE_ID[is.na(PredData$UNIQUE_ID)] <- 0
 
 # remove any duplicates
-PredData <- PredData %>%
+PredData <- PredData |>
   distinct(COMID, .keep_all = TRUE)
 
 # remove unnecessary column
@@ -454,7 +454,8 @@ PredData <- PredData |>
          cyano_transform_upr = (cyano_transform[, "upr"]),
          .keep = 'unused') |>
   relocate(COMID) |>
-  dplyr::select(-c(preds, micxpreds))
+  dplyr::select(-c(preds, micxpreds)) |>
+  
   
 ```
 
