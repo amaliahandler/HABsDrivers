@@ -386,7 +386,9 @@ PredData <- PredData |>
          n_dev_inputs = n_dev_inputs / WSAREAHA,
          n_farm_inputs = n_farm_inputs / WSAREAHA,
          p_dev_inputs = p_dev_inputs / WSAREAHA,
-         p_farm_inputs = p_farm_inputs / WSAREAHA) |>
+         p_farm_inputs = p_farm_inputs / WSAREAHA,
+         lake_areaha = lake_area / 10000,
+         drain_ratio = WSAREAHA / lake_areaha) |>
   rename(Tmean8110Ws = Tmean9120Ws,
          Precip8110Ws = Precip9120Ws,
          MAXDEPTH = lake_m_depth,
@@ -394,7 +396,7 @@ PredData <- PredData |>
          AG_ECO3 = ag_eco3,
          geometry = Shape) |>
   dplyr::select(c(COMID, n_dev_inputs, n_farm_inputs, p_dev_inputs, p_farm_inputs,
-                  BFIWs, MAXDEPTH,lakemorpho_fetch, lake_area, ad_ratio,
+                  BFIWs, MAXDEPTH,lakemorpho_fetch, lake_area, ad_ratio, drain_ratio, WSAREASQKM,
                   Precip8110Ws, Tmean8110Ws,
                   fst_ws, AG_ECO3,
                   DSGN_CYCLE, UNIQUE_ID, geometry)) |>
