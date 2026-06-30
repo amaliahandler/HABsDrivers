@@ -590,28 +590,36 @@ usethis::use_data(PredData, overwrite = T)
 
 # Deal with infinite area depth ratios from zero depth values. Reset these depths to instead be a very small number.
 PredData <- PredData |>
-  mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
+  mutate(ad_ratio = ifelse(ad_ratio == Inf, 0.0001, ad_ratio))
 
+# Pull out 1500 rows randomly to test variable normality
 test <- PredData |>
   st_drop_geometry() |>
   ungroup()
 
 test <- dplyr::sample_n(test, size = 1500, replace = FALSE)
 
+# Shapiro test of normality
 shapiro.test(test$ad_ratio)
+
+# non-normal distribution, preliminary test with Kruskal-Wallis rank sum test
 kruskal.test(ad_ratio ~ cyano_cat, data = PredData)
 kruskal.test(ad_ratio ~ micx_cat, data = PredData)
 
+# Shapiro test of normality
 shapiro.test(test$drain_ratio)
+
+# non-normal distribution, preliminary test with Kruskal-Wallis rank sum test
 kruskal.test(drain_ratio ~ cyano_cat, data = PredData)
 kruskal.test(drain_ratio ~ micx_cat, data = PredData)
 
 shapiro.test(test$BFIWs) # normal distribution, non-transformed ANOVA works
 
-dr_model_cy <- splm(log(drain_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
+# perform ANOVAs
+dr_model_cy <- splm(log10(drain_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
 anova(dr_model_cy)
 
-dr_model_mx <- splm(log(drain_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
+dr_model_mx <- splm(log10(drain_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
 anova(dr_model_mx)
 
 bf_model_cy <- splm(BFIWs ~ cyano_cat, PredData, spcov_type = "exponential")
@@ -620,10 +628,10 @@ anova(bf_model_cy)
 bf_model_mx <- splm(BFIWs ~ micx_cat, PredData, spcov_type = "exponential")
 anova(bf_model_mx)
 
-ad_model_cy <- splm(log(ad_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
+ad_model_cy <- splm(log10(ad_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
 anova(ad_model_cy)
 
-ad_model_mx <- splm(log(ad_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
+ad_model_mx <- splm(log10(ad_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
 anova(ad_model_mx)
 
 ```
