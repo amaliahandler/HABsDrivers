@@ -1277,20 +1277,26 @@ state_cols <- PredDataMini |>
   dplyr::select(c(COMID, state)) |>
   left_join(PredData, by = 'COMID')
 
-state_cols <- state_cols |>
-  mutate(class_micx = factor(case_when(
-    pred_micx_fit >= 0.50 ~ 'HM',
-    pred_micx_fit < 0.50 ~ 'LM',
-    TRUE ~ 'OTHER'),
-    levels = c('HM','LM'))) %>%
-  arrange(class_micx) |>
-  mutate(class_cyano = factor(case_when(
-    pred_cyano_fit >= 5 ~ 'HC',
-    pred_cyano_fit < 5 ~ 'LC',
-    TRUE ~ 'OTHER'),
-    levels = c('HC','LC'))) %>%
-  arrange(class_cyano) |>
-  drop_na()
+pred_pct <- state_cols |>
+  group_by(state) |>
+  count(micx_ecocond) |>
+  mutate(percentage = (n / sum(n)) * 100)
+
+
+# state_cols <- state_cols |>
+#   mutate(class_micx = factor(case_when(
+#     pred_micx_fit >= 0.50 ~ 'HM',
+#     pred_micx_fit < 0.50 ~ 'LM',
+#     TRUE ~ 'OTHER'),
+#     levels = c('HM','LM'))) %>%
+#   arrange(class_micx) |>
+#   mutate(class_cyano = factor(case_when(
+#     pred_cyano_fit >= 5 ~ 'HC',
+#     pred_cyano_fit < 5 ~ 'LC',
+#     TRUE ~ 'OTHER'),
+#     levels = c('HC','LC'))) %>%
+#   arrange(class_cyano) |>
+#   drop_na()
 
 risk_summary <- state_cols |>
   group_by(state) |>
@@ -2517,8 +2523,6 @@ test <- PredData |>
 # check all
 PredData |>
   st_drop_geometry() |>
-  dplyr::filter(MAXDEPTH >0) |>
-  select(micx_cat,n_dev_inputs:fst_ws) |>
   tbl_summary(by = micx_cat,
               statistic = list(all_continuous() ~ "{mean}")) |>
   gtsummary::add_p()
@@ -2727,17 +2731,8 @@ anova(ad_model_cy)
 ad_model_mx <- splm(log(ad_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
 anova(ad_model_mx)
 
-# saveRDS(bf_model_cy,
-#         file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/model_objects/bf_model_cy26.rds')
-
-
-ggplot(PredData, aes(x=BFIWs, y= micx_cat)) +
-  ggridges::geom_density_ridges(aes(fill = micx_cat), quantile_lines = TRUE, quantiles = 2) +
-  scale_fill_manual(values = nurisk_m) +
-  labs(x = "Baseflow %", fill = 'Class',
-       title = 'Microcystin and Baseflow') +
-  theme(axis.title.y=element_blank(),
-        legend.position = "none")
+saveRDS(dr_model_mx,
+        file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/model_objects/dr_model_mx26.rds')
 
 ggsave("qqplot_cyano_ad_ratio.jpeg", width = 8, height = 6, device = 'jpeg', dpi = 500)
 
@@ -2747,6 +2742,88 @@ ggsave("qqplot_cyano_ad_ratio.jpeg", width = 8, height = 6, device = 'jpeg', dpi
 #   stat_poly_eq(use_label(c("eq", "P", "adj.R2"))) +
 #   scale_y_continuous(trans = "log10") +
 #   scale_x_continuous(trans = "log10")
+
+sum_table <- PredData |>
+  st_drop_geometry() |>
+  group_by(cyano_cat) |>
+  summarise(across(everything(), mean, na.rm = TRUE))
+
+minitab <- sum_table |>
+  st_drop_geometry() |>
+  dplyr::select(cyano_cat, BFIWs, drain_ratio, ad_ratio, WALV)
+
+summ_table <- PredData |>
+  st_drop_geometry() |>
+  group_by(micx_cat) |>
+  summarise(across(everything(), mean, na.rm = TRUE))
+
+mminitab <- summ_table |>
+  st_drop_geometry() |>
+  dplyr::select(micx_cat, BFIWs, drain_ratio, ad_ratio)
+
+dataset_list <- list("cyanos" = sum_table, "micx" = summ_table)
+openxlsx::write.xlsx(dataset_list, file = "risk-cat-allvars.xlsx")
+
+# models
+
+dr_model_cy <- splm(log10(drain_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
+anova(dr_model_cy)
+
+dr_model_mx <- splm(log10(drain_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
+anova(dr_model_mx)
+
+bf_model_cy <- splm(BFIWs ~ cyano_cat, PredData, spcov_type = "exponential")
+anova(bf_model_cy)
+
+bf_model_mx <- splm(BFIWs ~ micx_cat, PredData, spcov_type = "exponential")
+anova(bf_model_mx)
+
+ad_model_cy <- splm(log10(ad_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
+anova(ad_model_cy)
+
+ad_model_mx <- splm(log10(ad_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
+anova(ad_model_mx)
+
+saveRDS(ad_model_cy,
+        file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/model_objects/ad_model_cy6_26.rds')
+
+
+# percents
+
+pred_pct <- PredData |>
+  count(micx_cat) |>
+  mutate(percentage = (n / sum(n)) * 100)
+
+cyano_pct <- PredData |>
+  count(cyano_cat) |>
+  mutate(percentage = (n / sum(n)) * 100)
+
+mod <- aov(drain_ratio ~ AG_ECO3 * micx_cat,
+           data = PredData
+)
+
+ad_mod <- aov(ad_ratio ~ AG_ECO3 * micx_cat,
+           data = PredData
+)
+basemod <- aov(BFIWs ~ AG_ECO3 * micx_cat,
+               data = PredData
+)
+
+# lake volume ratio
+
+PredData <- PredData |>
+  mutate(MAXDEPTH = replace(MAXDEPTH, MAXDEPTH == 0, 0.0001))
+
+PredData <- PredData |>
+  rowwise() |>
+  mutate(volume = lake_area * (MAXDEPTH * (1/3)),
+         WALV = WSAREASQKM / volume)
+
+
+
+
+
+
 
 
 
