@@ -2802,6 +2802,11 @@ mod <- aov(drain_ratio ~ AG_ECO3 * micx_cat,
            data = PredData
 )
 
+
+cymod <- aov(drain_ratio ~ AG_ECO3 * cyano_cat,
+           data = PredData
+)
+
 ad_mod <- aov(ad_ratio ~ AG_ECO3 * micx_cat,
            data = PredData
 )
@@ -2819,14 +2824,21 @@ PredData <- PredData |>
   mutate(volume = lake_area * (MAXDEPTH * (1/3)),
          WALV = WSAREASQKM / volume)
 
+em11 <- emmeans(dr_model_cy, ~ cyano_cat)
+emad <- emmeans(dr_model_mx, ~ micx_cat)
 
+drain_mod <- emmeans(dr_model_cy, ~ cyano_cat)
+pairs(drain_mod)
+plot(drain_mod)
 
+cymod <- aov(drain_ratio ~ AG_ECO3 * cyano_cat,
+             data = PredData
+)
+cymod
+drain_cyano <- emmeans(cymod, ~ cyano_cat, by = 'AG_ECO3')
 
-
-
-
-
-
-
-
-
+micxmod <- aov(drain_ratio ~ AG_ECO3 * micx_cat,
+             data = PredData
+)
+micxmod
+drain_micx <- emmeans(micxmod, ~ micx_cat, by = 'AG_ECO3')
