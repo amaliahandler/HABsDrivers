@@ -382,7 +382,7 @@ PredData <- subset(PredData, select = -c(...1))
 # drop any NA rows
 PredData <- PredData |>
   rowwise() |>
-  mutate(WSAREAHA = WSAREASQKM * 100,
+  mutate(WSAREAHA = WSAREASQKM / 100,
          n_dev_inputs = n_dev_inputs / WSAREAHA,
          n_farm_inputs = n_farm_inputs / WSAREAHA,
          p_dev_inputs = p_dev_inputs / WSAREAHA,
