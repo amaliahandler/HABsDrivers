@@ -2745,17 +2745,18 @@ ggsave("qqplot_cyano_ad_ratio.jpeg", width = 8, height = 6, device = 'jpeg', dpi
 
 sum_table <- PredData |>
   st_drop_geometry() |>
-  group_by(cyano_cat) |>
-  summarise(across(everything(), mean, na.rm = TRUE))
+  group_by(AG_ECO3, cyano_cat) |>
+  summarize(mean = mean(drain_ratio, na.rm = TRUE),
+            median = median(drain_ratio, na.rm = TRUE))
 
 minitab <- sum_table |>
   st_drop_geometry() |>
-  dplyr::select(cyano_cat, BFIWs, drain_ratio, ad_ratio, WALV)
+  dplyr::select(AG_ECO3, cyano_cat, mean, median)
 
 summ_table <- PredData |>
   st_drop_geometry() |>
   group_by(micx_cat) |>
-  summarise(across(everything(), mean, na.rm = TRUE))
+  summarise(across(everything(), median, mean, na.rm = TRUE))
 
 mminitab <- summ_table |>
   st_drop_geometry() |>
@@ -2829,7 +2830,7 @@ emad <- emmeans(dr_model_mx, ~ micx_cat)
 
 drain_mod <- emmeans(dr_model_cy, ~ cyano_cat)
 pairs(drain_mod)
-plot(drain_mod)
+plot(pairs(drain_mod))
 
 cymod <- aov(drain_ratio ~ AG_ECO3 * cyano_cat,
              data = PredData
@@ -2842,3 +2843,56 @@ micxmod <- aov(drain_ratio ~ AG_ECO3 * micx_cat,
 )
 micxmod
 drain_micx <- emmeans(micxmod, ~ micx_cat, by = 'AG_ECO3')
+
+# drainage ratio with HABs dataset ---------------------------------------------
+
+no_geo <- PredData |> st_drop_geometry()
+
+testset <- habs |>
+  st_drop_geometry() |>
+  dplyr::select(COMID, DOC, PTL, NTL, B_G_DENS, MICX, EVAP_INFL) |>
+  left_join(no_geo |> dplyr::select(COMID, drain_ratio, AG_ECO3, cyano_cat, micx_cat), by = 'COMID') |>
+  drop_na(drain_ratio)
+
+ggplot(testset, aes(x = drain_ratio, y = PTL)) +
+  #facet_wrap(~AG_ECO3) +
+  geom_point(color = "blue", size = 2) +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "P", "adj.R2"))) +
+  scale_y_continuous(trans = "log10") +
+  scale_x_continuous(trans = "log10")
+
+test_table <- testset |>
+  group_by(AG_ECO3, cyano_cat) |>
+  summarize(mean.PTL = mean(PTL, na.rm = TRUE),
+            median.PTL = median(PTL, na.rm = TRUE),
+            mean.DR = mean(drain_ratio, na.rm = TRUE),
+            median.DR = median(drain_ratio, na.rm = TRUE))
+
+testtab <- sum_table |>
+  st_drop_geometry() |>
+  dplyr::select(AG_ECO3, cyano_cat, mean, median)
+
+PredData <- PredData |>
+  mutate(hydrolake = if_else(drain_ratio >= 10, "drainage", "seepage"))
+
+PredData |>
+  st_drop_geometry() |>
+  group_by(cyano_cat) |>
+  count(hydrolake) |>
+  mutate(percent = (n / sum(n)) * 100) |>
+  View()
+
+
+
+
+
+
+
+
+
+
+
+
+
