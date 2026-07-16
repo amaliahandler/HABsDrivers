@@ -5,7 +5,7 @@
 \alias{PredData}
 \title{Compiled prediction data for the lake HABs risk modeling project}
 \format{
-A dataframe with 124529 rows and 29 variables:
+A dataframe with 124529 rows and 36 variables:
 \describe{
 \item{COMID}{A site ID assigned to a lake (character)}
 \item{DSGN_CYCLE}{The year of the NLA survey cycle (2007, 2012, 2017)}
@@ -27,11 +27,15 @@ from LakeCat (per mil)}
 \item{fst_ws}{NLCD forested land cover including coniferous, deciduous, and mixed forest.
 Data are paired as follows: NLA 2007 - NLCD 2006, NLA 2012 - NLCD 2011,
 NLA 2017 - NLCD 2016 (percent)}
+\item{WSAREASQKM}{Area of the watershed in square kilometers}
 \item{MAXDEPTH}{Estimated lake maximum depth from lakemorpho package, NHD+, and LAGOS-US (m)}
+\item{depth_source}{Data source for the lake depth, could be dervied from NHDPlusV2, generated for this project using the elevatr and Lakemorpho R packages, or sourced from LAGOS in-field lake depth measurements}
 \item{lakemorpho_fetch}{Estimated lake fetch from lakemorpho package (m)}
 \item{AG_ECO3}{The aggregated 3 ecoregional location of the lake (character)}
+\item{ad_ratio}{Lake area:depth ratio, normalized metric representing the relationship of lake surface area to lake depth from Håkanson 1982}
+\item{drain_ratio}{Drainage area ratio, the ratio of total watershed area (ha) divided by the surface area of the lake (ha)}
 \item{lake_area}{Lake surface area in square meters}
-\item{Shape}{The centroid of the lake (point)}
+\item{geometry}{The centroid of the lake (point)}
 \item{pred_cyano_fit}{Predicted cyanobacteria cell abundance (cells/mL) fitted values from 95\% predictiton interval, log transformed: log10(cyano+1000)}
 \item{pred_cyano_lwr}{Predicted cyanobacteria cell abundance (cells/mL) lower values from 95\% predictiton interval, log transformed: log10(cyano+1000)}
 \item{pred_cyano_upr}{Predicted cyanobacteria cell abundance (cells/mL) upper values from 95\% predictiton interval, log transformed: log10(cyano+1000)}
@@ -44,6 +48,10 @@ NLA 2017 - NLCD 2016 (percent)}
 \item{micx_transform_fit}{Predicted risk of microcystin concentration detection above 0.1 ug/L, fitter values from 95\% predictiton interval, transformed by 10^(micx) - 1000}
 \item{micx_transform_lwr}{Predicted risk of microcystin concentration detection above 0.1 ug/L, lower values from 95\% predictiton interval, transformed by 10^(micx) - 1000}
 \item{micx_transform_upr}{Predicted risk of microcystin concentration detection above 0.1 ug/L, upper values from 95\% predictiton interval, transformed by 10^(micx) - 1000}
+\item{cyano_ecocond}{Cyanobacteria risk category based on ecoregional thresholds. Lakes can be categorized as either high or low risk for cyanobacteria abundance}
+\item{micx_ecocond}{Microcystin risk category based on ecoregional thresholds. Lakes can be categorized as either high or low risk of detecting microcystin}
+\item{cyano_cat}{Combined categorical variable based on nutrient inputs and cyanobacteria risk category. First two characters refer to the nutrient inputs to the watershed (HN = High Nutrients / LN = Low Nutrients), second two characters refer to cyanobacteria risk (HC = High Cyanobacteria, LC = Low Cynobacteria )}
+\item{micx_cat}{Combined categorical variable based on nutrient inputs and microcystin risk category. First two characters refer to the nutrient inputs to the watershed (HN = High Nutrients / LN = Low Nutrients), second two characters refer to microcystin detection risk (HM = High Microcystin risk, LM = Low Microcystin risk )}
 }
 }
 \source{
