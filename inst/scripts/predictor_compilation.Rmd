@@ -550,12 +550,13 @@ PredData <- PredData |>
   arrange(micx_ecocond)
 
 # bring in df
-thresholds <- read_csv("C:/Users/MREYNO04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/thresholds.csv")
-
-used_thresholds <- thresholds |>
-  rename(AG_ECO3 = ecoregion) |>
-  dplyr::select(-c(cyano_75, micx_nondetect))
-
+# thresholds <- read_csv("C:/Users/MREYNO04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/thresholds.csv")
+# 
+# used_thresholds <- thresholds |>
+#   rename(AG_ECO3 = ecoregion) |>
+#   dplyr::select(-c(cyano_75, micx_nondetect))
+# 
+saveRDS(used_thresholds, file = "C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/source_data/eco_habs_thresholds.rds")
 
 ```
 
