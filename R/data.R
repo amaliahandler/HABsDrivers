@@ -129,7 +129,7 @@
 #' models developed in the drivers_analysis.Rmd script. This includes watershed,
 #' climate, and lake characteristics. The variables are as follows:
 #'
-#' @format A dataframe with 124529 rows and 29 variables:
+#' @format A dataframe with 124529 rows and 36 variables:
 #' \describe{
 #'   \item{COMID}{A site ID assigned to a lake (character)}
 #'   \item{DSGN_CYCLE}{The year of the NLA survey cycle (2007, 2012, 2017)}
@@ -156,7 +156,7 @@
 #'   \item{depth_source}{Data source for the lake depth, could be dervied from NHDPlusV2, generated for this project using the elevatr and Lakemorpho R packages, or sourced from LAGOS in-field lake depth measurements}
 #'   \item{lakemorpho_fetch}{Estimated lake fetch from lakemorpho package (m)}
 #'   \item{AG_ECO3}{The aggregated 3 ecoregional location of the lake (character)}
-#'   \item{ad_ratio}{Lake area:depth ratio, normlized metric representing the relationship of lake surface area to lake depth from Håkanson 1982}
+#'   \item{ad_ratio}{Lake area:depth ratio, normalized metric representing the relationship of lake surface area to lake depth from Håkanson 1982}
 #'   \item{drain_ratio}{Drainage area ratio, the ratio of total watershed area (ha) divided by the surface area of the lake (ha)}
 #'   \item{lake_area}{Lake surface area in square meters}
 #'   \item{geometry}{The centroid of the lake (point)}
