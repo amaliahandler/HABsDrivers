@@ -212,6 +212,32 @@ To explore the relationship between cyanoHABs risk, watershed nutrient inputs, a
 
 For the cutoff between low and high risk for cyanoHABs, we chose 100,000 cells/mL for cyanobacteria abundance and 50% probability of microcystin detection. These cutoffs are for investigative purposes only. The boundary between low and high risk for evaluating ecological or public health risk depends heavily on the impact of concern with cyanoHABs. The 100,000 cells/mL threshold for cyanobacteria has been used in the past to indicate high recreational risk but has since been replaced in favor of approaches linked to toxicity (Chorus and Welker 2021) . Cellular abundance remains a commonly used assessment of cyanobacteria biomass. Our objective is to divide lakes with elevated cyanobacteria levels from those expected to have relatively low levels of cyanobacteria and investigate how this relates to nutrients and other non-nutrient factors. Similarly, for microcystin, we chose the 50% probability cutoff to indicate where summer microcystin detection is more likely than non-detection. For the watershed nutrient inputs, we considered the sum of the farm and developed inputs for N and P separately. For N, this includes farm and non-farm fertilizer, manure, crop biological N fixation, and human waste. For P, this includes farm and non-farm fertilizer, manure, and human waste. We did not include other nutrient sources such as atmospheric deposition, accumulated P inputs, or legacy P inputs because these variables were not included in our final models. For the cutoff between higher and lower annual anthropogenic nutrient inputs, we chose 10 kg ha-1 yr-1 for N and 4 kg ha-1 yr-1 for P. Again, these cutoffs are for investigative purposes only. Together these cyanoHABs and nutrient input cutoffs divide the `r prettyNum(lakes_num, big.mark = ',')` lakes in our dataset into four categories: higher nutrient inputs and high cyanoHAB risk, higher nutrient inputs and low cyanoHAB risk, lower nutrient inputs and high cyanoHAB risk, and lower nutrient inputs and low cyanoHAB risk.
 
+```{r thresholds table}
+#| tbl-cap: "Cyanobacteria abundance thresholds are in the units of cells m/L, microcystin thresholds are the probabilty of detecting microcystin above the threshold of  0.1 μg/L at the ecoregion level"
+
+used_thresholds <- readRDS(paste0(here(), "/inst/eco_habs_thresholds.rds"))
+
+used_thresholds |>
+  rowwise() |>
+  mutate(micx_detect = micx_detect * 100) |>
+  flextable() |>
+  set_header_labels(
+    AG_ECO3 = "Ecoregion",
+    cyano_95 = "Cyanobacteria",
+    micx_detect = "Microcystin"
+  ) |>
+  theme_booktabs(bold_header = TRUE) |>
+  add_header_lines("CyanoHABs Ecoregional Thresholds") |>
+    theme_box() |>
+  align(align = "center", part = "header") |>
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header") |>
+  colformat_double(j = 'cyano_95', digits = 0) |>
+  colformat_double(j = 'micx_detect', digits = 1, suffix = "%") |>
+  autofit()
+
+```
+
 We investigated the distribution of other non-nutrient variables to gain insights about the characteristics of lakes that fall into each nutrient and cyanoHABs risk category. We examined mean annual precipitation, baseflow index, and area:depth ratio. We plotted the density distribution for each variable within each of the four nutrient-cyanoHABs categories. We used a spatial analysis of variance (ANOVA) to test for differences among means in the nutrient-cyanoHAB categories. We log10 transformed the mean annual precipitation and the area:depth ratio to account for skew in these distributions for the ANOVA.
 
 ## Results
@@ -532,57 +558,32 @@ PredData <- PredData |>
                                pred_micx_fit >= 0.50 & pred_micx_fit < 0.75 ~ "M3",
                                pred_micx_fit >= 0.75 ~ "M4"),
          disc_micx = factor(disc_micx, levels = c("M1", "M2", "M3", "M4")))
+```
 
-above_100k <- PredData |>
-  filter(disc_cyano == 'B4' | disc_cyano == 'B5' |  disc_cyano == 'B6')
-per_100 <- round(nrow(above_100k)/lakes_num, digits = 3) * 100
+```{r state-level summaries}
 
-above_50 <- PredData |>
-  filter(disc_micx == 'M3' | disc_micx == 'M4' )
-per_50 <- round(nrow(above_50)/lakes_num, digits = 3) * 100
-
-load(paste0(here(),'/inst/states_data.rda'))
+load(paste0(here(),'/inst/PredDataMini.rda'))
 
 state_cols <- PredData |>
-  left_join(states_data, by = 'COMID')
+  st_drop_geometry() |>
+  left_join((PredDataMini |> dplyr::select(c(COMID, state))), by = 'COMID')
 
-state_cols <- state_cols |>
-  mutate(class_micx = factor(case_when(
-    pred_micx_fit >= 0.50 ~ 'HM',
-    pred_micx_fit < 0.50 ~ 'LM',
-    TRUE ~ 'OTHER'),
-    levels = c('HM','LM'))) %>%
-  arrange(class_micx) |>
-  mutate(class_cyano = factor(case_when(
-    pred_cyano_fit >= 5.0043215 ~ 'HC',
-    pred_cyano_fit < 5.0043215 ~ 'LC',
-    TRUE ~ 'OTHER'),
-    levels = c('HC','LC'))) %>%
-  arrange(class_cyano) |>
-  drop_na()
-
-risk_summary <- state_cols |>
+pred_pct <- state_cols |>
   group_by(state) |>
-  summarise(hm_percent = round((sum(class_micx == "HM")/n()) * 100, digits = 2),
-            lm_percent = round((sum(class_micx == "LM")/n()) * 100, digits = 2),
-            hc_percent = round((sum(class_cyano == "HC")/n())* 100, digits = 2),
-            lc_percent = round((sum(class_cyano == 'LC')/n())* 100, digits = 2),
-            hm_count = sum(class_micx == "HM"),
-            lm_count = sum(class_micx == "LM"),
-            hc_count = sum(class_cyano == "HC"),
-            lc_count = sum(class_cyano == 'LC'))
+  count(micx_ecocond) |>
+  mutate(percentage = (n / sum(n)) * 100) |>
+  filter(micx_ecocond == 'Above')
 
-state_pull <- function(state_inp){
-  risk_summary |>
-  filter(state == paste(state_inp)) |>
-  pull(hc_percent) |>
-  round(digit = 1)
-}
+cyano_pct <- state_cols |>
+  group_by(state) |>
+  count(cyano_ecocond) |>
+  mutate(percentage = (n / sum(n)) * 100) |>
+  filter(cyano_ecocond == 'High')
 
 micx_pull <- function(state_inp){
-  risk_summary |>
+  pred_pct |>
   filter(state == paste(state_inp)) |>
-  pull(hm_percent) |>
+  pull(percentage) |>
   round(digit = 1)
 }
 
