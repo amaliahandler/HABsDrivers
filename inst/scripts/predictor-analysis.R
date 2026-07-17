@@ -1273,9 +1273,9 @@ anova(precipm)
 
 # state totals -----------------------------------------------------------------
 
-state_cols <- PredDataMini |>
-  dplyr::select(c(COMID, state)) |>
-  left_join(PredData, by = 'COMID')
+state_cols <- PredData |>
+  st_drop_geometry() |>
+  left_join((PredDataMini |> dplyr::select(c(COMID, state))), by = 'COMID')
 
 pred_pct <- state_cols |>
   group_by(state) |>
@@ -2755,8 +2755,10 @@ minitab <- sum_table |>
 
 summ_table <- PredData |>
   st_drop_geometry() |>
-  group_by(micx_cat) |>
-  summarise(across(everything(), median, mean, na.rm = TRUE))
+  group_by(AG_ECO3, micx_cat) |>
+  summarize(mean = mean(drain_ratio, na.rm = TRUE),
+            median = median(drain_ratio, na.rm = TRUE))
+
 
 mminitab <- summ_table |>
   st_drop_geometry() |>
@@ -2879,20 +2881,55 @@ PredData <- PredData |>
 
 PredData |>
   st_drop_geometry() |>
-  group_by(cyano_cat) |>
-  count(hydrolake) |>
+  #group_by(state) |>
+  count(cyano_ecocond) |>
   mutate(percent = (n / sum(n)) * 100) |>
   View()
 
 
+PredData <- PredData |>
+  mutate(old_cutoff = if_else(pred_micx_fit >= 0.50, "above 50%", "below 50%"))
+
+PredData$LAGOSLakeDepth <- replace(PredData$LAGOSLakeDepth, which(PredData$LAGOSLakeDepth <= 0), NA)
+PredData$NHDLakeDepth <- replace(PredData$NHDLakeDepth, which(PredData$NHDLakeDepth <= 0), NA)
+PredData$MaxDepth <- replace(PredData$MaxDepth, which(PredData$MaxDepth <= 0), NA)
 
 
+df_clean <- PredData %>%
+  mutate(
+    # List columns in order of preference (most preferred to least preferred)
+    combined_data = coalesce(LAGOSLakeDepth, NHDLakeDepth, depth),
 
+    # Create a new column indicating which column provided the data
+    data_source = pmap_chr(list(LAGOSLakeDepth, NHDLakeDepth, depth), function(...) {
+      sources <- c("LAGOS", "NHD", "my depth")
+      values <- c(...)
 
+      # Return the name of the column containing the first non-NA value
+      if (all(is.na(values))) return(NA_character_)
+      sources[min(which(!is.na(values)))]
+    })
+  )
 
+print(df_clean)
+df_copy <- df_clean
 
+df_copy <- df_copy |>
+  distinct() |>
+  filter(COMID %in% PredData$COMID)
 
+df_copy <- df_copy %>%
+  mutate(data_source = ifelse(data_source == "my depth", "Lakemorpho", data_source)) |>
+  rename(depth_source = data_source)
 
+copied <- df_copy |>
+  dplyr::select(COMID, depth_source)
 
+PredData <- PredData |>
+  relocate(depth_source ,.after = MAXDEPTH)
 
+drain_stats_all <- drain_stats_all |>
+  clean_names()
 
+saveRDS(drain_stats_all,
+        file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/drain_stats_all.rds')
