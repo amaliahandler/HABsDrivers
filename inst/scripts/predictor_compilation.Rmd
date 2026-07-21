@@ -569,7 +569,7 @@ PredData <- PredData |>
     (n_farm_inputs >= 10 | p_dev_inputs >= 4) & cyano_ecocond == 'Low' ~ 'HNLC',
     (n_farm_inputs < 10 | p_dev_inputs < 4) & cyano_ecocond == 'Low' ~ 'LNLC',
     TRUE ~ 'OTHER'),
-    levels = c('HNHC','HNLC','LNHC','LNLC'))) |>
+    levels = c('HNHC','LNHC','HNLC','LNLC'))) |>
   arrange(cyano_cat) |>
   mutate(micx_cat = factor(case_when(
     (n_dev_inputs >= 10 | p_farm_inputs >= 4) & micx_ecocond == 'Above' ~ 'HNHM',
@@ -577,7 +577,7 @@ PredData <- PredData |>
     (n_dev_inputs >= 10 | p_farm_inputs >= 4) & micx_ecocond == 'Below' ~ 'HNLM',
     (n_dev_inputs < 10 | p_farm_inputs < 4) & micx_ecocond == 'Below' ~ 'LNLM',
     TRUE ~ 'OTHER'),
-    levels = c('HNHM','HNLM','LNHM','LNLM'))) |>
+    levels = c('HNHM','LNHM','HNLM','LNLC'))) |>
   arrange(micx_cat)
 
 
