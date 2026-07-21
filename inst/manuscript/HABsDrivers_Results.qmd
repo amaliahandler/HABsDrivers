@@ -742,13 +742,13 @@ pred_nut_table
 ```{r map nutrient/cyanoHABs categories}
 
 nurisk = c('HNHC' = "#9c0082",
-           'HNLC' = "#cc6de4",
-           'LNHC' = "#4e8562",
+           'LNHC' = "#cc6de4",
+           'HNLC' = "#4e8562",
            'LNLC' = "#8bd1a5")
 
 nurisk_m = c('HNHM' = "#9c0082",
-           'HNLM' = "#cc6de4",
-           'LNHM' = "#4e8562",
+           'LNHM' = "#cc6de4",
+           'HNLM' = "#4e8562",
            'LNLM' = "#8bd1a5")
 
 ggplot(PredData, aes(color = cyano_cat)) +
@@ -830,13 +830,13 @@ habs |>
 #| fig-cap: "Boxplot of watershed drainage ratio across ecoregions for each nutrient/ risk category."
 
 nurisk = c('HNHC' = "#9c0082",
-           'HNLC' = "#cc6de4",
-           'LNHC' = "#4e8562",
+           'LNHC' = "#cc6de4",
+           'HNLC' = "#4e8562",
            'LNLC' = "#8bd1a5")
 
 nurisk_m = c('HNHM' = "#9c0082",
-           'HNLM' = "#cc6de4",
-           'LNHM' = "#4e8562",
+           'LNHM' = "#cc6de4",
+           'HNLM' = "#4e8562",
            'LNLM' = "#8bd1a5")
 
 
@@ -847,22 +847,26 @@ nurisk_m = c('HNHM' = "#9c0082",
 # drain_clean <- subset(PredData, drain_ratio >= (Q1 - 1.5 * IQR_val) & drain_ratio <= (Q3 + 1.5 * IQR_val))
 
 box_cyano <- ggplot(PredData, aes(x = cyano_cat, y = drain_ratio, fill = cyano_cat)) +
-  geom_boxplot() + 
+  geom_boxplot(outlier.shape = NA) + 
+ stat_summary(
+    fun = mean,
+    geom = "text",
+    aes(label = paste(round(after_stat(y), 1))),
+    vjust = -0.005,           # Moves the text above the boxplot
+    size = 3.5                # Text size
+  ) +
   facet_wrap(~AG_ECO3) +
   scale_fill_manual(values = nurisk) +
   coord_cartesian(ylim = c(0, 900)) +
-  labs(x = NULL, y = 'Drainage Ratio') +
+  labs(x = NULL, y = "Drainage Ratio") +
   theme_bw() +
   guides(fill = FALSE)
 
 box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)) +
-  geom_boxplot() + 
+  geom_boxplot(outlier.shape = NA) + 
   facet_wrap(~AG_ECO3) +
+  stat_summary(fun = mean, geom = "point", shape = 18, size = 4, color = "red") +
   scale_fill_manual(values = nurisk_m) +
-  coord_cartesian(ylim = c(0, 900)) +
-  labs(x = NULL, y = NULL) +
-  theme_bw() +
-  guides(fill = FALSE)
 
 ggarrange(plotlist = list(box_cyano, box_micx), ncol = 2, nrow = 1, labels = "auto")
 
