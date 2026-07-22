@@ -238,6 +238,54 @@ used_thresholds |>
 
 ```
 
+```{r thresholds bar chart}
+#| fig-cap: "US Lakes in our dataset that fall above or below cyanobacteria abundance and microcystin detection thresholds for each ecoregion."
+
+
+n <- PredData |>
+  st_drop_geometry() |>
+  group_by(AG_ECO3) |>
+  count(cyano_ecocond) |>
+  mutate(percent = (n / sum(n)) * 100,
+         percent = round(percent, 1)) |>
+  mutate(AG_ECO3 = factor(AG_ECO3, levels = c('WMTNS','PLNLOW','EHIGH')))
+
+
+cy_tbox <- ggplot(n, aes(fill=cyano_ecocond, y=n, x=AG_ECO3)) + 
+  geom_bar(position="stack", stat="identity") +
+  geom_text(aes(label = paste0(percent, "%")), vjust = 0.5, size = 4, position = position_stack(vjust = 0.5)) +
+  scale_fill_manual(values = c('High' = "#9c008299",'Low' = "#4e856299")) +
+  coord_flip() +
+  labs(title = 'Cyanobacteria', y = NULL, x = NULL, fill = 'Threshold category') +
+  theme_bw()
+
+m <- PredData |>
+  st_drop_geometry() |>
+  group_by(AG_ECO3) |>
+  count(micx_ecocond) |>
+  mutate(percent = (n / sum(n)) * 100,
+         percent = round(percent, 1)) |>
+  mutate(AG_ECO3 = factor(AG_ECO3, levels = c('WMTNS','PLNLOW','EHIGH')))
+
+m_tbox <- ggplot(m, aes(fill=micx_ecocond, y=n, x=AG_ECO3)) + 
+  geom_bar(position="stack", stat="identity") +
+  geom_text(aes(label = paste0(percent, "%")), vjust = 0.5, size = 4, position = position_stack(vjust = 0.5)) +
+  scale_fill_manual(values = c('Above' = "#9c008299",'Below' = "#4e856299")) +
+  coord_flip() +
+  labs(title = 'Microcystin', y = NULL, x = NULL) +
+  theme_bw() +
+  theme(axis.text.y = element_blank())
+
+fig <- ggarrange(plotlist = list(cy_tbox, m_tbox), ncol = 2, nrow = 1, 
+                 align = "h",
+                 common.legend = TRUE)
+
+annotate_figure(fig,
+                bottom = text_grob("Number of lakes", color = "black", size = 14))
+
+
+```
+
 We investigated the distribution of other non-nutrient variables to gain insights about the characteristics of lakes that fall into each nutrient and cyanoHABs risk category. We examined mean annual precipitation, baseflow index, and area:depth ratio. We plotted the density distribution for each variable within each of the four nutrient-cyanoHABs categories. We used a spatial analysis of variance (ANOVA) to test for differences among means in the nutrient-cyanoHAB categories. We log10 transformed the mean annual precipitation and the area:depth ratio to account for skew in these distributions for the ANOVA.
 
 ## Results
@@ -823,55 +871,6 @@ habs |>
 
 ```
 
-```{r drainage ratio boxplot, message = FALSE}
-#| label: fig-drainage-boxplot
-#| fig-width: 10
-#| fig-height: 5
-#| fig-cap: "Boxplot of watershed drainage ratio across ecoregions for each nutrient/ risk category."
-
-nurisk = c('HNHC' = "#9c0082",
-           'LNHC' = "#cc6de4",
-           'HNLC' = "#4e8562",
-           'LNLC' = "#8bd1a5")
-
-nurisk_m = c('HNHM' = "#9c0082",
-           'LNHM' = "#cc6de4",
-           'HNLM' = "#4e8562",
-           'LNLM' = "#8bd1a5")
-
-
-# Q1 <- quantile(PredData$drain_ratio, 0.25)
-# Q3 <- quantile(PredData$drain_ratio, 0.75)
-# IQR_val <- IQR(PredData$drain_ratio)
-# 
-# drain_clean <- subset(PredData, drain_ratio >= (Q1 - 1.5 * IQR_val) & drain_ratio <= (Q3 + 1.5 * IQR_val))
-
-box_cyano <- ggplot(PredData, aes(x = cyano_cat, y = drain_ratio, fill = cyano_cat)) +
-  geom_boxplot(outlier.shape = NA) + 
- stat_summary(
-    fun = mean,
-    geom = "text",
-    aes(label = paste(round(after_stat(y), 1))),
-    vjust = -0.005,           # Moves the text above the boxplot
-    size = 3.5                # Text size
-  ) +
-  facet_wrap(~AG_ECO3) +
-  scale_fill_manual(values = nurisk) +
-  coord_cartesian(ylim = c(0, 900)) +
-  labs(x = NULL, y = "Drainage Ratio") +
-  theme_bw() +
-  guides(fill = FALSE)
-
-box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)) +
-  geom_boxplot(outlier.shape = NA) + 
-  facet_wrap(~AG_ECO3) +
-  stat_summary(fun = mean, geom = "point", shape = 18, size = 4, color = "red") +
-  scale_fill_manual(values = nurisk_m) +
-
-ggarrange(plotlist = list(box_cyano, box_micx), ncol = 2, nrow = 1, labels = "auto")
-
-```
-
 ```{r drainage ratio table, message = FALSE}
 #| label: fig-drainage-table
 #| fig-width: 6
@@ -910,6 +909,85 @@ drain_stats |>
 
 ```
 
+```{r drainage ratio boxplot, message = FALSE}
+#| label: fig-drainage-boxplot
+#| fig-width: 7
+#| fig-height: 10
+#| fig-cap: "Boxplot of watershed drainage ratio across ecoregions for each nutrient/ risk category."
+
+nurisk = c('HNHC' = "#9c0082",
+           'LNHC' = "#cc6de4",
+           'HNLC' = "#4e8562",
+           'LNLC' = "#8bd1a5")
+
+nurisk_m = c('HNHM' = "#9c0082",
+           'LNHM' = "#cc6de4",
+           'HNLM' = "#4e8562",
+           'LNLM' = "#8bd1a5")
+
+
+# Q1 <- quantile(PredData$drain_ratio, 0.25)
+# Q3 <- quantile(PredData$drain_ratio, 0.75)
+# IQR_val <- IQR(PredData$drain_ratio)
+# 
+# drain_clean 
+
+cysum <- PredData |>
+  st_drop_geometry() |>
+  group_by(AG_ECO3, cyano_cat) |>
+  summarise(
+    mean_drain = mean(drain_ratio, na.rm = TRUE),
+    upper_whisker = quantile(drain_ratio, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+box_cyano <- ggplot(PredData, aes(x = cyano_cat, y = drain_ratio, fill = cyano_cat)) +
+  stat_boxplot(geom = "errorbar", width = 0.2, color = "#797979") +
+  geom_boxplot(outlier.shape = NA, color = "#797979", alpha = 0.8) + 
+  geom_text(
+    data = cysum,
+    aes(x = cyano_cat, y = upper_whisker, label = format(round(mean_drain, 0), big.mark = ",")),
+    vjust = -0.5,
+    hjust = "center",
+    size = 3,
+    fontface = "bold") +
+  facet_wrap(~AG_ECO3) +
+  scale_fill_manual(values = nurisk) +
+  coord_cartesian(ylim = c(0, 900)) +
+  labs(title = 'Cyanobacteria', x = NULL, y = "Drainage Ratio") +
+  theme_bw() +
+  guides(fill = FALSE)
+
+micxsum <- PredData |>
+  st_drop_geometry() |>
+  group_by(AG_ECO3, micx_cat) |>
+  summarise(
+    mean_drain = mean(drain_ratio, na.rm = TRUE),
+    upper_whisker = quantile(drain_ratio, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)) +
+  stat_boxplot(geom = "errorbar", width = 0.2, color = "#797979") +
+  geom_boxplot(outlier.shape = NA, color = "#797979", alpha = 0.8) + 
+  geom_text(
+    data = micxsum,
+    aes(x = micx_cat, y = upper_whisker, label = format(round(mean_drain, 0), big.mark = ",")),
+    vjust = -0.5,
+    hjust = 'center',
+    size = 3,
+    fontface = "bold"
+  ) +
+  facet_wrap(~AG_ECO3) +
+  scale_fill_manual(values = nurisk_m) +
+  coord_cartesian(ylim = c(0, 900)) +
+  labs(title = 'Microcystin', x = NULL, y = "Drainage Ratio") +
+  theme_bw() +
+  guides(fill = FALSE)
+
+ggarrange(plotlist = list(box_cyano, box_micx), ncol = 1, nrow = 2)
+
+```
 
 \pagebreak
 
