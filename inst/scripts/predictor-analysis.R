@@ -2882,10 +2882,9 @@ PredData <- PredData |>
 PredData |>
   st_drop_geometry() |>
   #group_by(state) |>
-  count(cyano_ecocond) |>
+  count(micx_cat) |>
   mutate(percent = (n / sum(n)) * 100) |>
   View()
-
 
 PredData <- PredData |>
   mutate(old_cutoff = if_else(pred_micx_fit >= 0.50, "above 50%", "below 50%"))
@@ -2918,7 +2917,7 @@ df_copy <- df_copy |>
   distinct() |>
   filter(COMID %in% PredData$COMID)
 
-df_copy <- df_copy %>%
+df_copy <- df_copy |>
   mutate(data_source = ifelse(data_source == "my depth", "Lakemorpho", data_source)) |>
   rename(depth_source = data_source)
 
@@ -2933,3 +2932,71 @@ drain_stats_all <- drain_stats_all |>
 
 saveRDS(drain_stats_all,
         file = 'C:/Users/mreyno04/OneDrive - Environmental Protection Agency (EPA)/Profile/REPOS/HABsDrivers/inst/drain_stats_all.rds')
+
+# 20,000 cells/mL= 3.22219
+PredData <- PredData |>
+  mutate(cy_20 = if_else(pred_cyano_fit >= 4.322219, "above 20k", "below 20k"),
+         micx_25 = if_else(pred_micx_fit >= 0.25, "above 25%", "below 25%"))
+
+PredData |>
+  st_drop_geometry() |>
+  #group_by(state) |>
+  count(micx_25) |>
+  mutate(percent = (n / sum(n)) * 100) |>
+  View()
+
+specie <- c(rep("sorgho" , 3) , rep("poacee" , 3) , rep("banana" , 3) , rep("triticum" , 3) )
+condition <- rep(c("normal" , "stress" , "Nitrogen") , 4)
+value <- abs(rnorm(12 , 0 , 15))
+data <- data.frame(specie,condition,value)
+
+data(iris)
+
+df <- iris
+df$group <- df$Species
+df$value <- df$Sepal.Length
+
+summ <- df %>%
+  group_by(group) %>%
+  summarise(
+    mean_value = mean(value, na.rm = TRUE),
+    upper_whisker = quantile(value, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(df, aes(x = group, y = value)) +
+  geom_boxplot() +
+  geom_text(
+    data = summ,
+    aes(x = group, y = upper_whisker, label = round(mean_value, 1)),
+    vjust = -0.5
+  )
+
+test <- PredData |>
+  st_drop_geometry() |>
+  group_by(AG_ECO3, cyano_cat) |>
+  summarise(
+    mean_drain = mean(drain_ratio, na.rm = TRUE),
+    upper_whisker = quantile(drain_ratio, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(test, aes(x = cyano_cat, y = mean_drain, fill = cyano_cat)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_text(
+    data = test,
+    aes(x = cyano_cat, y = upper_whisker, label = round(mean_drain, 1)),
+    vjust = -0.5
+  ) +
+  facet_wrap(~AG_ECO3) +
+  coord_cartesian(ylim = c(0, 900))
+
+
+box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)) +
+  stat_boxplot(geom = "errorbar", width = 0.2) +
+  geom_boxplot(outlier.shape = NA) +
+  facet_wrap(~AG_ECO3) +
+
+
+
+
