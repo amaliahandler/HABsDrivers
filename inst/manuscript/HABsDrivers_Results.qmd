@@ -30,6 +30,7 @@ library(officedown)
 library(stringr)
 library(ggbeeswarm)
 library(ggnewscale)
+library(spdep)
 
 # Do not include code chunks in document
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -107,7 +108,7 @@ The process for our analysis was (1) data compilation, (2) model fitting, (3) mo
 #| fig-height: 1
 #| fig-cap: "Schematic diagram of methods. The goal of model fitting was to identify a set of covariates that best explain national patterns in cyanobacteria and microcystin detection. Model comparison evaluates model performance with in-lake conditions present versus absent and an independent versus spatial error structure. The final models with in-lake conditions absent and spatial error structure were used to generate predictions for new lakes. The prediction analysis focuses on predictions that are consistent with expectations based on modeled nutrient inputs versus predictions that are unexpected based on nutrients."
 
-knitr::include_graphics("Schematic methods diagram.jpg")
+#knitr::include_graphics("Schematic methods diagram.jpg")
 ```
 
 ### Data Compilation
@@ -541,6 +542,33 @@ rbind(comp_cyan, comp_micx) |>
   align(align = "center", part = "header")
 
 ```
+
+```{r moran's I independent errors}
+
+# standardized residuals with spatial dependence modeled
+cyano_lake
+cyano_nolake
+
+coords <- st_coordinates(cyano_lake$obdata |> st_as_sf(coords = c(".xcoord", ".ycoord")))
+nb     <- knn2nb(knearneigh(coords, k = 3))
+lw     <- nb2listw(nb, style = "W")
+
+# small p-value -> evidence of autocorrelation
+moran.test(rstandard(cyano_lake), lw, alternative = "two.sided")
+moran.test(rstandard(cyano_nolake), lw, alternative = "two.sided")
+
+# p value large -> no evidence of autocorrelation
+# Should I run this with the non-spatial models? I don't currently have these saved, so I would need to rerun them
+
+# standardized residuals without spatial dependence modeled
+# spmod2 <- splm(sulfate ~ 1, data = sulfate, spcov_type = "exponential")
+ 
+# large p-value -> no evidence of autocorrelation
+# moran.test(rstandard(spmod2), lw)
+
+
+```
+
 
 The model residuals indicate areas where the response was larger or smaller than expected based on the covariates alone (@fig-spa-resid-maps; @fig-resid-maps-inlake). In the cyanobacteria model, strongly positive spatial residuals are in portions of the northern central plains (North and South Dakota, Nebraska), Midwestern states (Minnesota, Iowa, Wisconsin, Illinois, Michigan, Indiana) and mid-Atlantic regions (North and South Carolina, Virginia, Maryland), suggesting that cyanobacteria abundance was higher than expected under a nonspatial model. In contrast, the spatial residuals are strongly negative in the Northeastern part of the country. The microcystin model spatial residuals were similar with positive residuals in the Midwestern and central northern plains regions in addition to areas in Utah, Arizona, Texas, and Florida, and with negative residuals in the Northeast.
 
