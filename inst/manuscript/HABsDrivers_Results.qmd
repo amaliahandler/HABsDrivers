@@ -92,7 +92,7 @@ nearest_lake_dist <- apply(dist_matrix, 1, min)
 # (Optional: remove Inf if a lake has absolutely no neighbors in the dataset)
 valid_distances <- nearest_lake_dist[is.finite(nearest_lake_dist)]
 median_dist     <- median(valid_distances, na.rm = TRUE)
-summary(valid_distances)
+# summary(valid_distances)
 
 
 ```
@@ -220,6 +220,8 @@ We investigated the distribution of other non-nutrient variables to gain insight
 # Trim to just the variables explored in the models
 cor_dat <- habs |>
   st_drop_geometry() |>
+  mutate(np_ratio = NTL / PTL,
+         p_total_inputs = p_farm_inputs + p_dev_inputs + P_Deposition) |>
   select(B_G_DENS, MICX, AMMONIA_N, DOC:NITRATE_N, PH, EVAP_INFL, np_ratio,
          TEMPERATURE, precip_mean_month, temp_mean_month, Precip8110Ws, Tmean8110Ws,
          lakemorpho_fetch, MAXDEPTH, 
@@ -531,7 +533,7 @@ PredData <- PredData |>
                                pred_micx_fit >= 0.25 & pred_micx_fit < 0.50 ~ "M2",
                                pred_micx_fit >= 0.50 & pred_micx_fit < 0.75 ~ "M3",
                                pred_micx_fit >= 0.75 ~ "M4"),
-         disc_micx = factor(disc_micx, levels = c("M1", "M2", "M3", "M4")))
+         disc_micx = factor(disc_micx, levels = c("M1", "M2", "M3", "M4"))) 
 
 above_100k <- PredData |>
   filter(disc_cyano == 'B4' | disc_cyano == 'B5' |  disc_cyano == 'B6')
