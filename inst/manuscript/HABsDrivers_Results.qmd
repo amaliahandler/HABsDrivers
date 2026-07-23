@@ -212,6 +212,80 @@ To explore the relationship between cyanoHABs risk, watershed nutrient inputs, a
 
 For the cutoff between low and high risk for cyanoHABs, we chose 100,000 cells/mL for cyanobacteria abundance and 50% probability of microcystin detection. These cutoffs are for investigative purposes only. The boundary between low and high risk for evaluating ecological or public health risk depends heavily on the impact of concern with cyanoHABs. The 100,000 cells/mL threshold for cyanobacteria has been used in the past to indicate high recreational risk but has since been replaced in favor of approaches linked to toxicity (Chorus and Welker 2021) . Cellular abundance remains a commonly used assessment of cyanobacteria biomass. Our objective is to divide lakes with elevated cyanobacteria levels from those expected to have relatively low levels of cyanobacteria and investigate how this relates to nutrients and other non-nutrient factors. Similarly, for microcystin, we chose the 50% probability cutoff to indicate where summer microcystin detection is more likely than non-detection. For the watershed nutrient inputs, we considered the sum of the farm and developed inputs for N and P separately. For N, this includes farm and non-farm fertilizer, manure, crop biological N fixation, and human waste. For P, this includes farm and non-farm fertilizer, manure, and human waste. We did not include other nutrient sources such as atmospheric deposition, accumulated P inputs, or legacy P inputs because these variables were not included in our final models. For the cutoff between higher and lower annual anthropogenic nutrient inputs, we chose 10 kg ha-1 yr-1 for N and 4 kg ha-1 yr-1 for P. Again, these cutoffs are for investigative purposes only. Together these cyanoHABs and nutrient input cutoffs divide the `r prettyNum(lakes_num, big.mark = ',')` lakes in our dataset into four categories: higher nutrient inputs and high cyanoHAB risk, higher nutrient inputs and low cyanoHAB risk, lower nutrient inputs and high cyanoHAB risk, and lower nutrient inputs and low cyanoHAB risk.
 
+```{r thresholds table}
+#| fig-cap: "Cyanobacteria abundance thresholds are in the units of cells m/L, microcystin thresholds are the probabilty of detecting microcystin above the threshold of  0.1 μg/L at the ecoregion level"
+
+used_thresholds <- readRDS(paste0(here(), "/inst/eco_habs_thresholds.rds"))
+
+used_thresholds |>
+  rowwise() |>
+  mutate(micx_detect = micx_detect * 100) |>
+  flextable() |>
+  set_header_labels(
+    AG_ECO3 = "Ecoregion",
+    cyano_95 = "Cyanobacteria",
+    micx_detect = "Microcystin"
+  ) |>
+  theme_booktabs(bold_header = TRUE) |>
+  add_header_lines("CyanoHABs Ecoregional Thresholds") |>
+    theme_box() |>
+  align(align = "center", part = "header") |>
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header") |>
+  colformat_double(j = 'cyano_95', digits = 0) |>
+  colformat_double(j = 'micx_detect', digits = 1, suffix = "%") |>
+  autofit()
+
+```
+
+```{r thresholds bar chart}
+#| fig-cap: "US Lakes in our dataset that fall above or below cyanobacteria abundance and microcystin detection thresholds for each ecoregion."
+
+
+n <- PredData |>
+  st_drop_geometry() |>
+  group_by(AG_ECO3) |>
+  count(cyano_ecocond) |>
+  mutate(percent = (n / sum(n)) * 100,
+         percent = round(percent, 1)) |>
+  mutate(AG_ECO3 = factor(AG_ECO3, levels = c('WMTNS','PLNLOW','EHIGH')))
+
+
+cy_tbox <- ggplot(n, aes(fill=cyano_ecocond, y=n, x=AG_ECO3)) + 
+  geom_bar(position="stack", stat="identity") +
+  geom_text(aes(label = paste0(percent, "%")), vjust = 0.5, size = 4, position = position_stack(vjust = 0.5)) +
+  scale_fill_manual(values = c('High' = "#9c008299",'Low' = "#4e856299")) +
+  coord_flip() +
+  labs(title = 'Cyanobacteria', y = NULL, x = NULL, fill = 'Threshold category') +
+  theme_bw()
+
+m <- PredData |>
+  st_drop_geometry() |>
+  group_by(AG_ECO3) |>
+  count(micx_ecocond) |>
+  mutate(percent = (n / sum(n)) * 100,
+         percent = round(percent, 1)) |>
+  mutate(AG_ECO3 = factor(AG_ECO3, levels = c('WMTNS','PLNLOW','EHIGH')))
+
+m_tbox <- ggplot(m, aes(fill=micx_ecocond, y=n, x=AG_ECO3)) + 
+  geom_bar(position="stack", stat="identity") +
+  geom_text(aes(label = paste0(percent, "%")), vjust = 0.5, size = 4, position = position_stack(vjust = 0.5)) +
+  scale_fill_manual(values = c('Above' = "#9c008299",'Below' = "#4e856299")) +
+  coord_flip() +
+  labs(title = 'Microcystin', y = NULL, x = NULL) +
+  theme_bw() +
+  theme(axis.text.y = element_blank())
+
+fig <- ggarrange(plotlist = list(cy_tbox, m_tbox), ncol = 2, nrow = 1, 
+                 align = "h",
+                 common.legend = TRUE)
+
+annotate_figure(fig,
+                bottom = text_grob("Number of lakes", color = "black", size = 14))
+
+
+```
+
 We investigated the distribution of other non-nutrient variables to gain insights about the characteristics of lakes that fall into each nutrient and cyanoHABs risk category. We examined mean annual precipitation, baseflow index, and area:depth ratio. We plotted the density distribution for each variable within each of the four nutrient-cyanoHABs categories. We used a spatial analysis of variance (ANOVA) to test for differences among means in the nutrient-cyanoHAB categories. We log10 transformed the mean annual precipitation and the area:depth ratio to account for skew in these distributions for the ANOVA.
 
 ## Results
@@ -533,58 +607,34 @@ PredData <- PredData |>
                                pred_micx_fit >= 0.25 & pred_micx_fit < 0.50 ~ "M2",
                                pred_micx_fit >= 0.50 & pred_micx_fit < 0.75 ~ "M3",
                                pred_micx_fit >= 0.75 ~ "M4"),
-         disc_micx = factor(disc_micx, levels = c("M1", "M2", "M3", "M4"))) 
+         disc_micx = factor(disc_micx, levels = c("M1", "M2", "M3", "M4")))
+```
 
-above_100k <- PredData |>
-  filter(disc_cyano == 'B4' | disc_cyano == 'B5' |  disc_cyano == 'B6')
-per_100 <- round(nrow(above_100k)/lakes_num, digits = 3) * 100
 
-above_50 <- PredData |>
-  filter(disc_micx == 'M3' | disc_micx == 'M4' )
-per_50 <- round(nrow(above_50)/lakes_num, digits = 3) * 100
+```{r state-level summaries}
 
-load(paste0(here(),'/inst/states_data.rda'))
+# load(paste0(here(),'/inst/PredDataMini.rda'))
 
 state_cols <- PredData |>
-  left_join(states_data, by = 'COMID')
+  st_drop_geometry() |>
+  left_join((PredDataMini |> dplyr::select(c(COMID, state))), by = 'COMID')
 
-state_cols <- state_cols |>
-  mutate(class_micx = factor(case_when(
-    pred_micx_fit >= 0.50 ~ 'HM',
-    pred_micx_fit < 0.50 ~ 'LM',
-    TRUE ~ 'OTHER'),
-    levels = c('HM','LM'))) %>%
-  arrange(class_micx) |>
-  mutate(class_cyano = factor(case_when(
-    pred_cyano_fit >= 5.0043215 ~ 'HC',
-    pred_cyano_fit < 5.0043215 ~ 'LC',
-    TRUE ~ 'OTHER'),
-    levels = c('HC','LC'))) %>%
-  arrange(class_cyano) |>
-  drop_na()
-
-risk_summary <- state_cols |>
+pred_pct <- state_cols |>
   group_by(state) |>
-  summarise(hm_percent = round((sum(class_micx == "HM")/n()) * 100, digits = 2),
-            lm_percent = round((sum(class_micx == "LM")/n()) * 100, digits = 2),
-            hc_percent = round((sum(class_cyano == "HC")/n())* 100, digits = 2),
-            lc_percent = round((sum(class_cyano == 'LC')/n())* 100, digits = 2),
-            hm_count = sum(class_micx == "HM"),
-            lm_count = sum(class_micx == "LM"),
-            hc_count = sum(class_cyano == "HC"),
-            lc_count = sum(class_cyano == 'LC'))
+  count(micx_ecocond) |>
+  mutate(percentage = (n / sum(n)) * 100) |>
+  filter(micx_ecocond == 'Above')
 
-state_pull <- function(state_inp){
-  risk_summary |>
-  filter(state == paste(state_inp)) |>
-  pull(hc_percent) |>
-  round(digit = 1)
-}
+cyano_pct <- state_cols |>
+  group_by(state) |>
+  count(cyano_ecocond) |>
+  mutate(percentage = (n / sum(n)) * 100) |>
+  filter(cyano_ecocond == 'High')
 
 micx_pull <- function(state_inp){
-  risk_summary |>
+  pred_pct |>
   filter(state == paste(state_inp)) |>
-  pull(hm_percent) |>
+  pull(percentage) |>
   round(digit = 1)
 }
 
@@ -743,13 +793,13 @@ pred_nut_table
 ```{r map nutrient/cyanoHABs categories}
 
 nurisk = c('HNHC' = "#9c0082",
-           'HNLC' = "#cc6de4",
-           'LNHC' = "#4e8562",
+           'LNHC' = "#cc6de4",
+           'HNLC' = "#4e8562",
            'LNLC' = "#8bd1a5")
 
 nurisk_m = c('HNHM' = "#9c0082",
-           'HNLM' = "#cc6de4",
-           'LNHM' = "#4e8562",
+           'LNHM' = "#cc6de4",
+           'HNLM' = "#4e8562",
            'LNLM' = "#8bd1a5")
 
 ggplot(PredData, aes(color = cyano_cat)) +
@@ -824,114 +874,121 @@ habs |>
 
 ```
 
-```{r density plots - precip, message = FALSE}
-#| label: fig-density-plots
-#| fig-width: 5
-#| fig-height: 9
-#| fig-cap: "Density distributions of mean annual precipitation (a), baseflow index (b), and lake area:depth ratio (c) for the four nutrient input and cyanoHAB risk categories for the predictions from the cyanobacteria abundance (first column) and probability of microcystin detection (second column). Vertical bars in distributions represent the median. Precipitation and the area:depth ratio distributions are truncated to better show majority of data density and differences in medians."
+```{r drainage ratio table, message = FALSE}
+#| label: fig-drainage-table
+#| fig-width: 6
+#| fig-height: 4
+#| fig-cap: "Watershed drainage ratio mean and median statistics shown for each nutrient / risk cyanoHABs category across ecoregions for microcystin and cyanobacteria."
 
-den_df <- comp_cyano |>
-  st_drop_geometry() |>
-  select(BFIWs, ad_ratio, Precip8110Ws, all_pred) |>
-  mutate(resp = "Cyanobacteria") |>
-  rbind(mutate(select(st_drop_geometry(comp_micx),
-                      BFIWs, ad_ratio, Precip8110Ws, all_pred),
-               resp = "Microcystin")) |>
-  # Removing infinite values (when depth = 0)
-  mutate(ad_ratio = ifelse(is.infinite(ad_ratio), NA, ad_ratio)) |> 
-  tibble()
+drain_stats <- readRDS(paste0(here(), "/inst/drain_stats_all.rds"))
 
-cat_labels <- c('High Nutrient, High CyanoHABs',
-                'High Nutrient, Low CyanoHABs',
-                'Low Nutrient, High CyanoHABs',
-                'Low Nutrient, Low CyanoHABs')
-
-precip_den <- ggplot(den_df) +
-  ggridges::geom_density_ridges(aes(x = Precip8110Ws, y = all_pred, fill = all_pred),
-                                na.rm = TRUE,
-                                scale = 2,
-                                alpha = 0.85,
-                                quantile_lines = TRUE, quantiles = 2) +
-  facet_wrap(~ resp) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
-                    labels = cat_labels) +
-  xlim(0, 2000) +
-  labs(x = "Precipitation (mm)") +
-  theme(axis.title.y = element_blank(),
-        legend.title = element_blank()) 
-
-bfi_den <- ggplot(den_df) +
-  ggridges::geom_density_ridges(aes(x = BFIWs, y = all_pred, fill = all_pred),
-                                na.rm = TRUE,
-                                scale = 2,
-                                alpha = 0.85,
-                                quantile_lines = TRUE, quantiles = 2) +
-  facet_wrap(~ resp) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
-                    labels = cat_labels) +
-  xlim(0, 100) +
-  labs(x = "Baseflow Index (%)") +
-  theme(axis.title.y = element_blank(),
-        legend.title = element_blank()) 
-
-ad_den <- ggplot(den_df) +
-  ggridges::geom_density_ridges(aes(x = ad_ratio, y = all_pred, fill = all_pred),
-                                na.rm = TRUE,
-                                scale = 2,
-                                alpha = 0.85,
-                                quantile_lines = TRUE, quantiles = 2) +
-  facet_wrap(~ resp) +
-  scale_fill_manual(values = c("#9c0082","#cc6de4","#4e8562", "#8bd1a5"),
-                    labels = cat_labels) +
-  xlim(0, 0.5) +
-  labs(x = "Area:Depth Ratio") +
-  theme(axis.title.y = element_blank(),
-        legend.title = element_blank(),
-        legend.position = "bottom") +
-  guides(fill = guide_legend(nrow = 2, byrow = TRUE))
+drain_stats |>
+  flextable() |>
+  set_header_labels(
+    ag_eco3 = "Ecoregion",
+    cyano_cat = "Category",
+    mean_3 = 'Mean',
+    median_4 = 'Median',
+    micx_cat = "Category",
+    mean_6 = 'Mean',
+    median_7 = 'Median'
+  ) |>
+  add_header_row(
+    values = c("", "Cyanobacteria", "Microcystin"), 
+    colwidths = c(1, 3, 3)) |>
+  merge_v(j = ~ ag_eco3) |>
+  theme_booktabs(bold_header = TRUE) |>
+  add_header_lines("Nutrient Risk Categories and Watershed Drainage Ratio") |>
+    theme_box() |>
+  align(align = "center", part = "header") |>
+  fontsize(size = 10, part = "body") |>
+  fontsize(size = 10, part = "header") |>
+  colformat_double(digits = 1) |>
+  bold(i = c(3, 7, 11), j = c(3, 6)) |>
+  bold(i = c(3, 7, 11), j = c(4, 7)) |>
+  autofit()
 
 
-ggpubr::ggarrange(precip_den, bfi_den, ad_den,
-                  ncol = 1, nrow = 3,
-                  common.legend = TRUE, 
-                  legend.grob = get_legend(ad_den),
-                  legend = "bottom",
-                  labels = "auto")
+
 ```
 
-```{r ANOVA}
+```{r drainage ratio boxplot, message = FALSE}
+#| label: fig-drainage-boxplot
+#| fig-width: 7
+#| fig-height: 10
+#| fig-cap: "Boxplot of watershed drainage ratio across ecoregions for each nutrient/ risk category."
 
-# building model for spatial analysis
+nurisk = c('HNHC' = "#9c0082",
+           'LNHC' = "#cc6de4",
+           'HNLC' = "#4e8562",
+           'LNLC' = "#8bd1a5")
 
-# cyanos
+nurisk_m = c('HNHM' = "#9c0082",
+           'LNHM' = "#cc6de4",
+           'HNLM' = "#4e8562",
+           'LNLM' = "#8bd1a5")
 
-# Deal with infinite area depth ratios from zero depth values. Reset these depths to instead be a very small number.
-# comp_cyano <- comp_cyano |>
-#   mutate(ad_ratio = ifelse(MAXDEPTH == 0, 0.0001, MAXDEPTH))
 
-dr_model_cy <- readRDS(paste0(here(), '/inst/model_objects/dr_model_cy26.rds'))
-#dr_model_cy <- splm(log(drain_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
-anova(dr_model_cy)
+# Q1 <- quantile(PredData$drain_ratio, 0.25)
+# Q3 <- quantile(PredData$drain_ratio, 0.75)
+# IQR_val <- IQR(PredData$drain_ratio)
+# 
+# drain_clean 
 
-dr_model_mx <- readRDS(paste0(here(), '/inst/model_objects/dr_model_mx26.rds'))
-#dr_model_mx <- splm(log(drain_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
-anova(dr_model_mx)
+cysum <- PredData |>
+  st_drop_geometry() |>
+  group_by(AG_ECO3, cyano_cat) |>
+  summarise(
+    mean_drain = mean(drain_ratio, na.rm = TRUE),
+    upper_whisker = quantile(drain_ratio, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
 
-bf_model_cy <- readRDS(paste0(here(), '/inst/model_objects/bf_model_cy26.rds'))
-#bf_model_cy <- splm(BFIWs ~ cyano_cat, PredData, spcov_type = "exponential")
-anova(bf_model_cy)
+box_cyano <- ggplot(PredData, aes(x = cyano_cat, y = drain_ratio, fill = cyano_cat)) +
+  stat_boxplot(geom = "errorbar", width = 0.2, color = "#797979") +
+  geom_boxplot(outlier.shape = NA, color = "#797979", alpha = 0.8) + 
+  geom_text(
+    data = cysum,
+    aes(x = cyano_cat, y = upper_whisker, label = format(round(mean_drain, 0), big.mark = ",")),
+    vjust = -0.5,
+    hjust = "center",
+    size = 3,
+    fontface = "bold") +
+  facet_wrap(~AG_ECO3) +
+  scale_fill_manual(values = nurisk) +
+  coord_cartesian(ylim = c(0, 900)) +
+  labs(title = 'Cyanobacteria', x = NULL, y = "Drainage Ratio") +
+  theme_bw() +
+  guides(fill = FALSE)
 
-bf_model_mx <- readRDS(paste0(here(), '/inst/model_objects/bf_model_mx26.rds'))
-#bf_model_mx <- splm(BFIWs ~ micx_cat, PredData, spcov_type = "exponential")
-anova(bf_model_mx)
+micxsum <- PredData |>
+  st_drop_geometry() |>
+  group_by(AG_ECO3, micx_cat) |>
+  summarise(
+    mean_drain = mean(drain_ratio, na.rm = TRUE),
+    upper_whisker = quantile(drain_ratio, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
 
-ad_model_cy <- readRDS(paste0(here(), '/inst/model_objects/ad_model_cy26.rds'))
-#ad_model_cy <- splm(log(ad_ratio) ~ cyano_cat, PredData, spcov_type = "exponential")
-anova(ad_model_cy)
+box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)) +
+  stat_boxplot(geom = "errorbar", width = 0.2, color = "#797979") +
+  geom_boxplot(outlier.shape = NA, color = "#797979", alpha = 0.8) + 
+  geom_text(
+    data = micxsum,
+    aes(x = micx_cat, y = upper_whisker, label = format(round(mean_drain, 0), big.mark = ",")),
+    vjust = -0.5,
+    hjust = 'center',
+    size = 3,
+    fontface = "bold"
+  ) +
+  facet_wrap(~AG_ECO3) +
+  scale_fill_manual(values = nurisk_m) +
+  coord_cartesian(ylim = c(0, 900)) +
+  labs(title = 'Microcystin', x = NULL, y = "Drainage Ratio") +
+  theme_bw() +
+  guides(fill = FALSE)
 
-ad_model_mx <- readRDS(paste0(here(), '/inst/model_objects/ad_model_mx26.rds'))
-#ad_model_mx <- splm(log(ad_ratio) ~ micx_cat, PredData, spcov_type = "exponential")
-anova(ad_model_mx)
+ggarrange(plotlist = list(box_cyano, box_micx), ncol = 1, nrow = 2)
 
 ```
 
