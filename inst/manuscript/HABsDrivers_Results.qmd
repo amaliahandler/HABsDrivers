@@ -543,48 +543,6 @@ rbind(comp_cyan, comp_micx) |>
 
 ```
 
-```{r moran's I independent errors}
-
-# standardized residuals with spatial dependence modeled
-cyano_lake
-cyano_nolake
-
-coords <- st_coordinates(cyano_lake$obdata |> st_as_sf(coords = c(".xcoord", ".ycoord")))
-nb     <- knn2nb(knearneigh(coords, k = 3))
-lw     <- nb2listw(nb, style = "W")
-
-# small p-value -> evidence of autocorrelation
-moran.test(rstandard(cyano_lake), lw, alternative = "two.sided")
-moran.test(rstandard(cyano_nolake), lw, alternative = "two.sided")
-
-spgmod <- spglm(presence ~ elev + strat, data = moose, family = binomial, spcov_type = "exponential")
-
-summary(spgmod)
-
-# For the spatial logistic models
-spgmod <- micx_lake
-spgmod <- micx_nolake
-
-errors <- fitted(spgmod, type = "spcov")$ie
-
-eprods <- eigen(covmatrix(spgmod))
-
-errors_sqrtInv <- eprods$vectors %*% diag(1 / sqrt(eprods$values)) %*% t(eprods$vectors)
-
-errors_decor <- as.vector(errors_sqrtInv %*% errors)
-
-coords <- st_coordinates(spgmod$obdata |> st_as_sf(coords = c(".xcoord", ".ycoord")))
- 
-nb <- knn2nb(knearneigh(coords, k = 3))
-
-lw <- nb2listw(nb, style = "W")
-
-moran.test(errors_decor, lw, alternative = "two.sided")
-
-
-```
-
-
 The model residuals indicate areas where the response was larger or smaller than expected based on the covariates alone (@fig-spa-resid-maps; @fig-resid-maps-inlake). In the cyanobacteria model, strongly positive spatial residuals are in portions of the northern central plains (North and South Dakota, Nebraska), Midwestern states (Minnesota, Iowa, Wisconsin, Illinois, Michigan, Indiana) and mid-Atlantic regions (North and South Carolina, Virginia, Maryland), suggesting that cyanobacteria abundance was higher than expected under a nonspatial model. In contrast, the spatial residuals are strongly negative in the Northeastern part of the country. The microcystin model spatial residuals were similar with positive residuals in the Midwestern and central northern plains regions in addition to areas in Utah, Arizona, Texas, and Florida, and with negative residuals in the Northeast.
 
 ```{r spatial residuals maps for no-lake models}
