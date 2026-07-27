@@ -557,14 +557,29 @@ lw     <- nb2listw(nb, style = "W")
 moran.test(rstandard(cyano_lake), lw, alternative = "two.sided")
 moran.test(rstandard(cyano_nolake), lw, alternative = "two.sided")
 
-# p value large -> no evidence of autocorrelation
-# Should I run this with the non-spatial models? I don't currently have these saved, so I would need to rerun them
+spgmod <- spglm(presence ~ elev + strat, data = moose, family = binomial, spcov_type = "exponential")
 
-# standardized residuals without spatial dependence modeled
-# spmod2 <- splm(sulfate ~ 1, data = sulfate, spcov_type = "exponential")
+summary(spgmod)
+
+# For the spatial logistic models
+spgmod <- micx_lake
+spgmod <- micx_nolake
+
+errors <- fitted(spgmod, type = "spcov")$ie
+
+eprods <- eigen(covmatrix(spgmod))
+
+errors_sqrtInv <- eprods$vectors %*% diag(1 / sqrt(eprods$values)) %*% t(eprods$vectors)
+
+errors_decor <- as.vector(errors_sqrtInv %*% errors)
+
+coords <- st_coordinates(spgmod$obdata |> st_as_sf(coords = c(".xcoord", ".ycoord")))
  
-# large p-value -> no evidence of autocorrelation
-# moran.test(rstandard(spmod2), lw)
+nb <- knn2nb(knearneigh(coords, k = 3))
+
+lw <- nb2listw(nb, style = "W")
+
+moran.test(errors_decor, lw, alternative = "two.sided")
 
 
 ```
