@@ -651,10 +651,6 @@ Across the CONUS, `r per_100`% of lakes were predicted to have ≥100,000 cells/
 #| fig-height: 8
 #| fig-cap: !expr glue::glue("Predicted cyanobacteria abundance (a) and probability of microcystin detection at or above 0.1 µg/L (b) in {prettyNum(lakes_num, big.mark = ',')} on-network lakes. Lakes ≥100,000 cells/mL for cyanobacteria abundance or ≥50% probability of microcystin detection shown in warmer colors and lakes below these thresholds are shown in cooler colors.")
 
-states <- states(cb = TRUE, progress_bar = FALSE)  %>%
-  filter(!STUSPS %in% c('HI', 'PR', 'AK', 'MP', 'GU', 'AS', 'VI'))  %>%
-  st_transform(crs = 5072)
-
 # Cyano Predictions Map
 
 cyano_labels <- c('< 25', '≥ 25 - 50', '≥ 50 - 100', '≥ 100 - 250', '≥ 250 - 500', '≥ 500')
@@ -672,7 +668,7 @@ cyano_pred_map <- ggplot() +
           aes(color = disc_cyano),
           size = 0.3,
           alpha = 0.8)  +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  geom_sf(data = conus, fill = NA, color = "black", lwd = 0.1) +
   guides(color = guide_legend(override.aes = list(size = 2))) +
   theme_void()
 
@@ -687,7 +683,7 @@ micx_pred_map <- ggplot(PredData, aes(color = disc_micx)) +
   scale_color_manual(values = micx_colors,
                      labels = labels,
                      name = "Probability of \nDetection (%)") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  geom_sf(data = conus, fill = NA, color = "black", lwd = 0.1) +
   guides(color = guide_legend(override.aes = list(size = 2))) +
   theme_void()
 
@@ -809,7 +805,7 @@ ggplot(PredData, aes(color = cyano_cat)) +
   scale_color_manual(values = nurisk,
                      name = "Category") +
   labs(title = "Cyanobacteria Nutrient / Risk Combined Category") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  geom_sf(data = conus, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
@@ -819,7 +815,7 @@ ggplot(PredData, aes(color = micx_cat)) +
   scale_color_manual(values = nurisk_m,
                      name = "Category") +
   labs(title = "Microcystin Nutrient / Risk Combined Category") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  geom_sf(data = conus, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
   guides(colour = guide_legend(override.aes = list(size=4)))
 
@@ -1500,7 +1496,7 @@ ggplot(nut_inputs, aes(color = ws_nut_inputs)) +
   scale_color_manual(values = c("#4e8562", "#9c0082"),
                     labels = c("Low", "High"),
                     name = "Annual \nAnthropogenic \nWatershed \nNutrient \nInputs") +
-  geom_sf(data = states, fill = NA, color = "black", lwd = 0.1) +
+  geom_sf(data = conus, fill = NA, color = "black", lwd = 0.1) +
   guides(color = guide_legend(override.aes = list(size = 2))) +
   theme_void()
 
