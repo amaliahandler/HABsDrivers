@@ -961,8 +961,8 @@ box_cyano <- ggplot(PredData, aes(x = cyano_cat, y = drain_ratio, fill = cyano_c
     fontface = "bold") +
   facet_wrap(~AG_ECO3) +
   scale_fill_manual(values = nurisk) +
-  coord_cartesian(ylim = c(0, 900)) +
-  labs(title = 'Cyanobacteria', x = NULL, y = "Drainage Ratio") +
+  coord_cartesian(ylim = c(0, 1000)) +
+  labs(x = NULL, y = "Drainage Ratio") +
   theme_bw() +
   guides(fill = FALSE)
 
@@ -988,8 +988,8 @@ box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)
   ) +
   facet_wrap(~AG_ECO3) +
   scale_fill_manual(values = nurisk_m) +
-  coord_cartesian(ylim = c(0, 900)) +
-  labs(title = 'Microcystin', x = NULL, y = "Drainage Ratio") +
+  coord_cartesian(ylim = c(0, 1000)) +
+  labs(x = NULL, y = "Drainage Ratio") +
   theme_bw() +
   guides(fill = FALSE)
 
