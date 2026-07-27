@@ -799,25 +799,33 @@ nurisk_m = c('HNHM' = "#9c0082",
            'HNLM' = "#4e8562",
            'LNLM' = "#8bd1a5")
 
-ggplot(PredData, aes(color = cyano_cat)) +
+nurisk_c_map <- ggplot(PredData, aes(color = cyano_cat)) +
   geom_sf(size = 0.3,
           alpha = 0.8) +
   scale_color_manual(values = nurisk,
                      name = "Category") +
-  labs(title = "Cyanobacteria Nutrient / Risk Combined Category") +
+  # labs(title = "Cyanobacteria Nutrient / Risk Combined Category") +
   geom_sf(data = conus, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
+  guides(colour = guide_legend(override.aes = list(size=4))) +
+  theme_void()
 
-ggplot(PredData, aes(color = micx_cat)) +
+nurisk_m_map <- ggplot(PredData, aes(color = micx_cat)) +
   geom_sf(size = 0.3,
           alpha = 0.8) +
   scale_color_manual(values = nurisk_m,
                      name = "Category") +
-  labs(title = "Microcystin Nutrient / Risk Combined Category") +
+  # labs(title = "Microcystin Nutrient / Risk Combined Category") +
   geom_sf(data = conus, fill = NA, color = "black", lwd = 0.1) +
   theme(plot.title = element_text(size = 12)) +
-  guides(colour = guide_legend(override.aes = list(size=4)))
+  guides(colour = guide_legend(override.aes = list(size=4))) +
+  theme_void()
+
+nurisk_map_comb <- ggarrange(plotlist = list(nurisk_c_map, nurisk_m_map), ncol = 1, nrow = 2, labels = "auto", align = "h", common.legend = TRUE, legend = "bottom")
+
+ggsave(here("inst", "figures", "nutrient_cyanoHAB_risk_map.png"), 
+       plot = nurisk_map_comb, 
+       width = 6, height = 8, units = "in", dpi = 800)
 
 ```
 
