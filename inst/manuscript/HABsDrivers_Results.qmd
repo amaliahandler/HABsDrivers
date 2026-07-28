@@ -1086,8 +1086,8 @@ covar_sum_table
 
 # Create a table of model comparison process
 tabs <- c("cyano_mod_compare_withlakedata.rds",
-          "cyano_mod_compare_nolakedata.rds",
           "micx_spmod_compare_withlakedata.rds",
+          "cyano_mod_compare_nolakedata.rds",
           "micx_spmod_compare_nolakedata.rds")
 
 # Vector of strings to replace with covariate names
@@ -1201,19 +1201,11 @@ Table S4. `r mod_comp_tabs[[3]][[1]]` `r mod_comp_tabs[[3]][[2]]`
 
 \pagebreak
 
-Table S5. `r mod_comp_tabs[[5]][[1]]` `r mod_comp_tabs[[5]][[2]]`
+Table S5. `r mod_comp_tabs[[4]][[1]]` `r mod_comp_tabs[[4]][[2]]`
 
 \pagebreak
 
-Table S6. `r mod_comp_tabs[[4]][[1]]` `r mod_comp_tabs[[4]][[2]]`
-
-\pagebreak
-
-Table S7. `r mod_comp_tabs[[6]][[1]]` `r mod_comp_tabs[[6]][[2]]`
-
-\pagebreak
-
-Table S8. Final model fixed effect coefficient estimates and standard errors with p-values (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria (Cyano) and microcystin (Micx) models. Models where in-lake data were present or absent are included. Grey cells are covariates that were excluded from model development. Empty cells are covariates that were not included in the finla model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships. Note the scale and range of the covariates in Table S1.
+Table S6. Final model fixed effect coefficient estimates and standard errors with p-values (ns \>0.05, \* \<0.05, \*\* \<0.01, \*\*\*\* \< 0.001) for cyanobacteria (Cyano) and microcystin (Micx) models. Models where in-lake data were present or absent are included. Grey cells are covariates that were excluded from model development. Empty cells are covariates that were not included in the final model. Brighter colors denote a lower p-value for either positive (pink) or negative (blue) relationships. Note the scale and range of the covariates in Table S1.
 
 ```{r covariate table with coefficient values}
 
@@ -1309,6 +1301,9 @@ covar_tbl <- est_and_sign |>
   fontsize(size = 10, part = "header")
 
 covar_tbl
+
+# # Save the tables for the new model comparison markdown
+saveRDS(covar_tbl, here("inst", "model_objects", "model_full_covariate_update.rds"))
 ```
 
 \pagebreak
