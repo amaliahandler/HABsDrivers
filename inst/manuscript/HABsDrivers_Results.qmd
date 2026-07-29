@@ -366,10 +366,15 @@ Both the cyanobacteria and microcystin models were driven by a similar set of co
 #| fig-height: 6.5
 #| fig-cap: "Pairwise spearman’s rank correlation matrix of response variables and continuous covariates considered for the models. Blue represents positive correlations and red represents negative correlations. Darker colors and tighter ellipses represent larger correlation coefficients and stronger relationships. Asterisks denote in-lake variables. See Table S1 for summaries of variable ranges and sources."
 
+png(filename = here("inst", "figures", "correlation_matrix.png"), 
+    width = 5000, height = 5000, res = 800)
+
 # Lower triangle plot
 corrplot(cormat_pred, method = "ellipse", type = "lower", 
          tl.col = "black", tl.srt = 45, tl.cex = 0.75,
          col = redblue_palette(100))
+
+dev.off()
 
 ```
 
