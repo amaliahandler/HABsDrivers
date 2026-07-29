@@ -589,6 +589,9 @@ micx_spde_map <- ggplot() +
 
 ggarrange(plotlist = list(cyan_spde_map, micx_spde_map), ncol = 1, nrow = 2, labels = "auto")
 
+ggsave(here("inst", "figures", "spatial_resid_maps_nolake_models.png"),
+       height = 7, width = 6, units = "in", dpi = 1000)
+
 ```
 
 ```{r generate disc cyano}
@@ -693,6 +696,9 @@ micx_pred_map <- ggplot(PredData, aes(color = disc_micx)) +
   theme_void()
 
 ggarrange(plotlist = list(cyano_pred_map, micx_pred_map), ncol = 1, nrow = 2, labels = "auto", align = "h")
+
+ggsave(here("inst", "figures", "pred_maps_final_models.png"),
+       height = 8, width = 6, units = "in", dpi = 1000)
 
 ```
 
