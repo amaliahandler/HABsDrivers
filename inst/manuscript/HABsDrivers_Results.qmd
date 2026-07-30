@@ -307,6 +307,8 @@ fig <- ggarrange(plotlist = list(cy_tbox, m_tbox), ncol = 2, nrow = 1,
 annotate_figure(fig,
                 bottom = text_grob("Number of lakes", color = "black", size = 14))
 
+ggsave("inst/manuscipt/figures/thresholds_boxplot.tiff", width = 8, height = 4, units = "in", dpi = 600)
+
 
 ```
 
@@ -1033,6 +1035,8 @@ box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)
   guides(fill = FALSE) 
 
 ggarrange(plotlist = list(box_cyano, box_micx), ncol = 1, nrow = 2)
+
+ggsave("inst/manuscipt/figures/drainage_ratio_boxplot.tiff", width = 8, height = 6, units = "in", dpi = 600)
 
 ```
 
