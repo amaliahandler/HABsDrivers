@@ -611,26 +611,28 @@ PredData <- PredData |>
          disc_micx = factor(disc_micx, levels = c("M1", "M2", "M3", "M4")))
 ```
 
-
 ```{r state-level summaries}
 
 # load(paste0(here(),'/inst/PredDataMini.rda'))
 
-state_cols <- PredData |>
-  st_drop_geometry() |>
-  left_join((PredDataMini |> dplyr::select(c(COMID, state))), by = 'COMID')
-
-pred_pct <- state_cols |>
-  group_by(state) |>
-  count(micx_ecocond) |>
-  mutate(percentage = (n / sum(n)) * 100) |>
-  filter(micx_ecocond == 'Above')
-
-cyano_pct <- state_cols |>
+cyano_pct <- PredData |>
   group_by(state) |>
   count(cyano_ecocond) |>
   mutate(percentage = (n / sum(n)) * 100) |>
   filter(cyano_ecocond == 'High')
+
+state_pull <- function(state_inp){
+  cyano_pct |>
+  filter(state == paste(state_inp)) |>
+  pull(percentage) |>
+  round(digit = 1)
+}
+
+pred_pct <- PredData |>
+  group_by(state) |>
+  count(micx_ecocond) |>
+  mutate(percentage = (n / sum(n)) * 100) |>
+  filter(micx_ecocond == 'Above')
 
 micx_pull <- function(state_inp){
   pred_pct |>
