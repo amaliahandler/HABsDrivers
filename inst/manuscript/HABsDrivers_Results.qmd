@@ -935,6 +935,8 @@ nurisk_m = c('HNHM' = "#9c0082",
            'HNLM' = "#4e8562",
            'LNLM' = "#8bd1a5")
 
+PredData <- PredData |>
+  mutate(AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
 
 # Q1 <- quantile(PredData$drain_ratio, 0.25)
 # Q3 <- quantile(PredData$drain_ratio, 0.75)
@@ -947,18 +949,22 @@ cysum <- PredData |>
   group_by(AG_ECO3, cyano_cat) |>
   summarise(
     mean_drain = mean(drain_ratio, na.rm = TRUE),
-    upper_whisker = quantile(drain_ratio, 0.75, na.rm = TRUE),
+    mean_drain = round(mean_drain),
     .groups = "drop"
-  )
+  ) |>
+  mutate(mean_drain = as.character(mean_drain)) |>
+  mutate(mean_drain = if_else(nchar(mean_drain) > 3, 
+                            sub("(?=.{3}$)", ",", mean_drain, perl = TRUE), 
+                            mean_drain)) |>
+  mutate(mean_drain = stringr::str_pad(mean_drain, width = 4, side = "right"))
+
 
 box_cyano <- ggplot(PredData, aes(x = cyano_cat, y = drain_ratio, fill = cyano_cat)) +
   stat_boxplot(geom = "errorbar", width = 0.2, color = "#797979") +
   geom_boxplot(outlier.shape = NA, color = "#797979", alpha = 0.8) + 
   geom_text(
     data = cysum,
-    aes(x = cyano_cat, y = upper_whisker, label = format(round(mean_drain, 0), big.mark = ",")),
-    vjust = -0.5,
-    hjust = "center",
+    aes(y = 1000, x = cyano_cat, label = mean_drain),
     size = 3,
     fontface = "bold") +
   facet_wrap(~AG_ECO3) +
@@ -973,21 +979,23 @@ micxsum <- PredData |>
   group_by(AG_ECO3, micx_cat) |>
   summarise(
     mean_drain = mean(drain_ratio, na.rm = TRUE),
-    upper_whisker = quantile(drain_ratio, 0.75, na.rm = TRUE),
+    mean_drain = round(mean_drain),
     .groups = "drop"
-  )
+  ) |>
+  mutate(mean_drain = as.character(mean_drain)) |>
+  mutate(mean_drain = if_else(nchar(mean_drain) > 3, 
+                            sub("(?=.{3}$)", ",", mean_drain, perl = TRUE), 
+                            mean_drain)) |>
+  mutate(mean_drain = stringr::str_pad(mean_drain, width = 4, side = "right"))
 
 box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)) +
   stat_boxplot(geom = "errorbar", width = 0.2, color = "#797979") +
   geom_boxplot(outlier.shape = NA, color = "#797979", alpha = 0.8) + 
   geom_text(
     data = micxsum,
-    aes(x = micx_cat, y = upper_whisker, label = format(round(mean_drain, 0), big.mark = ",")),
-    vjust = -0.5,
-    hjust = 'center',
+    aes(y = 1000, x = micx_cat, label = mean_drain),
     size = 3,
-    fontface = "bold"
-  ) +
+    fontface = "bold") +
   facet_wrap(~AG_ECO3) +
   scale_fill_manual(values = nurisk_m) +
   coord_cartesian(ylim = c(0, 1000)) +
