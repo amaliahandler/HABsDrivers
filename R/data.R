@@ -134,6 +134,7 @@
 #'   \item{COMID}{A site ID assigned to a lake (character)}
 #'   \item{DSGN_CYCLE}{The year of the NLA survey cycle (2007, 2012, 2017)}
 #'   \item{UNIQUE_ID}{A unique ID assigned to each lake sampled across NLAs (NLA_STATE-NUMBER)}
+#'   \item{state}{US state that contains the lake}
 #'   \item{n_dev_inputs}{Annual total nitrogen inputs from development (non-farm) into the watershed, mean of 2002, 2007,
 #'         and 2012 National Nutrient Inventory (kg N/ha)}
 #'   \item{n_farm_inputs}{Annual total nitrogen inputs from agricultural activities into the watershed, mean of 2002, 2007,
