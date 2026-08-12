@@ -698,7 +698,7 @@ micx_pred_map <- ggplot(PredData, aes(color = disc_micx)) +
 ggarrange(plotlist = list(cyano_pred_map, micx_pred_map), ncol = 1, nrow = 2, labels = "auto", align = "h")
 
 ggsave(here("inst", "figures", "pred_maps_final_models.png"),
-       height = 8, width = 6, units = "in", dpi = 1000)
+       height = 7, width = 6, units = "in", dpi = 1000)
 
 ```
 
