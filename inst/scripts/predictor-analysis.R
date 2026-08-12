@@ -2995,8 +2995,47 @@ ggplot(test, aes(x = cyano_cat, y = mean_drain, fill = cyano_cat)) +
 box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)) +
   stat_boxplot(geom = "errorbar", width = 0.2) +
   geom_boxplot(outlier.shape = NA) +
-  facet_wrap(~AG_ECO3) +
+  facet_wrap(~AG_ECO3)
+
+# make PredDataMini rds for state columns
+
+statecoms <- PredDataMini |>
+  dplyr::select(c(COMID, state)) |>
+  distinct()
+
+pred_filtered <- statecoms[statecoms$COMID %in% PredData$COMID, ]
+
+PredData <- PredData |>
+  left_join(statecoms, by = 'COMID') |>
+  distinct()
+
+PredData <- PredData |>
+  relocate(state, .after = UNIQUE_ID)
+
+cysum <- cysum |>
+  mutate(mean_drain = stringr::str_pad(mean_drain, width = 4, side = "right"))
 
 
+cysum <- cysum |>
+  mutate(
+    mean_drain = case_when(
+      !str_detect(mean_drain, "\\s") & nchar(mean_drain) >= 5 ~
+        str_replace(mean_drain, "^(..)(.*)$", "\\1,\\2"),
+      !str_detect(mean_drain, "\\s") & nchar(mean_drain) == 4 ~
+        str_replace(mean_drain, "^(..)(.*)$", "\\1,\\1"),
+
+      TRUE ~ mean_drain
+    )
+  )
+
+cysum <- cysum |>
+  mutate(mean_drain = ifelse(nchar(mean_drain) == 4, sub("(.)", "\\1,", mean_drain), mean_drain)) |>
+  mutate(mean_drain = ifelse(nchar(mean_drain) >= 5, sub("^(.{2})", "\\1,", mean_drain), mean_drain))
+
+cysum <- cysum |>
+  mutate(mean_drain = as.character(mean_drain)) |>
+  mutate(mean_drain = if_else(nchar(mean_drain) > 3,
+                            sub("(?=.{3}$)", ",", mean_drain, perl = TRUE),
+                            mean_drain))
 
 

@@ -31,6 +31,7 @@ library(stringr)
 library(ggbeeswarm)
 library(ggnewscale)
 library(spdep)
+library(ggpubr)
 
 # Do not include code chunks in document
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -251,14 +252,25 @@ n <- PredData |>
          percent = round(percent, 1)) |>
   mutate(AG_ECO3 = factor(AG_ECO3, levels = c('WMTNS','PLNLOW','EHIGH')))
 
+w_n <- n |>
+  subset(AG_ECO3 == "WMTNS" & cyano_ecocond == "High")
 
 cy_tbox <- ggplot(n, aes(fill=cyano_ecocond, y=n, x=AG_ECO3)) + 
   geom_bar(position="stack", stat="identity") +
-  geom_text(aes(label = paste0(percent, "%")), vjust = 0.5, size = 4, position = position_stack(vjust = 0.5)) +
+  geom_text(data = subset(n, AG_ECO3 == "EHIGH" | AG_ECO3 == "PLNLOW" | AG_ECO3 == "WMTNS" & cyano_ecocond == "Low"),
+            aes(label = paste0(percent, "%")), 
+            vjust = 0.5, 
+            size = 4, 
+            position = position_stack(vjust = 0.5)) +
+  geom_text(data = w_n, 
+            aes(label = paste0(percent, "%"), y = 22000),
+            size = 4) +
   scale_fill_manual(values = c('High' = "#9c008299",'Low' = "#4e856299")) +
   coord_flip() +
   labs(title = 'Cyanobacteria', y = NULL, x = NULL, fill = 'Threshold category') +
-  theme_bw()
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 11))
 
 m <- PredData |>
   st_drop_geometry() |>
@@ -268,14 +280,25 @@ m <- PredData |>
          percent = round(percent, 1)) |>
   mutate(AG_ECO3 = factor(AG_ECO3, levels = c('WMTNS','PLNLOW','EHIGH')))
 
+w_m <- m |>
+  subset(AG_ECO3 == "WMTNS" & micx_ecocond == "Above")
+
 m_tbox <- ggplot(m, aes(fill=micx_ecocond, y=n, x=AG_ECO3)) + 
   geom_bar(position="stack", stat="identity") +
-  geom_text(aes(label = paste0(percent, "%")), vjust = 0.5, size = 4, position = position_stack(vjust = 0.5)) +
+  geom_text(data = subset(m, AG_ECO3 == "EHIGH" | AG_ECO3 == "PLNLOW" | AG_ECO3 == "WMTNS" & micx_ecocond == "Below"),
+            aes(label = paste0(percent, "%")), 
+            vjust = 0.5, 
+            size = 4, 
+            position = position_stack(vjust = 0.5)) +
+  geom_text(data = w_m, 
+            aes(label = paste0(percent, "%"), y = 20000),
+            size = 4) +
   scale_fill_manual(values = c('Above' = "#9c008299",'Below' = "#4e856299")) +
   coord_flip() +
   labs(title = 'Microcystin', y = NULL, x = NULL) +
   theme_bw() +
-  theme(axis.text.y = element_blank())
+  theme(axis.text.y = element_blank(),
+        axis.text.x = element_text(size = 11))
 
 fig <- ggarrange(plotlist = list(cy_tbox, m_tbox), ncol = 2, nrow = 1, 
                  align = "h",
@@ -283,6 +306,8 @@ fig <- ggarrange(plotlist = list(cy_tbox, m_tbox), ncol = 2, nrow = 1,
 
 annotate_figure(fig,
                 bottom = text_grob("Number of lakes", color = "black", size = 14))
+
+ggsave("inst/manuscipt/figures/thresholds_boxplot.tiff", width = 8, height = 4, units = "in", dpi = 600)
 
 
 ```
@@ -619,26 +644,28 @@ PredData <- PredData |>
          disc_micx = factor(disc_micx, levels = c("M1", "M2", "M3", "M4")))
 ```
 
-
 ```{r state-level summaries}
 
 # load(paste0(here(),'/inst/PredDataMini.rda'))
 
-state_cols <- PredData |>
-  st_drop_geometry() |>
-  left_join((PredDataMini |> dplyr::select(c(COMID, state))), by = 'COMID')
-
-pred_pct <- state_cols |>
-  group_by(state) |>
-  count(micx_ecocond) |>
-  mutate(percentage = (n / sum(n)) * 100) |>
-  filter(micx_ecocond == 'Above')
-
-cyano_pct <- state_cols |>
+cyano_pct <- PredData |>
   group_by(state) |>
   count(cyano_ecocond) |>
   mutate(percentage = (n / sum(n)) * 100) |>
   filter(cyano_ecocond == 'High')
+
+state_pull <- function(state_inp){
+  cyano_pct |>
+  filter(state == paste(state_inp)) |>
+  pull(percentage) |>
+  round(digit = 1)
+}
+
+pred_pct <- PredData |>
+  group_by(state) |>
+  count(micx_ecocond) |>
+  mutate(percentage = (n / sum(n)) * 100) |>
+  filter(micx_ecocond == 'Above')
 
 micx_pull <- function(state_inp){
   pred_pct |>
@@ -944,6 +971,8 @@ nurisk_m = c('HNHM' = "#9c0082",
            'HNLM' = "#4e8562",
            'LNLM' = "#8bd1a5")
 
+PredData <- PredData |>
+  mutate(AG_ECO3 = factor(AG_ECO3, levels = c("WMTNS", "PLNLOW", "EHIGH")))
 
 # Q1 <- quantile(PredData$drain_ratio, 0.25)
 # Q3 <- quantile(PredData$drain_ratio, 0.75)
@@ -956,18 +985,22 @@ cysum <- PredData |>
   group_by(AG_ECO3, cyano_cat) |>
   summarise(
     mean_drain = mean(drain_ratio, na.rm = TRUE),
-    upper_whisker = quantile(drain_ratio, 0.75, na.rm = TRUE),
+    mean_drain = round(mean_drain),
     .groups = "drop"
-  )
+  ) |>
+  mutate(mean_drain = as.character(mean_drain)) |>
+  mutate(mean_drain = if_else(nchar(mean_drain) > 3, 
+                            sub("(?=.{3}$)", ",", mean_drain, perl = TRUE), 
+                            mean_drain)) |>
+  mutate(mean_drain = stringr::str_pad(mean_drain, width = 4, side = "right"))
+
 
 box_cyano <- ggplot(PredData, aes(x = cyano_cat, y = drain_ratio, fill = cyano_cat)) +
   stat_boxplot(geom = "errorbar", width = 0.2, color = "#797979") +
   geom_boxplot(outlier.shape = NA, color = "#797979", alpha = 0.8) + 
   geom_text(
     data = cysum,
-    aes(x = cyano_cat, y = upper_whisker, label = format(round(mean_drain, 0), big.mark = ",")),
-    vjust = -0.5,
-    hjust = "center",
+    aes(y = 1000, x = cyano_cat, label = mean_drain),
     size = 3,
     fontface = "bold") +
   facet_wrap(~AG_ECO3) +
@@ -975,36 +1008,46 @@ box_cyano <- ggplot(PredData, aes(x = cyano_cat, y = drain_ratio, fill = cyano_c
   coord_cartesian(ylim = c(0, 1000)) +
   labs(x = NULL, y = "Drainage Ratio") +
   theme_bw() +
-  guides(fill = FALSE)
+  theme(axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 11)) +
+  guides(fill = FALSE) 
+
+
 
 micxsum <- PredData |>
   st_drop_geometry() |>
   group_by(AG_ECO3, micx_cat) |>
   summarise(
     mean_drain = mean(drain_ratio, na.rm = TRUE),
-    upper_whisker = quantile(drain_ratio, 0.75, na.rm = TRUE),
+    mean_drain = round(mean_drain),
     .groups = "drop"
-  )
+  ) |>
+  mutate(mean_drain = as.character(mean_drain)) |>
+  mutate(mean_drain = if_else(nchar(mean_drain) > 3, 
+                            sub("(?=.{3}$)", ",", mean_drain, perl = TRUE), 
+                            mean_drain)) |>
+  mutate(mean_drain = stringr::str_pad(mean_drain, width = 4, side = "right"))
 
 box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)) +
   stat_boxplot(geom = "errorbar", width = 0.2, color = "#797979") +
   geom_boxplot(outlier.shape = NA, color = "#797979", alpha = 0.8) + 
   geom_text(
     data = micxsum,
-    aes(x = micx_cat, y = upper_whisker, label = format(round(mean_drain, 0), big.mark = ",")),
-    vjust = -0.5,
-    hjust = 'center',
+    aes(y = 1000, x = micx_cat, label = mean_drain),
     size = 3,
-    fontface = "bold"
-  ) +
+    fontface = "bold") +
   facet_wrap(~AG_ECO3) +
   scale_fill_manual(values = nurisk_m) +
   coord_cartesian(ylim = c(0, 1000)) +
   labs(x = NULL, y = "Drainage Ratio") +
   theme_bw() +
-  guides(fill = FALSE)
+  theme(axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 11)) +
+  guides(fill = FALSE) 
 
 ggarrange(plotlist = list(box_cyano, box_micx), ncol = 1, nrow = 2)
+
+ggsave("inst/manuscipt/figures/drainage_ratio_boxplot.tiff", width = 8, height = 6, units = "in", dpi = 600)
 
 ```
 
