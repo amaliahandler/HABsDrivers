@@ -243,6 +243,7 @@ used_thresholds |>
 ```{r thresholds bar chart}
 #| fig-cap: "US Lakes in our dataset that fall above or below cyanobacteria abundance and microcystin detection thresholds for each ecoregion."
 
+perc_size <- 3
 
 n <- PredData |>
   st_drop_geometry() |>
@@ -258,13 +259,13 @@ w_n <- n |>
 cy_tbox <- ggplot(n, aes(fill=cyano_ecocond, y=n, x=AG_ECO3)) + 
   geom_bar(position="stack", stat="identity") +
   geom_text(data = subset(n, AG_ECO3 == "EHIGH" | AG_ECO3 == "PLNLOW" | AG_ECO3 == "WMTNS" & cyano_ecocond == "Low"),
-            aes(label = paste0(percent, "%")), 
+            aes(label = paste0(sprintf("%.1f", percent), "%")), 
             vjust = 0.5, 
-            size = 4, 
+            size = perc_size, 
             position = position_stack(vjust = 0.5)) +
   geom_text(data = w_n, 
-            aes(label = paste0(percent, "%"), y = 22000),
-            size = 4) +
+            aes(label = paste0(sprintf("%.1f", percent), "%"), y = 22000),
+            size = perc_size) +
   scale_fill_manual(values = c('High' = "#9c008299",'Low' = "#4e856299")) +
   coord_flip() +
   labs(title = 'Cyanobacteria', y = NULL, x = NULL, fill = 'Threshold category') +
@@ -286,13 +287,13 @@ w_m <- m |>
 m_tbox <- ggplot(m, aes(fill=micx_ecocond, y=n, x=AG_ECO3)) + 
   geom_bar(position="stack", stat="identity") +
   geom_text(data = subset(m, AG_ECO3 == "EHIGH" | AG_ECO3 == "PLNLOW" | AG_ECO3 == "WMTNS" & micx_ecocond == "Below"),
-            aes(label = paste0(percent, "%")), 
+            aes(label = paste0(sprintf("%.1f", percent), "%")),
             vjust = 0.5, 
-            size = 4, 
+            size = perc_size, 
             position = position_stack(vjust = 0.5)) +
   geom_text(data = w_m, 
-            aes(label = paste0(percent, "%"), y = 20000),
-            size = 4) +
+            aes(label = paste0(sprintf("%.1f", percent), "%"), y = 20000),
+            size = perc_size) +
   scale_fill_manual(values = c('Above' = "#9c008299",'Below' = "#4e856299")) +
   coord_flip() +
   labs(title = 'Microcystin', y = NULL, x = NULL) +
@@ -307,7 +308,7 @@ fig <- ggarrange(plotlist = list(cy_tbox, m_tbox), ncol = 2, nrow = 1,
 annotate_figure(fig,
                 bottom = text_grob("Number of lakes", color = "black", size = 14))
 
-ggsave("inst/manuscipt/figures/thresholds_boxplot.tiff", width = 8, height = 4, units = "in", dpi = 600)
+ggsave("inst/figures/thresholds_boxplot.tiff", width = 8, height = 4, units = "in", dpi = 600)
 
 
 ```
@@ -1047,7 +1048,7 @@ box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)
 
 ggarrange(plotlist = list(box_cyano, box_micx), ncol = 1, nrow = 2)
 
-ggsave("inst/manuscipt/figures/drainage_ratio_boxplot.tiff", width = 8, height = 6, units = "in", dpi = 600)
+ggsave("inst/figures/drainage_ratio_boxplot.tiff", width = 8, height = 6, units = "in", dpi = 600)
 
 ```
 
