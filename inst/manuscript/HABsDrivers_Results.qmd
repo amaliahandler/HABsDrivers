@@ -308,7 +308,7 @@ fig <- ggarrange(plotlist = list(cy_tbox, m_tbox), ncol = 2, nrow = 1,
 annotate_figure(fig,
                 bottom = text_grob("Number of lakes", color = "black", size = 14))
 
-ggsave("inst/figures/thresholds_boxplot.tiff", width = 8, height = 4, units = "in", dpi = 600)
+# ggsave("inst/figures/thresholds_boxplot.tiff", width = 8, height = 4, units = "in", dpi = 600)
 
 
 ```
@@ -392,15 +392,15 @@ Both the cyanobacteria and microcystin models were driven by a similar set of co
 #| fig-height: 6.5
 #| fig-cap: "Pairwise spearman’s rank correlation matrix of response variables and continuous covariates considered for the models. Blue represents positive correlations and red represents negative correlations. Darker colors and tighter ellipses represent larger correlation coefficients and stronger relationships. Asterisks denote in-lake variables. See Table S1 for summaries of variable ranges and sources."
 
-png(filename = here("inst", "figures", "correlation_matrix.png"), 
-    width = 5000, height = 5000, res = 800)
+# png(filename = here("inst", "figures", "correlation_matrix.png"), 
+#     width = 5000, height = 5000, res = 800)
 
 # Lower triangle plot
 corrplot(cormat_pred, method = "ellipse", type = "lower", 
          tl.col = "black", tl.srt = 45, tl.cex = 0.75,
          col = redblue_palette(100))
 
-dev.off()
+# dev.off()
 
 ```
 
@@ -615,8 +615,8 @@ micx_spde_map <- ggplot() +
 
 ggarrange(plotlist = list(cyan_spde_map, micx_spde_map), ncol = 1, nrow = 2, labels = "auto")
 
-ggsave(here("inst", "figures", "spatial_resid_maps_nolake_models.png"),
-       height = 7, width = 6, units = "in", dpi = 1000)
+# ggsave(here("inst", "figures", "spatial_resid_maps_nolake_models.png"),
+#        height = 7, width = 6, units = "in", dpi = 1000)
 
 ```
 
@@ -675,6 +675,9 @@ micx_pull <- function(state_inp){
   round(digit = 1)
 }
 
+per_100 <- round(nrow(filter(PredData, cyano_transform_fit >= 100000)) / nrow(PredData) * 100, 1)
+per_50  <- round(nrow(filter(PredData, pred_micx_fit >= 0.5)) / nrow(PredData) * 100, 1)
+
 ```
 
 ### Predicted CyanoHABs
@@ -725,8 +728,8 @@ micx_pred_map <- ggplot(PredData, aes(color = disc_micx)) +
 
 ggarrange(plotlist = list(cyano_pred_map, micx_pred_map), ncol = 1, nrow = 2, labels = "auto", align = "h")
 
-ggsave(here("inst", "figures", "pred_maps_final_models.png"),
-       height = 7, width = 6, units = "in", dpi = 1000)
+# ggsave(here("inst", "figures", "pred_maps_final_models.png"),
+#        height = 7, width = 6, units = "in", dpi = 1000)
 
 ```
 
@@ -862,9 +865,9 @@ nurisk_m_map <- ggplot(PredData, aes(color = micx_cat)) +
 
 nurisk_map_comb <- ggarrange(plotlist = list(nurisk_c_map, nurisk_m_map), ncol = 1, nrow = 2, labels = "auto", align = "h", common.legend = TRUE, legend = "bottom")
 
-ggsave(here("inst", "figures", "nutrient_cyanoHAB_risk_map.png"), 
-       plot = nurisk_map_comb, 
-       width = 6, height = 8, units = "in", dpi = 800)
+# ggsave(here("inst", "figures", "nutrient_cyanoHAB_risk_map.png"), 
+#        plot = nurisk_map_comb, 
+#        width = 6, height = 8, units = "in", dpi = 800)
 
 ```
 
@@ -1048,7 +1051,7 @@ box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)
 
 ggarrange(plotlist = list(box_cyano, box_micx), ncol = 1, nrow = 2)
 
-ggsave("inst/figures/drainage_ratio_boxplot.tiff", width = 8, height = 6, units = "in", dpi = 600)
+# ggsave("inst/figures/drainage_ratio_boxplot.tiff", width = 8, height = 6, units = "in", dpi = 600)
 
 ```
 
@@ -1082,7 +1085,8 @@ summerizer <- function(var){
 
 habs <- habs |>
   mutate(np_ratio = NTL/PTL, .after = PTL) |>
-  mutate(p_total_inputs = p_farm_inputs + p_dev_inputs + P_Deposition, .after = P_nf_fertilizer)
+  mutate(p_total_inputs = p_farm_inputs + p_dev_inputs + P_Deposition, .after = P_nf_fertilizer) |>
+  mutate(P_Legacy_P = ifelse(P_Legacy_P < 0, NA, P_Legacy_P))
 
 vec_list <- list(
   c("B_G_DENS", "Cyanobacteria", "cells/mL", "Lake", "NLA"),
