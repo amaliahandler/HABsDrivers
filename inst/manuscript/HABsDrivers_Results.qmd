@@ -1065,7 +1065,6 @@ Table S1. Summary statistics for response variable and covariates explored in mo
 
 ```{r variable summary table}
 # Each variable that was considered in the modeling process
-# Note that some of these values were excluded from the model development process because of suspected unreasonable outliers. Will need to update this once I determine where in the pipeline to trim these data.
 
 summerizer <- function(var){
   colnum <- match(var[1], colnames(habs))
@@ -1081,44 +1080,57 @@ summerizer <- function(var){
          )
 }
 
+habs <- habs |>
+  mutate(np_ratio = NTL/PTL, .after = PTL) |>
+  mutate(p_total_inputs = p_farm_inputs + p_dev_inputs + P_Deposition, .after = P_nf_fertilizer)
+
 vec_list <- list(
   c("B_G_DENS", "Cyanobacteria", "cells/mL", "Lake", "NLA"),
   c("MICX", "Microcystin", "ug/L", "Lake", "NLA"),
   c("PTL", "Total Phosphorus", "ug/L", "Lake", "NLA"),
   c("NTL", "Total Nitrogen", "mg N/L", "Lake", "NLA"),
+  c("np_ratio", "Nitrogen/Phosphorus Ratio", "unitless", "Lake", "NLA"),
   c("NITRATE_N", "Nitrate", "mg N/L", "Lake", "NLA"),
   c("AMMONIA_N", "Ammonium", "mg N/L", "Lake", "NLA"),
   c("DOC", "Dissolved Organic Carbon", "mg/L", "Lake", "NLA"),
   c("PH", "pH", "Std. Units", "Lake", "NLA"),
+  c("TEMPERATURE", "Water Temperature", "degC", "Lake", "NLA"),
   c("TURB", "Tubidty", "NTU", "Lake", "NLA"),
   c("EVAP_INFL", "Evaporation:Inflow", "unitless", "Lake", "NLA"),
   c("MAXDEPTH", "Maximum Lake Depth", "meters", "Lake", "NLA"),
   c("lakemorpho_fetch", "Lake Fetch", "meters", "Lake", "Lakemorpho"),
-  c("N_Fert_Farm", "Farm Fertilizer N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("N_livestock_Waste", "Livestock Waste N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("N_CBNF", "Cultivated Crop Biological Nitrogen Fixation", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("P_f_fertilizer", "Farm Fertilizer P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("P_livestock_Waste", "Livestock Waste P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("N_Human_Waste", "Human Waste N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("N_Fert_Urban", "Non-Farm Fertilizer N", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("P_human_waste_kg", "Human Waste P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("P_nf_fertilizer", "Non-Farm Fertilizer P", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-  c("n_farm_inputs", "Total Farm N Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-   c("p_farm_inputs", "Total Farm P Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-   c("n_dev_inputs", "Total Developed N Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
-   c("p_dev_inputs", "Total Developed P Inputs", "kg/ha/yr", "Watershed", "National Nutrient Inventory"),
+  c("N_Fert_Farm", "Farm Fertilizer N", "kg/ha/yr", "Watershed", "NNI"),
+  c("N_livestock_Waste", "Livestock Waste N", "kg/ha/yr", "Watershed", "NNI"),
+  c("N_CBNF", "Cultivated Crop Biological Nitrogen Fixation", "kg/ha/yr", "Watershed", "NNI"),
+  c("P_f_fertilizer", "Farm Fertilizer P", "kg/ha/yr", "Watershed", "NNI"),
+  c("P_livestock_Waste", "Livestock Waste P", "kg/ha/yr", "Watershed", "NNI"),
+  c("N_Human_Waste", "Human Waste N", "kg/ha/yr", "Watershed", "NNI"),
+  c("N_Fert_Urban", "Non-Farm Fertilizer N", "kg/ha/yr", "Watershed", "NNI"),
+  c("P_human_waste_kg", "Human Waste P", "kg/ha/yr", "Watershed", "NNI"),
+  c("P_nf_fertilizer", "Non-Farm Fertilizer P", "kg/ha/yr", "Watershed", "NNI"),
+  c("n_farm_inputs", "Total Farm N Inputs", "kg/ha/yr", "Watershed", "NNI"),
+  c("p_farm_inputs", "Total Farm P Inputs", "kg/ha/yr", "Watershed", "NNI"),
+  c("n_dev_inputs", "Total Developed N Inputs", "kg/ha/yr", "Watershed", "NNI"),
+  c("p_dev_inputs", "Total Developed P Inputs", "kg/ha/yr", "Watershed", "NNI"),
+  c("P_Legacy_P", "Legacy P Inputs", "kg/ha/yr", "Watershed", "NNI"),
+  c("N_Total_Deposition", "Total N Deposition", "kg/ha/yr", "Watershed", "NNI"),
+  c("P_Deposition", "Total P Deposition", "kg/ha/yr", "Watershed", "NNI"),
+  c("N_Total_Inputs", "Total N Inputs", "kg/ha/yr", "Watershed", "NNI"),
+  c("p_total_inputs", "Total P Inputs", "kg/ha/yr", "Watershed", "NNI"),
   c("fst_ws", "Forested Land Cover", "percent", "Watershed", "NLCD 2011"),
+  c("wet_ws", "Wetland Land Cover", "percent", "Watershed", "NLCD 2011"),
+  c("KffactWs", "Soil Erodability Factor", "unitless", "Watershed", "LakeCat"),
   c("BFIWs", "Baseflow Index", "unitless", "Watershed", "LakeCat"),
   c("precip_mean_month", "Month Mean Precipitation", "millimeters", "Watershed", "LakeCat"),
   c("temp_mean_month", "Month Mean Temperature", "degC", "Watershed", "LakeCat"),
   c("Precip8110Ws", "Mean Annual Precipitation", "millimeters", "Watershed", "LakeCat"),
-  c("Tmean8110Ws", "Mean Annual Temperature", "millimeters", "Watershed", "LakeCat")
+  c("Tmean8110Ws", "Mean Annual Temperature", "degC", "Watershed", "LakeCat")
 )
 
 summary_covariate_table <- do.call(rbind, lapply(vec_list, summerizer)) |>
-  mutate(Type = c(rep("In-Lake Conditions", 10), 
+  mutate(Type = c(rep("In-Lake Conditions", 12), 
                   rep("Lake Geometry", 2), 
-                  rep("Nutrient Inputs", 14), 
+                  rep("Nutrient Inputs", 21), 
                   rep("Geographic Setting", 5)), .before = "Variable")
 
 options(digits = 1)
