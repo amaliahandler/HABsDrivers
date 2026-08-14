@@ -109,7 +109,7 @@ The process for our analysis was (1) data compilation, (2) model fitting, (3) mo
 #| fig-height: 1
 #| fig-cap: "Schematic diagram of methods. The goal of model fitting was to identify a set of covariates that best explain national patterns in cyanobacteria and microcystin detection. Model comparison evaluates model performance with in-lake conditions present versus absent and an independent versus spatial error structure. The final models with in-lake conditions absent and spatial error structure were used to generate predictions for new lakes. The prediction analysis focuses on predictions that are consistent with expectations based on modeled nutrient inputs versus predictions that are unexpected based on nutrients."
 
-#knitr::include_graphics("Schematic methods diagram.jpg")
+knitr::include_graphics("Schematic methods diagram.jpg")
 ```
 
 ### Data Compilation
@@ -214,8 +214,10 @@ To explore the relationship between cyanoHABs risk, watershed nutrient inputs, a
 
 For the cutoff between low and high risk for cyanoHABs, we chose 100,000 cells/mL for cyanobacteria abundance and 50% probability of microcystin detection. These cutoffs are for investigative purposes only. The boundary between low and high risk for evaluating ecological or public health risk depends heavily on the impact of concern with cyanoHABs. The 100,000 cells/mL threshold for cyanobacteria has been used in the past to indicate high recreational risk but has since been replaced in favor of approaches linked to toxicity (Chorus and Welker 2021) . Cellular abundance remains a commonly used assessment of cyanobacteria biomass. Our objective is to divide lakes with elevated cyanobacteria levels from those expected to have relatively low levels of cyanobacteria and investigate how this relates to nutrients and other non-nutrient factors. Similarly, for microcystin, we chose the 50% probability cutoff to indicate where summer microcystin detection is more likely than non-detection. For the watershed nutrient inputs, we considered the sum of the farm and developed inputs for N and P separately. For N, this includes farm and non-farm fertilizer, manure, crop biological N fixation, and human waste. For P, this includes farm and non-farm fertilizer, manure, and human waste. We did not include other nutrient sources such as atmospheric deposition, accumulated P inputs, or legacy P inputs because these variables were not included in our final models. For the cutoff between higher and lower annual anthropogenic nutrient inputs, we chose 10 kg ha-1 yr-1 for N and 4 kg ha-1 yr-1 for P. Again, these cutoffs are for investigative purposes only. Together these cyanoHABs and nutrient input cutoffs divide the `r prettyNum(lakes_num, big.mark = ',')` lakes in our dataset into four categories: higher nutrient inputs and high cyanoHAB risk, higher nutrient inputs and low cyanoHAB risk, lower nutrient inputs and high cyanoHAB risk, and lower nutrient inputs and low cyanoHAB risk.
 
-```{r thresholds table}
+```{r thresholds table, eval = FALSE}
 #| fig-cap: "Cyanobacteria abundance thresholds are in the units of cells m/L, microcystin thresholds are the probabilty of detecting microcystin above the threshold of  0.1 μg/L at the ecoregion level"
+
+# These results are reported in the text so the table is not needed.
 
 used_thresholds <- readRDS(paste0(here(), "/inst/eco_habs_thresholds.rds"))
 
@@ -237,79 +239,6 @@ used_thresholds |>
   colformat_double(j = 'cyano_95', digits = 0) |>
   colformat_double(j = 'micx_detect', digits = 1, suffix = "%") |>
   autofit()
-
-```
-
-```{r thresholds bar chart}
-#| fig-cap: "US Lakes in our dataset that fall above or below cyanobacteria abundance and microcystin detection thresholds for each ecoregion."
-
-perc_size <- 3
-
-n <- PredData |>
-  st_drop_geometry() |>
-  group_by(AG_ECO3) |>
-  count(cyano_ecocond) |>
-  mutate(percent = (n / sum(n)) * 100,
-         percent = round(percent, 1)) |>
-  mutate(AG_ECO3 = factor(AG_ECO3, levels = c('WMTNS','PLNLOW','EHIGH')))
-
-w_n <- n |>
-  subset(AG_ECO3 == "WMTNS" & cyano_ecocond == "High")
-
-cy_tbox <- ggplot(n, aes(fill=cyano_ecocond, y=n, x=AG_ECO3)) + 
-  geom_bar(position="stack", stat="identity") +
-  geom_text(data = subset(n, AG_ECO3 == "EHIGH" | AG_ECO3 == "PLNLOW" | AG_ECO3 == "WMTNS" & cyano_ecocond == "Low"),
-            aes(label = paste0(sprintf("%.1f", percent), "%")), 
-            vjust = 0.5, 
-            size = perc_size, 
-            position = position_stack(vjust = 0.5)) +
-  geom_text(data = w_n, 
-            aes(label = paste0(sprintf("%.1f", percent), "%"), y = 22000),
-            size = perc_size) +
-  scale_fill_manual(values = c('High' = "#9c008299",'Low' = "#4e856299")) +
-  coord_flip() +
-  labs(title = 'Cyanobacteria', y = NULL, x = NULL, fill = 'Threshold category') +
-  theme_bw() +
-  theme(axis.text.x = element_text(size = 11),
-        axis.text.y = element_text(size = 11))
-
-m <- PredData |>
-  st_drop_geometry() |>
-  group_by(AG_ECO3) |>
-  count(micx_ecocond) |>
-  mutate(percent = (n / sum(n)) * 100,
-         percent = round(percent, 1)) |>
-  mutate(AG_ECO3 = factor(AG_ECO3, levels = c('WMTNS','PLNLOW','EHIGH')))
-
-w_m <- m |>
-  subset(AG_ECO3 == "WMTNS" & micx_ecocond == "Above")
-
-m_tbox <- ggplot(m, aes(fill=micx_ecocond, y=n, x=AG_ECO3)) + 
-  geom_bar(position="stack", stat="identity") +
-  geom_text(data = subset(m, AG_ECO3 == "EHIGH" | AG_ECO3 == "PLNLOW" | AG_ECO3 == "WMTNS" & micx_ecocond == "Below"),
-            aes(label = paste0(sprintf("%.1f", percent), "%")),
-            vjust = 0.5, 
-            size = perc_size, 
-            position = position_stack(vjust = 0.5)) +
-  geom_text(data = w_m, 
-            aes(label = paste0(sprintf("%.1f", percent), "%"), y = 20000),
-            size = perc_size) +
-  scale_fill_manual(values = c('Above' = "#9c008299",'Below' = "#4e856299")) +
-  coord_flip() +
-  labs(title = 'Microcystin', y = NULL, x = NULL) +
-  theme_bw() +
-  theme(axis.text.y = element_blank(),
-        axis.text.x = element_text(size = 11))
-
-fig <- ggarrange(plotlist = list(cy_tbox, m_tbox), ncol = 2, nrow = 1, 
-                 align = "h",
-                 common.legend = TRUE)
-
-annotate_figure(fig,
-                bottom = text_grob("Number of lakes", color = "black", size = 14))
-
-# ggsave("inst/figures/thresholds_boxplot.tiff", width = 8, height = 4, units = "in", dpi = 600)
-
 
 ```
 
@@ -532,6 +461,116 @@ The models with in-lake conditions had a positive relationship with the evaporat
 
 In most models, the amount of cyanobacteria and probability of microcystin detection was higher in the Plains and Lowlands and Eastern Highlands ecoregions compared to the Western ecoregion. In addition, the cyanobacteria model with in-lake conditions includes an interaction term between lake total N and the ecoregion. In this instance, higher total N in the Eastern Highlands is correlated with significantly higher cyanobacteria abundance relative to the Western ecoregion. There was also a negative interaction between total N and the Plains and Lowlands in the same model
 
+
+```{r figure of covariate contributions}
+#| label: fig-covar-contri
+#| fig-width: 6
+#| fig-height: 8
+#| fig-cap: "Covariate contributions (slope * variable value) to the fitted value (x-axis) for each of the observed lakes used to fit the models without in-lake conditions for cyanobacteria abundance (a) and probability of microcystin detection (b). Only continuous variables are included; the model intercept and categorical variables are excluded. Note that the covariate contributions are displayed on a standardized and centered scale and fitted values are on the response scale."
+
+
+# 1. Extract your augmented data and tidy coefficients
+aug_df <- augment(cyano_lake) |>
+  select(.fitted) |>
+  st_drop_geometry()
+coef_df <- tidy(cyano_lake)
+
+# 2. Extract the model matrix to naturally handle the AG_ECO3 dummy variables
+# This creates a matrix of your raw data exactly as the model saw it
+X <- model.matrix(cyano_lake)
+
+# 3. Create a named vector of the coefficients
+coefs <- cyano_lake$coefficients$fixed
+
+# 4. Calculate the partial values (Covariate Value * Coefficient)
+# sweep() multiplies each column in X by the matching value in the coefs vector
+partials <- sweep(X, MARGIN = 2, STATS = coefs, FUN = "*") |>
+  as_tibble() |> 
+  # Drop the intercept (it's a constant, not a covariate contribution)
+  select(-`(Intercept)`) |> 
+  # Center and standardize each column (scale() does exactly this)
+  # as.numeric() is used to prevent scale from creating nested 1D matrices
+  mutate(across(everything(), ~ as.numeric(scale(.)))) |> 
+  # Add the 'ypart_' prefix to all columns
+  # rename_with(~ paste0("ypart_", .)) |> 
+  # Bind these new columns back to your original augmented dataframe
+  bind_cols(aug_df)
+
+# Check the results
+glimpse(final_df)
+
+# Make the table
+y_partial <- augment(cyano_lake) |>
+
+att_cyan <- cov_cyan |>
+  mutate(resp = "Cyano") |>
+  pivot_longer(c(n_farm_inputs:lakemorpho_fetch, de), names_to = "variable", values_to = "variable_contr") |>
+  mutate(variable = factor(variable, levels = c("de",
+                                                "Tmean8110Ws",
+                                                "Precip8110Ws",
+                                                "BFIWs",
+                                                "lakemorpho_fetch",
+                                                "MAXDEPTH",
+                                                "p_dev_inputs",
+                                                "n_farm_inputs"))
+  ) |>
+  arrange(fitted)
+
+att_micx <- cov_micx |>
+  mutate(resp = "Micx") |>
+  pivot_longer(c(p_farm_inputs:BFIWs, de), names_to = "variable", values_to = "variable_contr") |>
+  mutate(variable = factor(variable, levels = c("de",
+                                                "Tmean8110Ws",
+                                                "Precip8110Ws",
+                                                "BFIWs",
+                                                "lakemorpho_fetch",
+                                                "MAXDEPTH",
+                                                "fst_ws",
+                                                "n_dev_inputs",
+                                                "p_farm_inputs"))
+  ) |>
+  arrange(fitted)
+
+cyan_attri_plot <- ggplot(att_cyan, aes(x = variable, y = variable_contr, color = fitted)) +
+  geom_quasirandom(shape = 16, size = 0.75, groupOnX = TRUE) +
+  scale_color_gradientn(colors = c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000"),
+                        name = "Fitted \nCyanobacteria \nAbundance \n(cell/mL)",
+                        breaks = c(log10(3000+1000), log10(10000+1000), log10(30000+1000), log10(100000+1000)),
+                        labels = c("3,000", "10,000", "30,000", "100,000")) +
+  scale_x_discrete(labels = c("n_farm_inputs" = "Farm N Inputs", 
+                              "p_dev_inputs" = "Developed P Inputs", 
+                              "MAXDEPTH" = "Lake Depth",
+                              "lakemorpho_fetch" = "Lake Fetch",
+                              "BFIWs" = "Baseflow Index",
+                              "Precip8110Ws" = "Annual Precip",
+                              "Tmean8110Ws" = "Annual Temp",
+                              "de" = "Spatial Residual"),
+                   name = "") +
+  coord_flip() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+micx_attri_plot <- ggplot(att_micx, aes(x = variable, y = variable_contr, color = fitted)) +
+  geom_quasirandom(shape = 16, size = 0.75, groupOnX = TRUE) +
+  scale_color_gradientn(colors = c("#2980b9","#aed6f1","#f0b27a","#d35405"),
+                        name = "Probability \nMicrocystin \nDetection \n(%)") +
+  scale_x_discrete(labels = c("p_farm_inputs" = "Farm P Inputs", 
+                              "n_dev_inputs" = "Developed N Inputs", 
+                              "fst_ws" = "Forest Cover",
+                              "MAXDEPTH" = "Lake Depth",
+                              "lakemorpho_fetch" = "Lake Fetch",
+                              "BFIWs" = "Baseflow Index",
+                              "Precip8110Ws" = "Annual Precip",
+                              "Tmean8110Ws" = "Annual Temp",
+                              "de" = "Spatial Residual")) +
+  coord_flip() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+ggarrange(plotlist = list(cyan_attri_plot, micx_attri_plot), ncol = 1, nrow = 2, labels = "auto")
+
+```
+
 ### Spatial Influence and Model Fit
 
 For both sets of models that included and excluded in-lake conditions, the decorrelated residuals did not show any obvious signs of extreme behavior suggesting lack of fit (@fig-std-resid-maps). For the models of cyanobacteria abundance, spatial models outperformed independent error models with a 30% lower RMSPE and more than doubled the predicted R2 regardless of the presence of in-lake conditions (Table 2). For the probability of microcystin detection, spatial models had approximately a 10% reduction in RMSPE and a 10% increase in AUC compared to independent error models.
@@ -733,6 +772,83 @@ ggarrange(plotlist = list(cyano_pred_map, micx_pred_map), ncol = 1, nrow = 2, la
 
 ```
 
+
+```{r predictions by ecoregion thresholds bar chart}
+#| label: fig-pred-risk-barchart
+#| fig-width: 8
+#| fig-height: 4
+#| fig-cap: "Number and proportion of lakes at high versus low risk of cyanobacteria abundance (left) or probability of microcystin detection (right) relative to ecoregional thresholds determined based on survey data for the Eastern Highlands (EHIGH), Central and Coastal Plains (PLNLOW), and Western Mountains (WMTNS). "
+
+perc_size <- 3
+
+n <- PredData |>
+  st_drop_geometry() |>
+  group_by(AG_ECO3) |>
+  count(cyano_ecocond) |>
+  mutate(percent = (n / sum(n)) * 100,
+         percent = round(percent, 1)) |>
+  mutate(AG_ECO3 = factor(AG_ECO3, levels = c('WMTNS','PLNLOW','EHIGH')))
+
+w_n <- n |>
+  subset(AG_ECO3 == "WMTNS" & cyano_ecocond == "High")
+
+cy_tbox <- ggplot(n, aes(fill=cyano_ecocond, y=n, x=AG_ECO3)) + 
+  geom_bar(position="stack", stat="identity") +
+  geom_text(data = subset(n, AG_ECO3 == "EHIGH" | AG_ECO3 == "PLNLOW" | AG_ECO3 == "WMTNS" & cyano_ecocond == "Low"),
+            aes(label = paste0(sprintf("%.1f", percent), "%")), 
+            vjust = 0.5, 
+            size = perc_size, 
+            position = position_stack(vjust = 0.5)) +
+  geom_text(data = w_n, 
+            aes(label = paste0(sprintf("%.1f", percent), "%"), y = 22000),
+            size = perc_size) +
+  scale_fill_manual(values = c('High' = "#9c008299",'Low' = "#4e856299")) +
+  coord_flip() +
+  labs(title = 'Cyanobacteria', y = NULL, x = NULL, fill = 'Threshold category') +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 11))
+
+m <- PredData |>
+  st_drop_geometry() |>
+  group_by(AG_ECO3) |>
+  count(micx_ecocond) |>
+  mutate(percent = (n / sum(n)) * 100,
+         percent = round(percent, 1)) |>
+  mutate(AG_ECO3 = factor(AG_ECO3, levels = c('WMTNS','PLNLOW','EHIGH')))
+
+w_m <- m |>
+  subset(AG_ECO3 == "WMTNS" & micx_ecocond == "Above")
+
+m_tbox <- ggplot(m, aes(fill=micx_ecocond, y=n, x=AG_ECO3)) + 
+  geom_bar(position="stack", stat="identity") +
+  geom_text(data = subset(m, AG_ECO3 == "EHIGH" | AG_ECO3 == "PLNLOW" | AG_ECO3 == "WMTNS" & micx_ecocond == "Below"),
+            aes(label = paste0(sprintf("%.1f", percent), "%")),
+            vjust = 0.5, 
+            size = perc_size, 
+            position = position_stack(vjust = 0.5)) +
+  geom_text(data = w_m, 
+            aes(label = paste0(sprintf("%.1f", percent), "%"), y = 20000),
+            size = perc_size) +
+  scale_fill_manual(values = c('Above' = "#9c008299",'Below' = "#4e856299")) +
+  coord_flip() +
+  labs(title = 'Microcystin', y = NULL, x = NULL) +
+  theme_bw() +
+  theme(axis.text.y = element_blank(),
+        axis.text.x = element_text(size = 11))
+
+fig <- ggarrange(plotlist = list(cy_tbox, m_tbox), ncol = 2, nrow = 1, 
+                 align = "h",
+                 common.legend = TRUE)
+
+annotate_figure(fig,
+                bottom = text_grob("Number of lakes", color = "black", size = 14))
+
+# ggsave("inst/figures/thresholds_boxplot.tiff", width = 8, height = 4, units = "in", dpi = 600)
+
+```
+
+
 ```{r prep nut and non-nut analysis}
 
 comp_micx <- PredData |>
@@ -779,9 +895,10 @@ off_micx <-  micx_nutr[['HNLC']] + micx_nutr[['LNHC']]
 
 The farm and developed nutrient inputs included in the models were lower in the West and Eastern Highland ecoregions, while much of the Plains and Lowland ecoregion had higher inputs (@fig-nut-input-map). The majority of the cyanoHABs predictions (`r expec_cyano`% for cyanobacteria, `r expec_micx`% for microcystin) were consistent with expectations based on nutrient inputs included in the model, meaning that both cyanoHABs predictions and nutrient inputs were in the same cutoff category (Table 3). Lakes with either lower nutrient inputs and high cyanoHABs risk or higher nutrient inputs and low cyanoHABs risk accounted for `r off_cyano`% of cyanobacteria predictions and `r off_micx`% of microcystin predictions.
 
-Table 3. The number and percent of lake predictions within each category for annual anthropogenic nutrient inputs and cyanoHABs risk.
-
-```{r table nutrient/cyanoHABs categories}
+```{r table nutrient/cyanoHABs categories, eval = FALSE}
+# The barplots are being used instead of this table
+# Original table caption:
+# Table 3. The number and percent of lake predictions within each category for annual anthropogenic nutrient inputs and cyanoHABs risk.
 
 pred_breakdown <- comp_cyano |>
   st_drop_geometry() |>
@@ -830,6 +947,10 @@ pred_nut_table
 ```
 
 ```{r map nutrient/cyanoHABs categories}
+#| label: fig-nut-risk-maps
+#| fig-width: 6
+#| fig-height: 8
+#| fig-cap: "Lake predictions symbolized by both farm and developed landscape watershed nutrient inputs as high (HN; >10 kg N/ha/yr or >4 kg P/ha/yr) or low (LN) and either high (HC) or low (LC) risk for cyanobacteria abundance (a) or probability of microcystin detections (b)."
 
 nurisk = c('HNHC' = "#9c0082",
            'LNHC' = "#cc6de4",
@@ -875,7 +996,8 @@ nurisk_map_comb <- ggarrange(plotlist = list(nurisk_c_map, nurisk_m_map), ncol =
 
 The precipitation, baseflow index, and area:depth ratio had significantly different means across the nutrient-cyanoHAB categories for both the cyanobacteria and microcystin models (ANOVA, p\<0.001, @fig-density-plots). Across both the cyanobacteria and microcystin models the lower nutrient and high cyanoHAB category had median precipitation notably lower relative to the other three nutrient-cyanoHAB categories. For the microcystin model, the median precipitation for the higher nutrient and low cyanoHAB category was notably higher than either the higher nutrient and high cyanoHAB or the lower nutrient and low cyanoHAB categories. Lakes with higher baseflow relative to stormflow had lower cyanoHABs risk, regardless of nutrient inputs. For the microcystin model in particular, the lower nutrient and high cyanoHAB category had a notably lower baseflow index relative to the three other categories. Lakes with higher area:depth ratio were more likely to have high predicted cyanobacteria in both higher and lower nutrient input watersheds. For the microcystin model in particular, the lower nutrient and high cyanoHAB category had a slightly higher area:depth ratio compared to the three other categories.
 
-```{r nutrient input comparisons, include = FALSE}
+```{r nutrient input comparisons, include = FALSE, eval = FALSE}
+# Note that this table is no longer needed now that the models have the same set of covariates.
 
 # Tables comparing the different types of nutrient inputs and whether that changes the "high" versus "low" nutrient input designations
 
@@ -921,11 +1043,13 @@ habs |>
 
 ```
 
-```{r drainage ratio table, message = FALSE}
+```{r drainage ratio table, message = FALSE, eval = FALSE}
 #| label: fig-drainage-table
 #| fig-width: 6
 #| fig-height: 4
 #| fig-cap: "Watershed drainage ratio mean and median statistics shown for each nutrient / risk cyanoHABs category across ecoregions for microcystin and cyanobacteria."
+
+# Note that this table is not being included. Instead the results are shown graphically with boxplots.
 
 drain_stats <- readRDS(paste0(here(), "/inst/drain_stats_all.rds"))
 
@@ -961,8 +1085,8 @@ drain_stats |>
 
 ```{r drainage ratio boxplot, message = FALSE}
 #| label: fig-drainage-boxplot
-#| fig-width: 7
-#| fig-height: 10
+#| fig-width: 8
+#| fig-height: 6
 #| fig-cap: "Boxplot of watershed drainage ratio across ecoregions for each nutrient/ risk category."
 
 nurisk = c('HNHC' = "#9c0082",
@@ -1014,7 +1138,7 @@ box_cyano <- ggplot(PredData, aes(x = cyano_cat, y = drain_ratio, fill = cyano_c
   theme_bw() +
   theme(axis.text.x = element_text(size = 11),
         axis.text.y = element_text(size = 11)) +
-  guides(fill = FALSE) 
+  guides(fill = "none") 
 
 
 
@@ -1047,11 +1171,11 @@ box_micx <- ggplot(PredData, aes(x = micx_cat, y = drain_ratio, fill = micx_cat)
   theme_bw() +
   theme(axis.text.x = element_text(size = 11),
         axis.text.y = element_text(size = 11)) +
-  guides(fill = FALSE) 
+  guides(fill = 'none') 
 
 ggarrange(plotlist = list(box_cyano, box_micx), ncol = 1, nrow = 2)
 
-# ggsave("inst/figures/drainage_ratio_boxplot.tiff", width = 8, height = 6, units = "in", dpi = 600)
+# ggsave(here("inst", "figures", "drainage_ratio_boxplot.png"), width = 8, height = 6, units = "in", dpi = 600)
 
 ```
 
@@ -1378,85 +1502,6 @@ saveRDS(covar_tbl, here("inst", "model_objects", "model_full_covariate_update.rd
 ```
 
 \pagebreak
-
-```{r figure of covariate contributions}
-#| label: fig-covar-contri
-#| fig-width: 6
-#| fig-height: 8
-#| fig-cap: "Covariate contributions (slope * variable value) to the fitted value (x-axis) for each of the observed lakes used to fit the models without in-lake conditions for cyanobacteria abundance (a) and probability of microcystin detection (b). Only continuous variables are included; the model intercept and categorical variables are excluded. Note that the covariate contributions are displayed on a standardized and centered scale and fitted values are on the response scale."
-
-att_cyan <- cov_cyan |>
-  mutate(resp = "Cyano") |>
-  pivot_longer(c(n_farm_inputs:lakemorpho_fetch, de), names_to = "variable", values_to = "variable_contr") |>
-  mutate(variable = factor(variable, levels = c("de",
-                                                "Tmean8110Ws",
-                                                "Precip8110Ws",
-                                                "BFIWs",
-                                                "lakemorpho_fetch",
-                                                "MAXDEPTH",
-                                                "p_dev_inputs",
-                                                "n_farm_inputs"))
-  ) |>
-  arrange(fitted)
-
-att_micx <- cov_micx |>
-  mutate(resp = "Micx") |>
-  pivot_longer(c(p_farm_inputs:BFIWs, de), names_to = "variable", values_to = "variable_contr") |>
-  mutate(variable = factor(variable, levels = c("de",
-                                                "Tmean8110Ws",
-                                                "Precip8110Ws",
-                                                "BFIWs",
-                                                "lakemorpho_fetch",
-                                                "MAXDEPTH",
-                                                "fst_ws",
-                                                "n_dev_inputs",
-                                                "p_farm_inputs"))
-  ) |>
-  arrange(fitted)
-
-cyan_attri_plot <- ggplot(att_cyan, aes(x = variable, y = variable_contr, color = fitted)) +
-  geom_quasirandom(shape = 16, size = 0.75, groupOnX = TRUE) +
-  scale_color_gradientn(colors = c("#21618C","#5499C7","#A9CCE3","#EDBB99","#DC7633","#A04000"),
-                        name = "Fitted \nCyanobacteria \nAbundance \n(cell/mL)",
-                        breaks = c(log10(3000+1000), log10(10000+1000), log10(30000+1000), log10(100000+1000)),
-                        labels = c("3,000", "10,000", "30,000", "100,000")) +
-  scale_x_discrete(labels = c("n_farm_inputs" = "Farm N Inputs", 
-                              "p_dev_inputs" = "Developed P Inputs", 
-                              "MAXDEPTH" = "Lake Depth",
-                              "lakemorpho_fetch" = "Lake Fetch",
-                              "BFIWs" = "Baseflow Index",
-                              "Precip8110Ws" = "Annual Precip",
-                              "Tmean8110Ws" = "Annual Temp",
-                              "de" = "Spatial Residual"),
-                   name = "") +
-  coord_flip() +
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank())
-
-micx_attri_plot <- ggplot(att_micx, aes(x = variable, y = variable_contr, color = fitted)) +
-  geom_quasirandom(shape = 16, size = 0.75, groupOnX = TRUE) +
-  scale_color_gradientn(colors = c("#2980b9","#aed6f1","#f0b27a","#d35405"),
-                        name = "Probability \nMicrocystin \nDetection \n(%)") +
-  scale_x_discrete(labels = c("p_farm_inputs" = "Farm P Inputs", 
-                              "n_dev_inputs" = "Developed N Inputs", 
-                              "fst_ws" = "Forest Cover",
-                              "MAXDEPTH" = "Lake Depth",
-                              "lakemorpho_fetch" = "Lake Fetch",
-                              "BFIWs" = "Baseflow Index",
-                              "Precip8110Ws" = "Annual Precip",
-                              "Tmean8110Ws" = "Annual Temp",
-                              "de" = "Spatial Residual")) +
-  coord_flip() +
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank())
-
-attr_fig <- ggarrange(plotlist = list(cyan_attri_plot, micx_attri_plot), ncol = 1, nrow = 2, labels = "auto")
-
-attr_fig <- annotate_figure(attr_fig, bottom = "Covariate Contribution to Fitted Value (standardized)")
-
-attr_fig
-
-```
 
 ```{r standarized residual maps}
 #| label: fig-std-resid-maps
