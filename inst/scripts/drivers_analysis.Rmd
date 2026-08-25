@@ -175,7 +175,7 @@ cyano_withlake_sp <- splm(create_formula(dep_var, mod_vars, log = T, const = con
                           data = dat_final,
                           spcov_type = "exponential",
                           random = ~ DSGN_CYCLE + UNIQUE_ID,
-                          estmethod = "reml",
+                          estmethod = "ml",
                           local = F)
 
 # Save the model
@@ -307,7 +307,7 @@ cyano_nolake_sp <- splm(create_formula(dep_var, mod_vars, log = T, const = const
                           data = dat_final,
                           spcov_type = "exponential",
                           random = ~ DSGN_CYCLE + UNIQUE_ID,
-                          estmethod = "reml",
+                          estmethod = "ml",
                           local = F)
 
 # Save the model
