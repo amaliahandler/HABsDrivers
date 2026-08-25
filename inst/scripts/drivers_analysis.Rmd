@@ -175,7 +175,7 @@ cyano_withlake_sp <- splm(create_formula(dep_var, mod_vars, log = T, const = con
                           data = dat_final,
                           spcov_type = "exponential",
                           random = ~ DSGN_CYCLE + UNIQUE_ID,
-                          estmethod = "ml",
+                          estmethod = "reml",
                           local = F)
 
 # Save the model
@@ -307,7 +307,7 @@ cyano_nolake_sp <- splm(create_formula(dep_var, mod_vars, log = T, const = const
                           data = dat_final,
                           spcov_type = "exponential",
                           random = ~ DSGN_CYCLE + UNIQUE_ID,
-                          estmethod = "ml",
+                          estmethod = "reml",
                           local = F)
 
 # Save the model
@@ -539,6 +539,9 @@ Sys.time()
 # Get bias, MSPE, and predictions for AUC
 micx_sp_withlake_loocv <- loocv(micx_sp_withlake, cv_predict = TRUE)
 
+# Save the fitted values (for later plotting in results)
+saveRDS(micx_sp_withlake_loocv, "./inst/model_objects/model_micx_withlakedata_loocv.rds")
+
 # Get AUC from leave one out predictions
 auc <- pROC::roc(micx_sp_withlake$obdata$MICX_DET, micx_sp_withlake_loocv$cv_predict)
 
@@ -714,6 +717,9 @@ Sys.time()
 
 # Get bias, MSPE
 micx_sp_nolake_loocv <- loocv(micx_sp_nolake, cv_predict = TRUE)
+
+# Save the predictions for plotting in the results
+saveRDS(micx_sp_nolake_loocv, "./inst/model_objects/model_micx_nolakedata_loocv.rds")
 
 # Get AUC from leave one out predictions
 auc <- pROC::roc(micx_sp_nolake$obdata$MICX_DET, micx_sp_nolake_loocv$cv_predict)
