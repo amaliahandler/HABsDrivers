@@ -32,6 +32,7 @@ library(ggbeeswarm)
 library(ggnewscale)
 library(spdep)
 library(ggpubr)
+library(scales)
 
 # Do not include code chunks in document
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -464,142 +465,277 @@ In most models, the amount of cyanobacteria and probability of microcystin detec
 
 ```{r figure of covariate contributions}
 #| label: fig-covar-contri
-#| fig-width: 6
-#| fig-height: 8
+#| fig-width: 7.5
+#| fig-height: 7.5
 #| fig-cap: "Covariate contributions (slope * variable value) to the fitted value (x-axis) for each of the observed lakes used to fit the models without in-lake conditions for cyanobacteria abundance (a) and probability of microcystin detection (b). Only continuous variables are included; the model intercept and categorical variables are excluded. Note that the covariate contributions are displayed on a standardized and centered scale and fitted values are on the response scale."
 
-micx_lake_loocv <- readRDS(here("inst", "model_objects", "model_micx_withlakedata_loocv.rds"))
+# ---------------------------------------------------------------------------
+# 1. Full fitted values (fixed effects + spatial residual + random effects)
+# ---------------------------------------------------------------------------
 
-micx_nolake_loocv <- readRDS(here("inst", "model_objects", "model_micx_nolakedata_loocv.rds"))
+#' Back-transform a fitted value from model (link) scale to response scale
+#'
+#' @param x Numeric vector of fitted values on the model scale.
+#' @param backtransform One of "log10offset" (undoes log10(y + 1000), used
+#'   for the cyano models' B_G_DENS response), "logit" (undoes a logit link,
+#'   returning the probability of detection for the micx models), or "none".
+backtransform_fitted <- function(x, backtransform = c("log10offset", "logit", "none")) {
+  backtransform <- match.arg(backtransform)
+  switch(
+    backtransform,
+    log10offset = 10^x - 1000,
+    logit       = plogis(x),
+    none        = x
+  )
+}
+
+#' Compute fitted values including spatial residual + random effects
+#'
+#' @param model A fitted spmodel object.
+#' @param combine_components Logical. If TRUE (default), builds .fitted_full
+#'   by summing the fixed-effects-only fitted values, the spatial dependent
+#'   error term, and the random effect predictions -- use this for models
+#'   like cyano_lake/cyano_nolake where augment()$.fitted is fixed-effects
+#'   only. If FALSE, augment()$.fitted already includes the spatial and
+#'   random effect components (e.g. the micx_lake/micx_nolake logistic
+#'   mixed models), so .fitted_full is just copied from augment() directly
+#'   and the spcov/randcov extraction is skipped entirely.
+#' @param backtransform One of "log10offset", "logit", or "none" -- passed
+#'   to backtransform_fitted() to convert .fitted_full from the model
+#'   (link) scale back to the response scale. Use "log10offset" for
+#'   cyano_lake/cyano_nolake (undoes log10(B_G_DENS + 1000)) and "logit"
+#'   for micx_lake/micx_nolake (undoes the logit link, giving probability
+#'   of detection).
+#' @return A tibble with just .row_id (preserves row order for downstream
+#'   joining with get_partials()), .fitted_full (model/link scale), and
+#'   .fitted_full_response (back-transformed to the response scale).
+get_full_fitted <- function(model, combine_components = TRUE,
+                             backtransform = c("log10offset", "logit", "none")) {
+
+  backtransform <- match.arg(backtransform)
+
+  obdata <- model$obdata
+  obdata$.row_id <- seq_len(nrow(obdata))
+
+  if (!combine_components) {
+    # .fitted already reflects fixed + spatial + random effects
+    obdata$.fitted_full <- augment(model)$.fitted
+    obdata$.fitted_full_response <- backtransform_fitted(obdata$.fitted_full, backtransform)
+    return(select(obdata, .row_id, .fitted_full, .fitted_full_response))
+  }
+
+  # fixed-effects-only fitted values (augment()/obdata share row order)
+  obdata$.fitted_fixed <- augment(model)$.fitted
+
+  # spatial dependent-error term (also in the same row order as obdata)
+  obdata$de <- as.numeric(fitted(model, type = "spcov")$de)
+
+  # random effects: list of named vectors, one per random effect term
+  # (e.g. "1 | DSGN_CYCLE", "1 | UNIQUE_ID"); vector names are the grouping
+  # variable pasted onto the raw factor level (e.g. "DSGN_CYCLE2012")
+  randcov <- fitted(model, type = "randcov")
+
+  re_cols <- character(0)
+
+  for (re_name in names(randcov)) {
+
+    re_vec <- randcov[[re_name]]
+    varname <- trimws(sub("^1\\s*\\|\\s*", "", re_name))
+    out_col <- paste0("re_", varname)
+    re_cols <- c(re_cols, out_col)
+
+    raw_levels <- sub(paste0("^", varname), "", names(re_vec))
+
+    re_df <- tibble(
+      .join_key = raw_levels,
+      !!out_col := as.numeric(re_vec)
+    )
+
+    obdata$.join_key <- as.character(obdata[[varname]])
+    obdata <- left_join(obdata, re_df, by = ".join_key")
+    obdata$.join_key <- NULL
+  }
+
+  obdata <- obdata %>%
+    mutate(across(all_of(re_cols), ~ replace_na(.x, 0)))
+
+  obdata$.fitted_full <- obdata$.fitted_fixed + obdata$de +
+    rowSums(obdata[, re_cols, drop = FALSE])
+
+  obdata$.fitted_full_response <- backtransform_fitted(obdata$.fitted_full, backtransform)
+
+  obdata |>
+    select(.row_id, .fitted_full, .fitted_full_response)
+}
+
+# ---------------------------------------------------------------------------
+# 2. Y-partials for continuous fixed effects (centered + scaled)
+# ---------------------------------------------------------------------------
+
+#' Compute centered/scaled y-partials for continuous predictors
+#'
+#' Drops the intercept and any AG_ECO3 dummy columns, multiplies each
+#' remaining predictor column by its fixed-effect coefficient, centers and
+#' scales (scale() default) each partial, and returns a long/tidy tibble
+#' (one row per observation-predictor pair) keyed by .row_id so it can be
+#' joined back to get_full_fitted() output.
+#'
+#' @param model A fitted spmodel object.
+#' @param drop_pattern Regex for categorical columns to drop from the
+#'   partials, in addition to the intercept. Defaults to AG_ECO3.
+#' @return A long tibble with columns .row_id, predictor, partial_value.
+get_partials <- function(model, drop_pattern = "^AG_ECO3") {
+
+  X <- model.matrix(model)
+  coefs <- model$coefficients$fixed
+  coefs <- coefs[colnames(X)]  # ensure alignment with X's column order
+
+  partials_wide <- sweep(X, MARGIN = 2, STATS = coefs, FUN = "*") %>%
+    as_tibble() %>%
+    select(-`(Intercept)`, -matches(drop_pattern)) %>%
+    mutate(across(everything(), ~ as.numeric(scale(.))))
+
+  partials_wide$.row_id <- seq_len(nrow(partials_wide))
+
+  partials_wide %>%
+    pivot_longer(-.row_id, names_to = "predictor", values_to = "partial_value")
+}
+
+# ---------------------------------------------------------------------------
+# 3. Chain the two together
+# ---------------------------------------------------------------------------
+
+#' Build the long/tidy dataset needed for the partial-fit graphic
+#'
+#' @param model A fitted spmodel object.
+#' @param combine_components Passed to get_full_fitted() -- TRUE for
+#'   cyano_lake/cyano_nolake, FALSE for micx_lake/micx_nolake.
+#' @param backtransform Passed to get_full_fitted() -- "log10offset" for
+#'   cyano_lake/cyano_nolake, "logit" for micx_lake/micx_nolake.
+#' @return Long tibble: one row per observation-predictor pair, with
+#'   .row_id, .fitted_full, .fitted_full_response from get_full_fitted()
+#'   plus predictor and partial_value from get_partials().
+build_partial_plot_data <- function(model, combine_components = TRUE,
+                                     backtransform = c("log10offset", "logit", "none")) {
+
+  backtransform <- match.arg(backtransform)
+
+  full_df <- get_full_fitted(model, combine_components = combine_components,
+                              backtransform = backtransform)
+  partials_long <- get_partials(model)
+
+  stopifnot(nrow(full_df) == n_distinct(partials_long$.row_id))
+
+  left_join(partials_long, full_df, by = ".row_id")
+}
+
+# ---------------------------------------------------------------------------
+# 4. Apply to all four models
+# ---------------------------------------------------------------------------
+
+cyano_lake_plot_data   <- build_partial_plot_data(cyano_lake,   combine_components = TRUE,
+                                                    backtransform = "log10offset")
+cyano_nolake_plot_data <- build_partial_plot_data(cyano_nolake, combine_components = TRUE,
+                                                    backtransform = "log10offset")
+micx_lake_plot_data    <- build_partial_plot_data(micx_lake,    combine_components = FALSE,
+                                                    backtransform = "logit")
+micx_nolake_plot_data  <- build_partial_plot_data(micx_nolake,  combine_components = FALSE,
+                                                    backtransform = "logit")
+
 
 # Make a map of variable names and set the order
-labels_map <- tribble(~variable, ~label,
-        "NTL", "Total Nitrogen",
+labels_map <- tribble(~predictor, ~label,
+        "NTL", "Total \nNitrogen",
         "NITRATE_N", "Nitrate",
-        "DOC", "Dissolved Organic Carbon",
+        "DOC", "Dissolved \nOrganic \nCarbon",
         "PH", "pH",
         "Precip8110Ws", "Annual Precip",
         "Tmean8110Ws", "Annual Temp",
-        "EVAP_INFL", "Evaporation/Inflow",
+        "EVAP_INFL", "Evaporation \nInflow \nRatio",
         "MAXDEPTH", "Lake Depth",
-        "lakemorpho_fetch", "Maximum Potential Fetch",
-        "n_farm_inputs", "Farm N Inputs", 
-        "p_dev_inputs", "Developed P Inputs",
-        "AG_ECO3PLNLOW", "Central Plains & Lowlands",
-        "AG_ECO3EHIGH", "Eastern Highlands",
-        "spde", "Spatial Residual") |>
+        "lakemorpho_fetch", "Maximum \nPotential \nFetch",
+        "n_farm_inputs", "Farm N \nInputs", 
+        "p_dev_inputs", "Developed P \nInputs") |>
   mutate(label = factor(label, levels = c(
-    "Spatial Residual",
-    "Eastern Highlands",
-    "Central Plains & Lowlands",
     "Annual Precip",
     "Annual Temp",
-    "Maximum Potential Fetch",
+    "Maximum \nPotential \nFetch",
     "Lake Depth",
-    "Evaporation/Inflow",
+    "Evaporation \nInflow \nRatio",
     "pH",
-    "Dissolved Organic Carbon",
+    "Dissolved \nOrganic \nCarbon",
     "Nitrate",
-    "Total Nitrogen",
-    "Developed P Inputs",
-    "Farm N Inputs"
+    "Total \nNitrogen",
+    "Developed P \nInputs",
+    "Farm N \nInputs"
   )))
 
-# Calculate the partials
 
-aug_df <- micx_lake |>
-  augment() |>
-  mutate(
-    spde = fitted(micx_lake, type = "spcov")$de,
-    .fitted = micx_lake_loocv$cv_predict,
-    resp = "Microsystin",
-    model = "Lake"
-  ) |>
-  select(resp, model, spde, .fitted) |>
-  st_drop_geometry()
-
-# Extract augmented data and model coefficients
-aug_df <- cyano_lake |>
-  augment() |>
-  mutate(spde = fitted(cyano_lake, type = "spcov")$de,
-         resp = "Cyanobacteria",
-         model = "Lake") |>
-  select(resp, model, spde, .fitted) |>
-  st_drop_geometry()
-
-# 2. Extract the model matrix to naturally handle the AG_ECO3 dummy variables
-# This creates a matrix of your raw data exactly as the model saw it
-X <- model.matrix(cyano_lake)
-
-# NOTE TO REMOVE CATEGORICAL and SPDE from these figures
-# 3. Create a named vector of the coefficients
-coefs <- cyano_lake$coefficients$fixed
-
-# 4. Calculate the partial values (Covariate Value * Coefficient)
-# sweep() multiplies each column in X by the matching value in the coefs vector
-partials <- sweep(X, MARGIN = 2, STATS = coefs, FUN = "*") |>
-  as_tibble() |> 
-  # Drop the intercept 
-  select(-`(Intercept)`) |> 
-  # Center and standardize each column (scale() does exactly this)
-  # as.numeric() is used to prevent scale from creating nested 1D matrices
-  mutate(across(everything(), ~ as.numeric(scale(.)))) |> 
-  # Bind these new columns back to the original augmented dataframe
-  bind_cols(aug_df)
-
-att_cyan <- partials |>
-  pivot_longer(c(NTL:AG_ECO3EHIGH, spde), names_to = "variable", values_to = "variable_contr") |>
-  left_join(labels_map, by = "variable") |>
-  arrange(.fitted)
-
-att_micx <- cov_micx |>
-  mutate(resp = "Micx") |>
-  pivot_longer(c(p_farm_inputs:BFIWs, de), names_to = "variable", values_to = "variable_contr") |>
-  mutate(variable = factor(variable, levels = c("de",
-                                                "Tmean8110Ws",
-                                                "Precip8110Ws",
-                                                "BFIWs",
-                                                "lakemorpho_fetch",
-                                                "MAXDEPTH",
-                                                "fst_ws",
-                                                "n_dev_inputs",
-                                                "p_farm_inputs"))
-  ) |>
-  arrange(fitted)
-
-cyan_attri_plot <- ggplot(att_cyan, aes(x = label, y = variable_contr, color = .fitted)) +
+cyano_ypartial_plotter <- function(plot_data){
+  plot_data |>
+  left_join(labels_map, by = "predictor") |>
+  # clamp to the display range BEFORE it reaches the log10 color transform,
+  # so negative/zero values never get passed to log10() (that's what was
+  # producing the NaN/-Inf warnings)
+  mutate(.fitted_capped = pmin(pmax(.fitted_full_response, 10000), 1e6)) |>
+  arrange((.fitted_capped)) |>
+  ggplot(aes(x = label, y = partial_value, color = .fitted_capped)) +
   geom_quasirandom(shape = 16, size = 0.75, groupOnX = TRUE) +
-  scale_color_gradientn(colors = c("#21618C","#5499C7","#A9CCE3",
-                                   "#EDBB99","#DC7633","#A04000"),
-                        name = "Fitted \nCyanobacteria \nAbundance \n(cell/mL)" # ,
-                        # breaks = c(log10(3000+1000), log10(10000+1000),
-                        #            log10(30000+1000), log10(100000+1000)),
-                        # labels = c("3,000", "10,000", "30,000", "100,000")
-                        ) +
+  scale_color_gradientn(
+    colors = c("#21618C", "#5499C7", "#A9CCE3",
+               "#EDBB99", "#DC7633", "#A04000"),
+    name = "Fitted \nCyanobacteria \nAbundance \n(cell/mL)",
+    limits = c(10000, 1e6),
+    oob = squish,     # belt-and-suspenders for any floating-point edge cases
+    trans = "log10",
+    breaks = c(1e4, 1e5, 1e6),
+    labels = c(expression(phantom(0) <= 10^4),
+               expression(   10^5),
+               expression(phantom(0) >= 10^6))
+  ) +
   scale_x_discrete(name = "") +
-  scale_y_continuous(limits = c(-5, 5)) +
+  scale_y_continuous(limits = c(-3, 3)) +
   coord_flip() +
+  theme_bw() +
   theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank())
+          axis.title.y = element_blank(),
+          axis.text = element_text(size = 10),
+          legend.title = element_text(size = 10))
+}
 
-micx_attri_plot <- ggplot(att_micx, aes(x = variable, y = variable_contr, color = fitted)) +
+cyano_ypartial_lake   <- cyano_ypartial_plotter(cyano_lake_plot_data)
+cyano_ypartial_nolake <- cyano_ypartial_plotter(cyano_nolake_plot_data)
+
+micx_ypartial_plotter <- function(plot_data){
+  plot_data |>
+  left_join(labels_map, by = "predictor") |>
+  mutate(.fitted_full_response = .fitted_full_response * 100) |>
+  arrange((.fitted_full_response)) |>
+  ggplot(aes(x = label, y = partial_value, color = .fitted_full_response)) +
   geom_quasirandom(shape = 16, size = 0.75, groupOnX = TRUE) +
   scale_color_gradientn(colors = c("#2980b9","#aed6f1","#f0b27a","#d35405"),
-                        name = "Probability \nMicrocystin \nDetection \n(%)") +
-  scale_x_discrete(labels = c("p_farm_inputs" = "Farm P Inputs", 
-                              "n_dev_inputs" = "Developed N Inputs", 
-                              "fst_ws" = "Forest Cover",
-                              "MAXDEPTH" = "Lake Depth",
-                              "lakemorpho_fetch" = "Lake Fetch",
-                              "BFIWs" = "Baseflow Index",
-                              "Precip8110Ws" = "Annual Precip",
-                              "Tmean8110Ws" = "Annual Temp",
-                              "de" = "Spatial Residual")) +
+                        name = "Fitted \nProbability \nMicrocystin \nDetection \n(%)") +
+  scale_x_discrete(name = "") +
+  scale_y_continuous(limits = c(-3, 3)) +
   coord_flip() +
+  theme_bw() +
   theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank())
+          axis.title.y = element_blank(),
+          axis.text = element_text(size = 10),
+          legend.title = element_text(size = 10))
+}
 
-ggarrange(plotlist = list(cyan_attri_plot, micx_attri_plot), ncol = 1, nrow = 2, labels = "auto")
+micx_ypartial_lake   <- micx_ypartial_plotter(micx_lake_plot_data)
+micx_ypartial_nolake <- micx_ypartial_plotter(micx_nolake_plot_data)
+
+# Compiled into one massive figure panel
+ggarrange(plotlist = list(cyano_ypartial_lake,
+                          micx_ypartial_lake,
+                          cyano_ypartial_nolake,
+                          micx_ypartial_nolake), 
+          ncol = 2, nrow = 2, labels = "auto")
+
+ggsave(here("inst", "figures", "y_partial_panel.png"), height = 6, width = 10, dpi = 600)
 
 ```
 
@@ -1479,11 +1615,11 @@ est_and_sign <- fixed_df |>
                           "Farm N Inputs",
                           "Developed P Inputs",
                           "Lake Depth",
-                          "Lake Fetch",
+                          "Maximum Potential Fetch",
                           "Annual Precip",
                           "Annual Air Temp",
-                          "Ecoregion PLNLOW",
-                          "Ecoregion EHIGH"),
+                          "Central Plains & Coastal Lowlands",
+                          "Eastern Highlands"),
          Type = c(rep("In-Lake Conditions", 5),
                   rep("Nutrient Inputs", 2), # starting with in-lake models only
                   rep("Lake Geometry", 2),
@@ -1532,6 +1668,54 @@ covar_tbl
 # # Save the tables for the new model comparison markdown
 saveRDS(covar_tbl, here("inst", "model_objects", "model_full_covariate_update.rds"))
 ```
+
+\pagebreak
+
+```{r DOC vs cyanos}
+#| label: fig-doc-cyano
+#| fig-width: 5
+#| fig-height: 5
+#| fig-cap: "Standardized residuals for the models with in-lake conditions present (top row) for cyanobacteria abundance (a) and probability of microcystin detection (b) and models with in-lake conditions absent (bottom row) for cyanobacteria abundance (c) and probability of microcystin detection (d)."
+
+mu <- "\u00b5"  # micro sign, for "µg/L"
+
+habs_binned <- habs |>
+  mutate(
+    MICX_bin = case_when(
+      is.na(MICX)          ~ "Non-Detect (<0.1)",
+      MICX <= 1             ~ "0.1-1",
+      MICX <= 10            ~ ">1-10",
+      MICX <= 25             ~ ">10-25",
+      TRUE                  ~ ">25"
+    ),
+    MICX_bin = factor(
+      MICX_bin,
+      levels = c(paste0("Non-Detect (<0.1)"),
+                 "0.1-1", ">1-10", ">10-25", ">25")
+    )
+  )
+
+detect_colors <- c("#FED976", "#FD8D3C", "#E31A1C", "#800026")
+bin_colors <- setNames(
+  c("grey60", detect_colors),
+  levels(habs_binned$MICX_bin)
+)
+
+habs_binned |>
+  arrange(MICX_bin) |>  # plot non-detects first, detections on top
+  ggplot() +
+  geom_point(aes(x = DOC, y = B_G_DENS, color = MICX_bin)) +
+  scale_x_log10() +
+  scale_y_log10(labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  labs(y = "Cyanobacteria Abundance (cells/mL)", x = "Dissolved Organic Carbon (mg/L)") +
+  scale_color_manual(
+    values = bin_colors,
+    name = paste0("Microcystin (", mu, "g/L)")
+  ) +
+  theme_bw()
+
+```
+
 
 \pagebreak
 
